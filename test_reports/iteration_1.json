@@ -1,0 +1,44 @@
+{
+  "summary": "Full backend + frontend testing of Jai Supa Deurali Sun-Chandi Pasal jewellery OS. Backend: 38/38 pytest tests passed across auth, rates, products (weight conversion + Nepali pricing engine), customers, orders (with old-gold exchange, reserved/sold status transitions, snapshot immutability), multiple payments, invoices (bill-number uniqueness + public verify), certificates, public leads, order-status, dashboard, reports and search. Frontend: public site (home rate widget, /rates chart, /catalogue with filter-metal, product detail with WhatsApp + QR, /custom-order + /repair form submissions, /order-status phone lookup), admin login + dashboard rate form + Products/Customers/Orders create flows, OrderDetail payment addition (remaining balance updates from Rs.1,52,000 -> Rs.1,51,500), invoice creation navigates to InvoicePrint page showing Nepali numerals (print-bill-number and print-bs-date=२०८३-०३-१८).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Catalogue (and Orders/Products modals) Select components", "issues": ["Console shows repeated hydration warning: '<span> cannot be a child of <option>'. The x-source dev-instrumentation is wrapping option label with a <span>; renders correctly but pollutes DevTools console and violates HTML spec. Safe to ignore in production build but worth cleaning."]},
+      {"screen": "Public pages (Home, Rates, Catalogue, Custom Order, Repair, Order Status)", "issues": ["Two 401 errors are logged on every public page load (likely AuthContext probing /api/auth/me on mount). Consider suppressing the probe on public routes, or catch 401 silently to keep console clean."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_backend_api.py",
+    "/app/backend/tests/conftest.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Optional: silence /api/auth/me 401 console noise on public routes",
+    "Optional: fix HTML hydration warning caused by dev-instrumentation span inside <option> in Select helpers (Catalogue.js and any component using the Select label wrapper)"
+  ],
+  "critical_code_review_comments": [
+    "Auth cookie is set with SameSite=None; Secure — good for cross-site preview URLs, but ensure HTTPS is enforced in production.",
+    "Startup handler updates admin password whenever process env value doesn't match stored hash — this is safe for single-admin setup but means changing ADMIN_PASSWORD env silently resets the login credentials. Document this.",
+    "get_current_admin returns the full user document (minus password_hash). Consider returning only whitelisted fields.",
+    "compute_price rounding: total is rounded to 2dp, individual jarti is also rounded — verified numerically matches spec exactly (metal 208848, jarti 20884.8, total 234732.8) so no drift.",
+    "public_products view exposes 'photos' array which may be large base64 data-URLs — this can bloat catalogue payloads; consider a compressed/thumbnail field.",
+    "Old gold value formula matches spec exactly (1 tola @150000 @5% deduction = 142,500). Verified via API + UI.",
+    "compute_price silver purity factor is 1.0 in PURITY_FACTORS (as expected)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/conftest.py",
+    "/app/backend/tests/test_backend_api.py"
+  ],
+  "success_rate": {"backend": "100% (38/38)", "frontend": "~95% (all requested flows verified; new-order-modal customer/stock dropdowns needed a network wait in Playwright but functionality is correct — verified end-to-end via API + payment/invoice UI on an existing order)"},
+  "test_credentials": "admin@jsdpasal.com / admin123 (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "Created via API and UI during tests: several TEST_ prefixed customers (9800000001, 9811111111, 9822222222, 9833333333, 9833333334, 9866666666), TEST_ products, orders (ORD-0001..0004 including one delivered), invoices (TEST-BILL-*, UI-*), certificates, leads. All soft-deletable; nothing hard-deleted.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Pytest suite at /app/backend/tests/test_backend_api.py covers 38 cases across all major flows and passes fully. Frontend flows verified: login, dashboard rate form, add product/customer, payment addition, invoice creation with unique bill number, printable invoice with Nepali numerals + BS date, public catalogue + product detail with WhatsApp + QR, custom-order + repair leads, order-status public lookup. Two minor console-only issues remain (401 probe noise on public routes; HTML hydration <span> in <option> warning from dev instrumentation). No functional bugs found.",
+  "rca of the issue": "N/A — no bugs found; app functionality matches spec including pricing engine, rate snapshot immutability, old-gold exchange, bill-number uniqueness, and Nepali numeral / BS date formatting."
+}

@@ -1,54 +1,74 @@
-import { useEffect } from "react";
 import "@/App.css";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import axios from "axios";
-import { HOME } from "@/constants/testIds";
-
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
-
-const Home = () => {
-  const helloWorldApi = async () => {
-    try {
-      const response = await axios.get(`${API}/`);
-      console.log(response.data.message);
-    } catch (e) {
-      console.error(e, `errored out requesting / api`);
-    }
-  };
-
-  useEffect(() => {
-    helloWorldApi();
-  }, []);
-
-  return (
-    <div>
-      <header className="App-header">
-        <a
-          data-testid={HOME.emergentLink}
-          className="App-link"
-          href="https://emergent.sh"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <img src="https://avatars.githubusercontent.com/in/1201222?s=120&u=2686cf91179bbafbc7a71bfbc43004cf9ae1acea&v=4" />
-        </a>
-        <p className="mt-5">Building something incredible ~!</p>
-      </header>
-    </div>
-  );
-};
+import { Toaster } from "sonner";
+import { AuthProvider } from "@/context/AuthContext";
+import PublicLayout from "@/components/PublicLayout";
+import AdminLayout from "@/components/AdminLayout";
+import Home from "@/pages/public/Home";
+import Rates from "@/pages/public/Rates";
+import Catalogue from "@/pages/public/Catalogue";
+import ProductDetail from "@/pages/public/ProductDetail";
+import CustomOrder from "@/pages/public/CustomOrder";
+import Repair from "@/pages/public/Repair";
+import OrderStatus from "@/pages/public/OrderStatus";
+import About from "@/pages/public/About";
+import Contact from "@/pages/public/Contact";
+import VerifyInvoice from "@/pages/public/VerifyInvoice";
+import VerifyCertificate from "@/pages/public/VerifyCertificate";
+import Login from "@/pages/admin/Login";
+import Dashboard from "@/pages/admin/Dashboard";
+import RatesAdmin from "@/pages/admin/Rates";
+import Products from "@/pages/admin/Products";
+import Customers from "@/pages/admin/Customers";
+import CustomerDetail from "@/pages/admin/CustomerDetail";
+import Orders from "@/pages/admin/Orders";
+import OrderDetail from "@/pages/admin/OrderDetail";
+import Invoices from "@/pages/admin/Invoices";
+import InvoicePrint from "@/pages/admin/InvoicePrint";
+import Repairs from "@/pages/admin/Repairs";
+import Certificates from "@/pages/admin/Certificates";
+import Leads from "@/pages/admin/Leads";
+import Reports from "@/pages/admin/Reports";
 
 function App() {
   return (
     <div className="App">
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Home />}>
-            <Route index element={<Home />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route element={<PublicLayout />}>
+              <Route path="/" element={<Home />} />
+              <Route path="/rates" element={<Rates />} />
+              <Route path="/catalogue" element={<Catalogue />} />
+              <Route path="/product/:id" element={<ProductDetail />} />
+              <Route path="/custom-order" element={<CustomOrder />} />
+              <Route path="/repair" element={<Repair />} />
+              <Route path="/order-status" element={<OrderStatus />} />
+              <Route path="/about" element={<About />} />
+              <Route path="/contact" element={<Contact />} />
+              <Route path="/verify/invoice/:id" element={<VerifyInvoice />} />
+              <Route path="/verify/certificate/:id" element={<VerifyCertificate />} />
+            </Route>
+            <Route path="/admin/login" element={<Login />} />
+            <Route path="/admin" element={<AdminLayout />}>
+              <Route index element={<Dashboard />} />
+              <Route path="rates" element={<RatesAdmin />} />
+              <Route path="products" element={<Products />} />
+              <Route path="customers" element={<Customers />} />
+              <Route path="customers/:id" element={<CustomerDetail />} />
+              <Route path="orders" element={<Orders />} />
+              <Route path="orders/:id" element={<OrderDetail />} />
+              <Route path="invoices" element={<Invoices />} />
+              <Route path="invoices/:id" element={<InvoicePrint />} />
+              <Route path="repairs" element={<Repairs />} />
+              <Route path="certificates" element={<Certificates />} />
+              <Route path="leads" element={<Leads />} />
+              <Route path="reports" element={<Reports />} />
+            </Route>
+          </Routes>
+        </BrowserRouter>
+        <Toaster richColors position="top-right" />
+      </AuthProvider>
     </div>
   );
 }
