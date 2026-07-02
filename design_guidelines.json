@@ -1,0 +1,126 @@
+{
+  "theme_and_archetype": {
+    "domain": "Jewellery / Retail / Business Operations",
+    "primary_archetype": "Archetype 5: Luxury (with local Nepali heritage touch)",
+    "admin_archetype": "Archetype 4: Swiss & High-Contrast (Soft Utility focus)",
+    "theme_mode": "Light Theme (Mobile-first)",
+    "brand_name": "Jai Supa Deurali Sun-Chandi Pasal",
+    "vibe": "Trust, Heritage, Premium Quality, Local Grounding"
+  },
+  "colors": {
+    "public_site": {
+      "background": "#FDFCF8",
+      "surface": "#FFFFFF",
+      "primary": "#0F172A",
+      "accent_gold": "#D4AF37",
+      "accent_red": "#991B1B",
+      "text_main": "#0F172A",
+      "text_muted": "#475569"
+    },
+    "admin_dashboard": {
+      "background": "#F8FAFC",
+      "surface": "#FFFFFF",
+      "primary": "#0F172A",
+      "accent": "#D4AF37",
+      "border": "#E2E8F0",
+      "text_main": "#0F172A",
+      "text_muted": "#64748B"
+    },
+    "status": {
+      "success": "#166534",
+      "warning": "#B45309",
+      "error": "#991B1B"
+    }
+  },
+  "typography": {
+    "public_site": {
+      "headings": "Playfair Display",
+      "body": "Outfit",
+      "rules": "Tight tracking on large headings (tracking-tighter). Elegant serifs to emphasize heritage."
+    },
+    "admin_dashboard": {
+      "headings": "Outfit",
+      "body": "Manrope",
+      "rules": "Geometric sans for data clarity. Avoid Inter for headings."
+    },
+    "sizes": {
+      "h1": "text-4xl sm:text-5xl lg:text-6xl",
+      "h2": "text-2xl sm:text-3xl lg:text-4xl",
+      "h3": "text-xl sm:text-2xl",
+      "h4": "text-lg sm:text-xl",
+      "body": "text-base",
+      "small": "text-sm"
+    }
+  },
+  "spacing_and_layout": {
+    "public_site": {
+      "grid": "Bento Grid Protocol (Mode A: The Tetris Grid). Mix col-span-4 and col-span-8.",
+      "spacing": "Generous spacing. p-8, p-12, p-16. Gap strategy: gap-8 to gap-12.",
+      "hero": "Max overlay opacity bg-black/40. Let the gold jewellery shine."
+    },
+    "admin_dashboard": {
+      "grid": "Mode B: The Control Room Grid. 3 to 4 columns.",
+      "spacing": "Tight spacing for density. gap-4, gap-6. Cardless or 1px minimal borders.",
+      "mobile": "Strict mobile-first stacking (grid-cols-1)."
+    }
+  },
+  "components_strategy": {
+    "buttons": "Large touch targets (min-h-[48px]). Dark Navy primary buttons with subtle Gold hover text or borders. No pill shapes, use rounded-md or rounded-none for a crisp look.",
+    "cards": "Public: Glassmorphism over textures (backdrop-blur-xl bg-white/70, 1px border-white/40). Admin: Flat solid bg-white, 1px border-slate-200, no shadow unless hovered.",
+    "forms": "Simple, stacked labels. Large inputs for non-technical staff. Shadcn UI Input/Select/Form but customized with larger text and hit areas.",
+    "navigation": "Public: Sticky header with Crystal Glass effect. Desktop links visible, WhatsApp CTA prominent. Admin: Left sidebar on desktop, bottom bar or hamburger on mobile.",
+    "tables": "Shadcn UI Tables. Clean, no zebra striping, just subtle bottom borders. Action menus clearly visible."
+  },
+  "motion_and_interactions": {
+    "hover": "-translate-y-1 on cards. Explicit hover:bg-slate-900 hover:text-white on buttons.",
+    "transitions": "transition-all duration-300 ease-in-out.",
+    "lists": "Staggered entrance animations for catalogue items."
+  },
+  "media_and_assets": {
+    "icons": "lucide-react (default). Use 1.5 stroke width for elegant, airy feel.",
+    "images": [
+      {
+        "category": "hero_background",
+        "url": "https://images.unsplash.com/photo-1545873509-33e944ca7655?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA3MDB8MHwxfHNlYXJjaHwxfHxnb2xkJTIwdGV4dHVyZSUyMGJhY2tncm91bmR8ZW58MHx8fHwxNzgzMDMyMzE0fDA&ixlib=rb-4.1.0&q=85",
+        "description": "Gold metallic foil texture for luxurious header or banner backgrounds."
+      },
+      {
+        "category": "hero_jewellery",
+        "url": "https://images.unsplash.com/photo-1721103418312-b0057a8c31c2?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA4Mzl8MHwxfHNlYXJjaHwzfHxnb2xkJTIwamV3ZWxyeSUyMG5lY2tsYWNlJTIwcHJlbWl1bXxlbnwwfHx8fDE3ODMwMzIzMTR8MA&ixlib=rb-4.1.0&q=85",
+        "description": "Gold necklace with pearls on a red background. Perfect for Nepali traditional context."
+      },
+      {
+        "category": "catalogue_sample_1",
+        "url": "https://images.unsplash.com/photo-1721034917345-d17c5405ead0?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA4Mzl8MHwxfHNlYXJjaHw0fHxnb2xkJTIwamV3ZWxyeSUyMG5lY2tsYWNlJTIwcHJlbWl1bXxlbnwwfHx8fDE3ODMwMzIzMTR8MA&ixlib=rb-4.1.0&q=85",
+        "description": "Premium jewellery set."
+      },
+      {
+        "category": "catalogue_sample_2",
+        "url": "https://images.unsplash.com/photo-1722410180687-b05b50922362?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA4Mzl8MHwxfHNlYXJjaHwxfHxnb2xkJTIwamV3ZWxyeSUyMG5lY2tsYWNlJTIwcHJlbWl1bXxlbnwwfHx8fDE3ODMwMzIzMTR8MA&ixlib=rb-4.1.0&q=85",
+        "description": "Mannequin displaying premium necklace."
+      },
+      {
+        "category": "trust_heritage_portrait",
+        "url": "https://images.unsplash.com/photo-1613966561243-c6959a886009?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA3MDR8MHwxfHNlYXJjaHwyfHx0cmFkaXRpb25hbCUyMGpld2VscnklMjBwb3J0cmFpdHxlbnwwfHx8fDE3ODMwMzIzMTR8MA&ixlib=rb-4.1.0&q=85",
+        "description": "Traditional jewelry portrait for About/Trust section."
+      }
+    ]
+  },
+  "domain_specific_rules": {
+    "language_and_localization": "Must support Nepali numerals and Bikram Sambat (BS) dates on bills and public rates.",
+    "pricing_engine_ui": "Admin product CRUD needs explicit, clear fields for Tola, Jarti (wastage), and Jyala (making charge) computation.",
+    "whatsapp_first": "Every public product detail page must have a 'WhatsApp Enquiry' CTA as the primary action, pre-filling a message with the item name/ID."
+  },
+  "accessibility_and_testing": {
+    "data_testid": "MANDATORY. All buttons, forms, links, and key rate displays MUST have data-testid attributes (e.g., data-testid='whatsapp-enquiry-button', data-testid='today-gold-rate').",
+    "contrast": "Ensure Dark Navy text on Ivory background exceeds 4.5:1. Never use transparent text or buttons without clear outlines."
+  },
+  "instructions_to_main_agent": {
+    "1": "Implement the public marketing site using custom HTML/Tailwind structures (avoid Shadcn Cards to allow for overlapping/artistic asymmetry).",
+    "2": "Implement the Admin Dashboard using heavily customized Shadcn UI for data density and ease-of-use for non-tech users.",
+    "3": "Prioritize the Today's Gold/Silver Rate widget as it's the anchor of the app. Ensure it has a dedicated data-testid.",
+    "4": "Make sure the layout scales flawlessly to mobile, as this is a mobile-first requirement.",
+    "5": "Do NOT use placeholder images. Use the provided Unsplash URLs from media_and_assets.",
+    "6": "CRITICAL: The codebase uses .js files, NOT .tsx files. Write all React components in JavaScript with PropTypes or JSDoc if types are needed."
+  }
+}
