@@ -7,6 +7,7 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
 
   useEffect(() => {
+    if (!localStorage.getItem("jsd_token")) { setUser(false); return; }
     api.get("/auth/me").then((r) => setUser(r.data)).catch(() => setUser(false));
   }, []);
 
