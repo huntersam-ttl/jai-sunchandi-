@@ -11,8 +11,6 @@ export default function Home() {
   const [rate, setRate] = useState(null);
   const [collections, setCollections] = useState([]);
   const [products, setProducts] = useState([]);
-  const shop = useSettings();
-  const waLink = (msg) => waLinkFromSettings(shop, msg);
   useEffect(() => {
     api.get("/rates/today").then((r) => setRate(r.data)).catch(() => {});
     api.get("/collections").then((r) => setCollections(r.data)).catch(() => {});
