@@ -3,27 +3,23 @@ import { useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
 import { api, apiError } from "@/lib/api";
-import { toNp, SHOP, compressImage } from "@/lib/format";
+import { toNp, compressImage } from "@/lib/format";
+import { useSettings } from "@/context/SettingsContext";
 import { btnGold, btnGhost, inp } from "@/components/admin/ui";
 import { Printer } from "lucide-react";
-
 const np = (n) => toNp(Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 }));
-
 export default function InvoicePrint() {
   const { id } = useParams();
   const [inv, setInv] = useState(null);
   const [size, setSize] = useState("a5");
-
+  const shop = useSettings();
   const load = () => api.get(`/admin/invoices/${id}`).then((r) => setInv(r.data));
   useEffect(() => { load(); }, [id]); // eslint-disable-line
-
   if (!inv) return <p className="text-sm text-slate-500">Loading…</p>;
-
   const setStatus = async (status) => {
     try { await api.patch(`/admin/invoices/${id}/status`, { status }); toast.success("Status updated"); load(); }
     catch (e) { toast.error(apiError(e)); }
   };
-
   const uploadScan = async (e) => {
     const f = e.target.files?.[0];
     if (!f) return;
@@ -31,9 +27,7 @@ export default function InvoicePrint() {
     const photo = await compressImage(f, 1200);
     setInv({ ...inv, physical_bill_photo: photo });
   };
-
   const verifyUrl = `${window.location.origin}/verify/invoice/${inv.id}`;
-
   return (
     <div className="space-y-4">
       <div className="no-print flex flex-wrap items-center justify-between gap-3">
@@ -51,14 +45,13 @@ export default function InvoicePrint() {
           <button className={btnGold} onClick={() => window.print()} data-testid="invoice-print-btn"><Printer size={16} /> Print</button>
         </div>
       </div>
-
       <div className={`print-area bg-white border border-slate-300 mx-auto p-6 sm:p-8 ${size === "a5" ? "max-w-[148mm]" : "max-w-[210mm]"}`} data-testid="invoice-print-area" style={{ fontFamily: "'Outfit', sans-serif" }}>
         <div className="text-center border-b-2 border-[#D4AF37] pb-4">
-          <p className="font-serif-display text-xl font-bold">{SHOP.name}</p>
-          <p className="text-[#991B1B] font-semibold">{SHOP.nameNp}</p>
-          <p className="text-xs text-slate-600 mt-1">{SHOP.address} · {SHOP.phone}</p>
+          {shop.logo && <img src={shop.logo} alt="logo" className="h-12 mx-auto mb-2 object-contain" />}
+          <p className="font-serif-display text-xl font-bold">{shop.shop_name}</p>
+          <p className="text-[#991B1B] font-semibold">{shop.shop_name_np}</p>
+          <p className="text-xs text-slate-600 mt-1">{shop.address} · {shop.phone}</p>
         </div>
-
         <div className="flex justify-between mt-4 text-sm">
           <div>
             <p><span className="text-slate-500">बिल नं. (Bill No.):</span> <b data-testid="print-bill-number">{inv.bill_number} / {toNp(inv.bill_number)}</b></p>
@@ -71,7 +64,6 @@ export default function InvoicePrint() {
             <p><span className="text-slate-500">Order:</span> {inv.order_number}</p>
           </div>
         </div>
-
         <table className="w-full mt-4 text-sm border-collapse">
           <thead>
             <tr className="border-y border-slate-300 text-left text-xs">
@@ -92,7 +84,6 @@ export default function InvoicePrint() {
             ))}
           </tbody>
         </table>
-
         {inv.items.some((it) => it.stone_cost + it.polishing_cost + it.cutting_cost + it.worker_charge + it.other_cost > 0) && (
           <p className="text-xs text-slate-600 mt-2">
             अन्य खर्च (Extra costs): {inv.items.map((it) => {
@@ -101,7 +92,6 @@ export default function InvoicePrint() {
             }).filter(Boolean).join(" · ")}
           </p>
         )}
-
         <div className="mt-4 ml-auto w-64 text-sm space-y-1.5" data-testid="print-totals">
           <div className="flex justify-between"><span>जम्मा (Total)</span><b>रु {np(inv.total_price)}</b></div>
           {inv.old_gold_value > 0 && (
@@ -111,11 +101,9 @@ export default function InvoicePrint() {
           <div className="flex justify-between"><span>अग्रिम (Advance)</span><b>रु {np(inv.advance_paid)}</b></div>
           <div className="flex justify-between text-base border-t-2 border-[#D4AF37] pt-1.5"><span>बाँकी (Remaining)</span><b className="text-[#991B1B]" data-testid="print-remaining">रु {np(inv.remaining_balance)}</b></div>
         </div>
-
         {inv.old_gold && inv.old_gold_value > 0 && (
           <p className="text-xs text-slate-600 mt-3">पुरानो सुन: {inv.old_gold.old_item_description} · {toNp(inv.old_gold.old_weight_tola)} तोला · दर रु {np(inv.old_gold.old_valuation_rate_per_tola)} · कटौती {toNp(inv.old_gold.old_deduction_percent)}%</p>
         )}
-
         <div className="mt-8 flex justify-between items-end">
           <div className="text-center">
             <QRCodeSVG value={verifyUrl} size={72} data-testid="print-qr" />
@@ -130,7 +118,6 @@ export default function InvoicePrint() {
         </div>
         <p className="text-center text-xs text-[#991B1B] mt-4">धन्यवाद! फेरि आउनुहोला।</p>
       </div>
-
       {inv.physical_bill_photo && (
         <div className="no-print max-w-md mx-auto">
           <p className="text-xs text-slate-500 mb-1">Attached physical bill scan:</p>

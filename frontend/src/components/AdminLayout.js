@@ -1,10 +1,9 @@
 import { NavLink, Outlet, Navigate, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { useSettings } from "@/context/SettingsContext";
 import { api } from "@/lib/api";
-import { SHOP } from "@/lib/format";
-import { LayoutDashboard, Gem, Users, ClipboardList, Receipt, Wrench, Award, Inbox, TrendingUp, BarChart3, LogOut, Search, Menu, X } from "lucide-react";
-
+import { LayoutDashboard, Gem, Users, ClipboardList, Receipt, Wrench, Award, Inbox, TrendingUp, BarChart3, LogOut, Search, Menu, X, Settings } from "lucide-react";
 const nav = [
   { to: "/admin", label: "Today", icon: LayoutDashboard, end: true },
   { to: "/admin/rates", label: "Daily Rates", icon: TrendingUp },
@@ -16,32 +15,32 @@ const nav = [
   { to: "/admin/certificates", label: "Certificates", icon: Award },
   { to: "/admin/leads", label: "Leads", icon: Inbox },
   { to: "/admin/reports", label: "Reports", icon: BarChart3 },
+  { to: "/admin/settings", label: "Settings", icon: Settings },
 ];
-
 export default function AdminLayout() {
   const { user, logout } = useAuth();
+  const shopSettings = useSettings();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [results, setResults] = useState(null);
   const navigate = useNavigate();
-
   if (user === null) return <div className="min-h-screen flex items-center justify-center font-admin">Loading…</div>;
   if (user === false) return <Navigate to="/admin/login" replace />;
-
   const doSearch = async (e) => {
     e.preventDefault();
     if (!q.trim()) return;
     const { data } = await api.get("/admin/search", { params: { q } });
     setResults(data);
   };
-
   const go = (path) => { setResults(null); setQ(""); navigate(path); };
-
   return (
     <div className="min-h-screen bg-[#F8FAFC] font-admin flex">
       <aside className={`fixed lg:static inset-y-0 left-0 z-40 w-60 bg-[#0F172A] text-slate-300 flex flex-col transition-transform duration-300 ${open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
         <div className="p-4 border-b border-slate-800">
-          <p className="text-white font-bold text-sm leading-tight">{SHOP.name}</p>
+          {shopSettings.logo ? (
+            <img src={shopSettings.logo} alt="logo" className="h-8 mb-1 object-contain" />
+          ) : null}
+          <p className="text-white font-bold text-sm leading-tight">{shopSettings.shop_name}</p>
           <p className="text-[#D4AF37] text-xs mt-0.5">Admin Panel</p>
         </div>
         <nav className="flex-1 py-3 overflow-y-auto">

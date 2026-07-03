@@ -449,3 +449,144 @@ class TestDashboardReportsSearch:
         assert r.status_code == 200
         data = r.json()
         assert set(data.keys()) == {"customers", "products", "orders", "invoices"}
+
+# ---------- Settings ----------
+class TestSettings:
+    def test_public_settings_endpoint_exists(self, api_client, base_url):
+        """Public /api/settings endpoint returns shop data without auth."""
+        r = api_client.get(f"{base_url}/api/settings")
+        assert r.status_code == 200
+        data = r.json()
+        assert "shop_name" in data
+        assert "phone" in data
+        assert "whatsapp" in data
+        assert "address" in data
+        assert "opening_hours" in data
+
+    def test_public_settings_seeded_with_defaults(self, api_client, base_url):
+        """Default seed contains real shop name, not placeholder."""
+        r = api_client.get(f"{base_url}/api/settings")
+        data = r.json()
+        # Must NOT be a blank placeholder
+        assert data["shop_name"].strip() != ""
+        assert data["phone"].strip() != ""
+        assert data["whatsapp"].strip() != ""
+        # Seeded with real shop name
+        assert "Jai" in data["shop_name"] or len(data["shop_name"]) > 3
+
+    def test_admin_get_settings(self, auth_client, base_url):
+        """Admin can fetch current settings."""
+        r = auth_client.get(f"{base_url}/api/admin/settings")
+        assert r.status_code == 200
+        data = r.json()
+        assert "shop_name" in data
+
+    def test_admin_update_settings(self, auth_client, base_url):
+        """Admin can update all settings fields."""
+        payload = {
+            "shop_name": "TEST Updated Shop Name",
+            "shop_name_np": "टेस्ट अपडेट",
+            "tagline": "Test tagline",
+            "tagline_np": "टेस्ट",
+            "phone": "+977-9811234567",
+            "whatsapp": "9779811234567",
+            "address": "Test Address, Nepal",
+            "maps_link": "https://maps.google.com/?q=test",
+            "opening_hours": "Mon–Sat: 9am – 6pm",
+            "logo": "",
+            "default_whatsapp_message": "Hello from test",
+        }
+        r = auth_client.put(f"{base_url}/api/admin/settings", json=payload)
+        assert r.status_code == 200, r.text
+        data = r.json()
+        assert data["shop_name"] == "TEST Updated Shop Name"
+        assert data["phone"] == "+977-9811234567"
+        assert data["whatsapp"] == "9779811234567"
+        assert data["opening_hours"] == "Mon–Sat: 9am – 6pm"
+        assert data["maps_link"] == "https://maps.google.com/?q=test"
+
+    def test_public_settings_reflects_update(self, api_client, base_url):
+        """Public endpoint shows the updated settings."""
+        r = api_client.get(f"{base_url}/api/settings")
+        assert r.status_code == 200
+        data = r.json()
+        assert data["shop_name"] == "TEST Updated Shop Name"
+        assert data["phone"] == "+977-9811234567"
+
+    def test_verify_invoice_uses_settings_shop_name(self, auth_client, api_client, base_url):
+        """verify/invoice endpoint returns shop_name from DB settings, not hardcoded."""
+        # Create order + invoice
+        cust = auth_client.post(f"{base_url}/api/admin/customers",
+                                json={"name": "TEST_Settings Customer", "phone": "9844444444"}).json()
+        order = auth_client.post(f"{base_url}/api/admin/orders", json={
+            "customer_id": cust["id"],
+            "items": [{"name": "TEST_item_settings", "metal": "gold", "purity": "24K",
+                       "weight_grams": 11.664, "rate_per_tola": 152000,
+                       "jarti_percent": 0, "jyala_amount": 0, "jyala_type": "flat"}],
+        }).json()
+        import uuid
+        bill = f"TEST-SETTINGS-BILL-{uuid.uuid4().hex[:8]}"
+        inv = auth_client.post(f"{base_url}/api/admin/invoices",
+                               json={"order_id": order["id"], "bill_number": bill}).json()
+        r = api_client.get(f"{base_url}/api/verify/invoice/{inv['id']}")
+        assert r.status_code == 200
+        data = r.json()
+        # shop_name must come from DB (was set to TEST Updated Shop Name)
+        assert data["shop_name"] == "TEST Updated Shop Name"
+        assert data["shop_name"] != "Jai Supa Deurali Sun-Chandi Pasal"  # not hardcoded
+
+    def test_verify_certificate_uses_settings_shop_name(self, auth_client, api_client, base_url):
+        """verify/certificate endpoint returns shop_name from DB settings."""
+        cert = auth_client.post(f"{base_url}/api/admin/certificates",
+                                json={"metal": "gold", "purity": "22K",
+                                      "weight_grams": 5.832, "stone_details": ""}).json()
+        r = api_client.get(f"{base_url}/api/verify/certificate/{cert['id']}")
+        assert r.status_code == 200
+        data = r.json()
+        assert data["shop_name"] == "TEST Updated Shop Name"
+        assert data["shop_name"] != "Jai Supa Deurali Sun-Chandi Pasal"  # not hardcoded
+
+    def test_phone_validation_rejects_short(self, auth_client, base_url):
+        """Settings update rejects a phone number that is too short."""
+        r = auth_client.put(f"{base_url}/api/admin/settings", json={
+            "shop_name": "Valid Name",
+            "phone": "123",           # too short
+            "whatsapp": "9779811234567",
+        })
+        assert r.status_code == 422
+
+    def test_whatsapp_validation_rejects_too_long(self, auth_client, base_url):
+        """Settings update rejects a WhatsApp number with too many digits."""
+        r = auth_client.put(f"{base_url}/api/admin/settings", json={
+            "shop_name": "Valid Name",
+            "phone": "+977-9811234567",
+            "whatsapp": "9779811234567890123",  # too long
+        })
+        assert r.status_code == 422
+
+    def test_settings_requires_auth(self, base_url):
+        """Admin settings endpoint must require authentication."""
+        import requests
+        r = requests.get(f"{base_url}/api/admin/settings")
+        assert r.status_code == 401
+        r = requests.put(f"{base_url}/api/admin/settings",
+                         json={"shop_name": "Hack", "phone": "9779811234567", "whatsapp": "9779811234567"},
+                         headers={"Content-Type": "application/json"})
+        assert r.status_code == 401
+
+    def test_restore_defaults(self, auth_client, base_url):
+        """Restore seeded defaults so other tests are not affected."""
+        r = auth_client.put(f"{base_url}/api/admin/settings", json={
+            "shop_name": "Jai Supa Deurali Sun-Chandi Pasal",
+            "shop_name_np": "\u091c\u092f \u0938\u0941\u092a\u093e \u0926\u0947\u0909\u0930\u093e\u0932\u0940 \u0938\u0941\u0928\u091a\u093e\u0901\u0926\u0940 \u092a\u0938\u0932",
+            "tagline": "Decades of trust in gold & silver",
+            "tagline_np": "\u0926\u0936\u0915\u094c\u0902\u0926\u0947\u0916\u093f\u0915\u094b \u0935\u093f\u0936\u094d\u0935\u093e\u0938",
+            "phone": "+977-9800000000",
+            "whatsapp": "9779800000000",
+            "address": "Deurali Bazaar, Nepal",
+            "maps_link": "",
+            "opening_hours": "Sun\u2013Fri: 10am \u2013 7pm",
+            "logo": "",
+            "default_whatsapp_message": "Namaste! I have an enquiry.",
+        })
+        assert r.status_code == 200

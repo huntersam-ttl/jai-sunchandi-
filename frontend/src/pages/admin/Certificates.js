@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
 import { api, apiError } from "@/lib/api";
-import { SHOP, toNp } from "@/lib/format";
+import { toNp } from "@/lib/format";
+import { useSettings } from "@/context/SettingsContext";
 import { inp, btnGold, btnGhost, F } from "@/components/admin/ui";
 import { Plus, X, Printer, QrCode } from "lucide-react";
 
@@ -14,6 +15,7 @@ export default function Certificates() {
   const [form, setForm] = useState(null);
   const [printing, setPrinting] = useState(null);
 
+  const shop = useSettings();
   const load = () => api.get("/admin/certificates").then((r) => setCerts(r.data));
   useEffect(() => { load(); api.get("/admin/products").then((r) => setProducts(r.data)); }, []);
 
@@ -83,8 +85,8 @@ export default function Certificates() {
         <div className="fixed inset-0 z-50 bg-black/40 flex items-start justify-center overflow-y-auto p-4" onClick={() => setPrinting(null)}>
           <div className="bg-white rounded-md w-full max-w-md my-8" onClick={(e) => e.stopPropagation()} data-testid="certificate-print-modal">
             <div className="print-area border-4 border-double border-[#D4AF37] m-4 p-6 text-center">
-              <p className="font-serif-display text-lg font-bold">{SHOP.name}</p>
-              <p className="text-[#991B1B] text-sm">{SHOP.nameNp}</p>
+              <p className="font-serif-display text-lg font-bold">{shop.shop_name}</p>
+              <p className="text-[#991B1B] text-sm">{shop.shop_name_np}</p>
               <p className="mt-3 font-serif-display text-xl gold-gradient-text font-bold">Certificate of Authenticity</p>
               <p className="text-xs text-slate-500">प्रमाणपत्र</p>
               <div className="mt-4 text-sm text-left space-y-1.5">

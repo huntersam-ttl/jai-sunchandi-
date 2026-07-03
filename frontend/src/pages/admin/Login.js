@@ -2,12 +2,13 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { apiError } from "@/lib/api";
-import { SHOP } from "@/lib/format";
+import { useSettings } from "@/context/SettingsContext";
 import { inp, btnGold } from "@/components/admin/ui";
 
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const shop = useSettings();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -27,8 +28,8 @@ export default function Login() {
   return (
     <div className="min-h-screen bg-[#0F172A] flex items-center justify-center px-4 font-admin">
       <div className="w-full max-w-sm bg-white rounded-md p-8">
-        <p className="font-serif-display font-bold text-lg text-center">{SHOP.name}</p>
-        <p className="text-center text-xs text-[#991B1B] mt-1">{SHOP.nameNp} · Admin</p>
+        <p className="font-serif-display font-bold text-lg text-center">{shop.shop_name}</p>
+        <p className="text-center text-xs text-[#991B1B] mt-1">{shop.shop_name_np} · Admin</p>
         <form onSubmit={submit} className="mt-8 space-y-4">
           <input className={inp} type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} data-testid="login-email-input" />
           <input className={inp} type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} data-testid="login-password-input" />

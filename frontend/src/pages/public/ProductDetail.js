@@ -9,6 +9,8 @@ const FALLBACK = "https://images.unsplash.com/photo-1722410180687-b05b50922362?c
 
 export default function ProductDetail() {
   const { id } = useParams();
+  const shop = useSettings();
+  const waLink = (msg) => waLinkFromSettings(shop, msg);
   const [p, setP] = useState(null);
   const [err, setErr] = useState(false);
   const [photo, setPhoto] = useState(0);
@@ -55,7 +57,7 @@ export default function ProductDetail() {
           <Info label="Availability" value={p.status} cap />
         </div>
         {p.description && <p className="mt-5 text-sm text-slate-600">{p.description}</p>}
-        <a href={waLink(`Namaste ${SHOP.name}! I am interested in "${p.name}" (${p.product_code}). Please share today's price and details.`)}
+        <a href={waLink(`Namaste ${shop.shop_name}! I am interested in "${p.name}" (${p.product_code}). Please share today's price and details.`)}
           target="_blank" rel="noreferrer" data-testid="whatsapp-enquiry-button"
           className="mt-8 inline-flex items-center justify-center gap-2 w-full sm:w-auto bg-[#25D366] text-white px-8 py-4 rounded-md min-h-[52px] text-base font-semibold hover:bg-[#1fb457] transition-colors duration-300">
           <MessageCircle size={20} /> Enquire on WhatsApp

@@ -173,11 +173,33 @@ class LeadBody(BaseModel):
     photo: Optional[str] = ""
 
 
+
+class SettingsBody(BaseModel):
+    shop_name: str = "Jai Supa Deurali Sun-Chandi Pasal"
+    shop_name_np: str = "जय सुपा देउराली सुनचाँदी पसल"
+    tagline: str = "Decades of trust in gold & silver"
+    tagline_np: str = "दशकौंदेखिको विश्वास"
+    phone: str = "+977-9800000000"
+    whatsapp: str = "9779800000000"
+    address: str = "Deurali Bazaar, Nepal"
+    maps_link: Optional[str] = ""
+    opening_hours: Optional[str] = "Sun–Fri: 10am – 7pm"
+    logo: Optional[str] = ""
+    default_whatsapp_message: Optional[str] = "Namaste! I have an enquiry."
+
 class StatusUpdate(BaseModel):
     status: str
 
 
 # ---------- Helpers ----------
+
+async def get_shop_settings():
+    doc = await db.settings.find_one({"_id": "shop"})
+    if doc:
+        doc.pop("_id", None)
+    return doc or {}
+
+
 def clean(doc):
     if doc:
         doc.pop("_id", None)
@@ -555,7 +577,9 @@ async def verify_invoice(iid: str):
     inv = await db.invoices.find_one({"$or": [{"id": iid}, {"bill_number": iid}], "is_deleted": False}, {"_id": 0})
     if not inv:
         raise HTTPException(status_code=404, detail="Invoice not found")
-    return {"shop_name": "Jai Supa Deurali Sun-Chandi Pasal", "bill_number": inv["bill_number"],
+    s = await get_shop_settings()
+    shop_name = s.get("shop_name", "Jai Supa Deurali Sun-Chandi Pasal")
+    return {"shop_name": shop_name, "bill_number": inv["bill_number"],
             "bill_number_np": to_nepali_digits(inv["bill_number"]),
             "invoice_date_ad": inv["invoice_date_ad"], "invoice_date_bs_np": inv["invoice_date_bs_np"],
             "customer_name_masked": mask_name(inv["customer"]["name"]),
@@ -625,12 +649,53 @@ async def verify_certificate(cid: str):
     if cert.get("product_id"):
         p = await db.products.find_one({"id": cert["product_id"]}, {"_id": 0, "product_code": 1})
         product_code = p["product_code"] if p else None
-    return {"shop_name": "Jai Supa Deurali Sun-Chandi Pasal", "certificate_number": cert["certificate_number"],
+    s = await get_shop_settings()
+    shop_name = s.get("shop_name", "Jai Supa Deurali Sun-Chandi Pasal")
+    return {"shop_name": shop_name, "certificate_number": cert["certificate_number"],
             "product_code": product_code, "metal": cert["metal"], "purity": cert["purity"],
             "weight_grams": cert["weight_grams"], "weight_tola": cert["weight_tola"],
             "stone_details": cert.get("stone_details", ""), "date_ad": cert["date_ad"],
             "date_bs_np": cert["date_bs_np"], "verified": True}
 
+
+
+# ---------- Settings ----------
+import re as _re
+
+def _validate_phone(v: str, field: str):
+    digits = _re.sub(r"[^0-9]", "", v)
+    if len(digits) < 7 or len(digits) > 15:
+        raise HTTPException(status_code=422, detail=f"{field} must have 7–15 digits")
+
+@api.get("/admin/settings")
+async def get_settings(admin=Depends(get_current_admin)):
+    return await get_shop_settings()
+
+@api.put("/admin/settings")
+async def update_settings(body: SettingsBody, admin=Depends(get_current_admin)):
+    _validate_phone(body.phone, "phone")
+    _validate_phone(body.whatsapp, "whatsapp")
+    doc = body.model_dump()
+    await db.settings.update_one({"_id": "shop"}, {"$set": doc}, upsert=True)
+    return doc
+
+@api.get("/settings")
+async def public_settings():
+    """Public endpoint — returns safe subset for frontend rendering."""
+    s = await get_shop_settings()
+    return {
+        "shop_name": s.get("shop_name", "Jai Supa Deurali Sun-Chandi Pasal"),
+        "shop_name_np": s.get("shop_name_np", "जय सुपा देउराली सुनचाँदी पसल"),
+        "tagline": s.get("tagline", "Decades of trust in gold & silver"),
+        "tagline_np": s.get("tagline_np", "दशकौंदेखिको विश्वास"),
+        "phone": s.get("phone", "+977-9800000000"),
+        "whatsapp": s.get("whatsapp", "9779800000000"),
+        "address": s.get("address", "Deurali Bazaar, Nepal"),
+        "maps_link": s.get("maps_link", ""),
+        "opening_hours": s.get("opening_hours", "Sun–Fri: 10am – 7pm"),
+        "logo": s.get("logo", ""),
+        "default_whatsapp_message": s.get("default_whatsapp_message", "Namaste! I have an enquiry."),
+    }
 
 # ---------- Public Leads ----------
 @api.post("/leads")
@@ -752,6 +817,23 @@ async def startup():
                                    "name": "Admin", "role": "admin", "created_at": now_iso()})
     elif not verify_password(admin_password, existing["password_hash"]):
         await db.users.update_one({"email": admin_email}, {"$set": {"password_hash": hash_password(admin_password)}})
+    # Seed default shop settings if absent
+    DEFAULT_SETTINGS = {
+        "shop_name": "Jai Supa Deurali Sun-Chandi Pasal",
+        "shop_name_np": "जय सुपा देउराली सुनचाँदी पसल",
+        "tagline": "Decades of trust in gold & silver",
+        "tagline_np": "दशकौंदेखिको विश्वास",
+        "phone": "+977-9800000000",
+        "whatsapp": "9779800000000",
+        "address": "Deurali Bazaar, Nepal",
+        "maps_link": "",
+        "opening_hours": "Sun–Fri: 10am – 7pm",
+        "logo": "",
+        "default_whatsapp_message": "Namaste! I have an enquiry.",
+    }
+    existing_settings = await db.settings.find_one({"_id": "shop"})
+    if not existing_settings:
+        await db.settings.insert_one({"_id": "shop", **DEFAULT_SETTINGS})
     for name in DEFAULT_CATEGORIES:
         await db.categories.update_one({"name": name}, {"$setOnInsert": {"id": str(uuid.uuid4()), "name": name, "created_at": now_iso()}}, upsert=True)
     for name in DEFAULT_COLLECTIONS:
