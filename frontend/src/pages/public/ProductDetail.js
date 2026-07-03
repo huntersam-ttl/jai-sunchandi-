@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 import { api } from "@/lib/api";
-import { rs, waLink, SHOP } from "@/lib/format";
+import { rs } from "@/lib/format";
+import { useSettings, waLinkFromSettings } from "@/context/SettingsContext";
 import { MessageCircle } from "lucide-react";
 
 const FALLBACK = "https://images.unsplash.com/photo-1722410180687-b05b50922362?crop=entropy&cs=srgb&fm=jpg&q=85&w=800";
