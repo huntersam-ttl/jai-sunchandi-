@@ -80,6 +80,20 @@ class TestPaymentStatusDerivation:
         assert derive_payment_status(1000, 1200) == "paid"
 
 
+class TestSupabaseAppAndAuth:
+    def test_supabase_auth_importable(self):
+        import supabase_auth
+        assert hasattr(supabase_auth, "get_current_admin")
+        assert hasattr(supabase_auth, "verify_supabase_jwt")
+
+    def test_app_health_and_protected_routes_registered(self):
+        import app
+        paths = {r.path for r in app.app.routes}
+        assert "/api/health" in paths
+        assert "/api/health/supabase" in paths
+        assert "/api/admin/whoami" in paths
+
+
 class TestExistingMongoBackendStillCompiles:
     def test_mongo_modules_parse(self):
         for name in ("server.py", "auth.py", "utils.py"):

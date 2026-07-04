@@ -1,26 +1,39 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { api } from "@/lib/api";
+import { supabase } from "@/lib/supabaseClient";
 
 const AuthContext = createContext(null);
 
+// Auth now runs on Supabase Auth (email/password). user is the Supabase user
+// object when signed in, false when signed out, null while resolving.
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    if (!localStorage.getItem("jsd_token")) { setUser(false); return; }
-    api.get("/auth/me").then((r) => setUser(r.data)).catch(() => setUser(false));
+    if (!supabase) {
+      setUser(false);
+      return;
+    }
+    supabase.auth.getSession().then(({ data }) => {
+      setUser(data.session?.user ?? false);
+    });
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? false);
+    });
+    return () => listener?.subscription?.unsubscribe();
   }, []);
 
   const login = async (email, password) => {
-    const { data } = await api.post("/auth/login", { email, password });
-    if (data.token) localStorage.setItem("jsd_token", data.token);
-    setUser(data);
-    return data;
+    if (!supabase) throw new Error("Supabase is not configured");
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    setUser(data.user);
+    return data.user;
   };
 
   const logout = async () => {
-    try { await api.post("/auth/logout"); } catch (e) {}
-    localStorage.removeItem("jsd_token");
+    if (supabase) {
+      try { await supabase.auth.signOut(); } catch (e) { /* best-effort */ }
+    }
     setUser(false);
   };
 

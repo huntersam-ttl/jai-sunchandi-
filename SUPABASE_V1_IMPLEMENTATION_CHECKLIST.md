@@ -48,13 +48,16 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[!]` blocked/needs dec
 
 > Pending for S3: real secrets in `backend/.env` (service-role key, DB URL, JWT secret) to exercise `check_connection()` against the live DB; Supabase Auth JWT verification; wiring routes.
 
-## Phase S3 — Auth (Supabase Auth)
-- [ ] Frontend: add `@supabase/supabase-js`; `lib/supabase.js` client from `REACT_APP_SUPABASE_URL` + anon key.
-- [ ] Rework `AuthContext` + `Login` to use supabase-js email/password; store session per supabase-js default; expose access token to axios.
-- [ ] `lib/api.js`: attach `Authorization: Bearer <supabase access token>` (refresh-aware).
-- [ ] Backend: JWT-verify dependency using `SUPABASE_JWT_SECRET`; admin allowlist check; replace `get_current_admin`.
-- [ ] Seed the admin user in Supabase Auth (once; no default password in production).
-- [ ] Re-apply CORS allowlist (`ALLOWED_ORIGINS`) + slowapi rate limiting on public/auth endpoints.
+## Phase S3 — Auth (Supabase Auth)  ✅ COMPLETE (2026-07-04, auth wiring + health route)
+- [x] Frontend: add `@supabase/supabase-js`; `lib/supabaseClient.js` from `REACT_APP_SUPABASE_URL` + anon key (null-guarded; anon key only).
+- [x] Rework `AuthContext` to use supabase-js email/password (getSession + onAuthStateChange + signInWithPassword + signOut). `Login` unchanged (uses useAuth().login).
+- [x] `lib/api.js`: attach `Authorization: Bearer <supabase access token>` from the live session (refresh-aware); removed localStorage token + cookies.
+- [x] Backend: `supabase_auth.py` — verify Supabase HS256 JWT via `SUPABASE_JWT_SECRET` + `ADMIN_EMAIL` allowlist; new `get_current_admin` (legacy Mongo `auth.py` untouched).
+- [x] Minimal Supabase app `app.py`: `/api/health`, `/api/health/supabase` (db.check_connection), `/api/admin/whoami` (protected); CORS allowlist re-applied via `config.get_allowed_origins()`.
+- [ ] Seed the admin user in Supabase Auth — pending (create the admin user in the Supabase dashboard / Auth API; needs a chosen password).
+- [~] slowapi rate limiting — deferred to when public/auth business routes are wired (S5); CORS allowlist is applied now.
+
+> S3 verification: py_compile + 12 backend tests pass; frontend `yarn build` "Compiled successfully"; no service-role/DB-URL refs in frontend. **Live DB connection via `/api/health/supabase` NOT yet exercised** — needs real `SUPABASE_DB_URL` + service-role key in `backend/.env` (not available locally; no secrets committed).
 
 ## Phase S4 — Storage
 - [ ] Frontend upload helper: compress → upload to the right bucket → return URL/path.
