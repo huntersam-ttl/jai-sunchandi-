@@ -86,3 +86,10 @@ android-sdk/
 credentials.json
 *.key
 .credentials
+
+# ...but keep example env templates tracked (no secrets in these)
+!.env.example
+!**/.env.example
+
+# Supabase CLI local cache
+supabase/.temp/

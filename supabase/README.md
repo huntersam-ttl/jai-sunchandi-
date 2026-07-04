@@ -6,6 +6,17 @@ Schema is the source of truth in `supabase/migrations/`. Applied once, in order.
 - `0001_init.sql` — full V1 schema: tables, FKs, indexes, CHECK constraints,
   `updated_at` trigger, code sequences, RLS policies, public-safe read views,
   Storage buckets, and reference seed data.
+- `0002_public_read_hardening.sql` — switches the `public_*` views to
+  SECURITY INVOKER, adds anon read policies + column-level grants (cost columns
+  never exposed), and pins the trigger function's `search_path`. Clears the
+  security-advisor ERRORs from 0001.
+- `0003_fix_product_column_grants.sql` — grants anon the two visibility flags
+  (`show_on_website`, `is_deleted`) referenced by the `public_products` view's
+  WHERE clause, so the invoker view resolves for anon.
+
+Applied to project `hzpukedwffyuysvhvlbg` (org "samir Org", region ap-south-1).
+Security advisor after 0003: 0 errors (only intentional single-admin
+`rls_policy_always_true` warnings on the admin/lead-insert policies).
 
 ## Applying `0001_init.sql`
 Once the Supabase project `jai-supa-deurali` exists (blocked at time of writing by
