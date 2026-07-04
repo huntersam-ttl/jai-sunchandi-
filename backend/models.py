@@ -1,0 +1,303 @@
+"""SQLAlchemy 2.0 ORM models for the Supabase V1 schema.
+
+These mirror the tables created by supabase/migrations/0001_init.sql. The
+migrations own the schema; these models are used only for querying/writing.
+Money is Numeric; timestamps are timezone-aware; ids are UUID with a
+server-side gen_random_uuid() default.
+"""
+from __future__ import annotations
+
+from datetime import date, datetime
+from decimal import Decimal
+from typing import Optional
+
+from sqlalchemy import (
+    Boolean, Date, DateTime, ForeignKey, Integer, Numeric, String, Text, text,
+)
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+def _uuid_pk() -> Mapped[str]:
+    return mapped_column(UUID(as_uuid=False), primary_key=True,
+                         server_default=text("gen_random_uuid()"))
+
+
+def _created_at() -> Mapped[datetime]:
+    return mapped_column(DateTime(timezone=True), server_default=text("now()"))
+
+
+def _updated_at() -> Mapped[datetime]:
+    return mapped_column(DateTime(timezone=True), server_default=text("now()"))
+
+
+class ShopSettings(Base):
+    __tablename__ = "shop_settings"
+    id: Mapped[bool] = mapped_column(Boolean, primary_key=True, server_default=text("true"))
+    shop_name: Mapped[str] = mapped_column(Text)
+    shop_name_np: Mapped[str] = mapped_column(Text)
+    tagline: Mapped[str] = mapped_column(Text)
+    tagline_np: Mapped[str] = mapped_column(Text)
+    phone: Mapped[str] = mapped_column(Text)
+    whatsapp: Mapped[str] = mapped_column(Text)
+    address: Mapped[str] = mapped_column(Text)
+    maps_link: Mapped[str] = mapped_column(Text)
+    opening_hours: Mapped[str] = mapped_column(Text)
+    logo_url: Mapped[str] = mapped_column(Text)
+    default_whatsapp_message: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = _created_at()
+    updated_at: Mapped[datetime] = _updated_at()
+
+
+class Category(Base):
+    __tablename__ = "categories"
+    id: Mapped[str] = _uuid_pk()
+    name: Mapped[str] = mapped_column(Text, unique=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, server_default=text("true"))
+    sort_order: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    created_at: Mapped[datetime] = _created_at()
+    updated_at: Mapped[datetime] = _updated_at()
+
+
+class Collection(Base):
+    __tablename__ = "collections"
+    id: Mapped[str] = _uuid_pk()
+    name: Mapped[str] = mapped_column(Text, unique=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, server_default=text("true"))
+    sort_order: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    created_at: Mapped[datetime] = _created_at()
+    updated_at: Mapped[datetime] = _updated_at()
+
+
+class DailyRate(Base):
+    __tablename__ = "daily_rates"
+    id: Mapped[str] = _uuid_pk()
+    date_ad: Mapped[date] = mapped_column(Date, unique=True)
+    bs_date: Mapped[str] = mapped_column(Text)
+    bs_date_np: Mapped[str] = mapped_column(Text)
+    bs_date_long_np: Mapped[str] = mapped_column(Text)
+    gold_24k: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    gold_22k: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    silver: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    created_at: Mapped[datetime] = _created_at()
+    updated_at: Mapped[datetime] = _updated_at()
+
+
+class Product(Base):
+    __tablename__ = "products"
+    id: Mapped[str] = _uuid_pk()
+    product_code: Mapped[str] = mapped_column(Text, unique=True)
+    name: Mapped[str] = mapped_column(Text)
+    name_np: Mapped[str] = mapped_column(Text)
+    description: Mapped[str] = mapped_column(Text)
+    category: Mapped[str] = mapped_column(Text)
+    collection: Mapped[str] = mapped_column(Text)
+    metal: Mapped[str] = mapped_column(Text)
+    purity: Mapped[str] = mapped_column(Text)
+    weight_grams: Mapped[Decimal] = mapped_column(Numeric(12, 3))
+    jarti_percent: Mapped[Decimal] = mapped_column(Numeric(6, 3))
+    jyala_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    jyala_type: Mapped[str] = mapped_column(Text)
+    stone_cost: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    polishing_cost: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    cutting_cost: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    worker_charge: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    other_cost: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    status: Mapped[str] = mapped_column(Text)
+    show_on_website: Mapped[bool] = mapped_column(Boolean)
+    show_price_on_website: Mapped[bool] = mapped_column(Boolean)
+    photos: Mapped[list[str]] = mapped_column(ARRAY(Text))
+    is_deleted: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    created_at: Mapped[datetime] = _created_at()
+    updated_at: Mapped[datetime] = _updated_at()
+
+
+class Customer(Base):
+    __tablename__ = "customers"
+    id: Mapped[str] = _uuid_pk()
+    name: Mapped[str] = mapped_column(Text)
+    phone: Mapped[str] = mapped_column(Text)
+    address: Mapped[str] = mapped_column(Text)
+    notes: Mapped[str] = mapped_column(Text)
+    is_deleted: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    created_at: Mapped[datetime] = _created_at()
+    updated_at: Mapped[datetime] = _updated_at()
+
+
+class Order(Base):
+    __tablename__ = "orders"
+    id: Mapped[str] = _uuid_pk()
+    order_number: Mapped[str] = mapped_column(Text, unique=True)
+    customer_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("customers.id"))
+    customer_name: Mapped[str] = mapped_column(Text)
+    customer_phone: Mapped[str] = mapped_column(Text)
+    order_type: Mapped[str] = mapped_column(Text)
+    custom_description: Mapped[str] = mapped_column(Text)
+    reference_photo_url: Mapped[str] = mapped_column(Text)
+    order_date_ad: Mapped[date] = mapped_column(Date)
+    order_date_bs: Mapped[str] = mapped_column(Text)
+    order_date_bs_np: Mapped[str] = mapped_column(Text)
+    delivery_date_ad: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    delivery_date_bs: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    delivery_date_bs_np: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    delivery_time: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(Text)
+    notes: Mapped[str] = mapped_column(Text)
+    old_gold: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    total_price: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    old_gold_value: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    net_payable: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    advance_total: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    remaining_balance: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    payment_status: Mapped[str] = mapped_column(Text)
+    is_deleted: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    created_at: Mapped[datetime] = _created_at()
+    updated_at: Mapped[datetime] = _updated_at()
+
+    items: Mapped[list["OrderItem"]] = relationship(
+        back_populates="order", cascade="all, delete-orphan", lazy="selectin")
+    payments: Mapped[list["Payment"]] = relationship(
+        back_populates="order", lazy="selectin")
+
+
+class OrderItem(Base):
+    __tablename__ = "order_items"
+    id: Mapped[str] = _uuid_pk()
+    order_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("orders.id"))
+    product_id: Mapped[Optional[str]] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("products.id"), nullable=True)
+    name: Mapped[str] = mapped_column(Text)
+    metal: Mapped[str] = mapped_column(Text)
+    purity: Mapped[str] = mapped_column(Text)
+    weight_grams: Mapped[Decimal] = mapped_column(Numeric(12, 3))
+    weight_tola: Mapped[Decimal] = mapped_column(Numeric(12, 4))
+    rate_per_tola: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    purity_factor: Mapped[Decimal] = mapped_column(Numeric(6, 4))
+    metal_value: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    jarti_percent: Mapped[Decimal] = mapped_column(Numeric(6, 3))
+    jarti_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    jyala_type: Mapped[str] = mapped_column(Text)
+    jyala_input: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    jyala_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    stone_cost: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    polishing_cost: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    cutting_cost: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    worker_charge: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    other_cost: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    discount: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    total_price: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    created_at: Mapped[datetime] = _created_at()
+
+    order: Mapped["Order"] = relationship(back_populates="items")
+
+
+class Payment(Base):
+    __tablename__ = "payments"
+    id: Mapped[str] = _uuid_pk()
+    order_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("orders.id"))
+    customer_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("customers.id"))
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    method: Mapped[str] = mapped_column(Text)
+    payment_date_ad: Mapped[date] = mapped_column(Date)
+    payment_date_bs: Mapped[str] = mapped_column(Text)
+    payment_date_bs_np: Mapped[str] = mapped_column(Text)
+    note: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = _created_at()
+
+    order: Mapped["Order"] = relationship(back_populates="payments")
+
+
+class RepairJob(Base):
+    __tablename__ = "repair_jobs"
+    id: Mapped[str] = _uuid_pk()
+    repair_number: Mapped[str] = mapped_column(Text, unique=True)
+    customer_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("customers.id"))
+    customer_name: Mapped[str] = mapped_column(Text)
+    customer_phone: Mapped[str] = mapped_column(Text)
+    service_type: Mapped[str] = mapped_column(Text)
+    description: Mapped[str] = mapped_column(Text)
+    intake_photo_url: Mapped[str] = mapped_column(Text)
+    damage_photo_url: Mapped[str] = mapped_column(Text)
+    after_photo_url: Mapped[str] = mapped_column(Text)
+    promised_date_ad: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    promised_date_bs: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    promised_date_bs_np: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    charge: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    paid_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    status: Mapped[str] = mapped_column(Text)
+    is_deleted: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    created_at: Mapped[datetime] = _created_at()
+    updated_at: Mapped[datetime] = _updated_at()
+
+
+class Lead(Base):
+    __tablename__ = "leads"
+    id: Mapped[str] = _uuid_pk()
+    lead_type: Mapped[str] = mapped_column(Text)
+    name: Mapped[str] = mapped_column(Text)
+    phone: Mapped[str] = mapped_column(Text)
+    item_type: Mapped[str] = mapped_column(Text)
+    metal: Mapped[str] = mapped_column(Text)
+    service_type: Mapped[str] = mapped_column(Text)
+    approx_weight: Mapped[str] = mapped_column(Text)
+    budget: Mapped[str] = mapped_column(Text)
+    deadline: Mapped[str] = mapped_column(Text)
+    notes: Mapped[str] = mapped_column(Text)
+    photo_url: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = _created_at()
+    updated_at: Mapped[datetime] = _updated_at()
+
+
+class AdminTask(Base):
+    __tablename__ = "admin_tasks"
+    id: Mapped[str] = _uuid_pk()
+    title: Mapped[str] = mapped_column(Text)
+    description: Mapped[str] = mapped_column(Text)
+    related_order_id: Mapped[Optional[str]] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("orders.id"), nullable=True)
+    related_customer_id: Mapped[Optional[str]] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("customers.id"), nullable=True)
+    due_date_ad: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    assigned_to: Mapped[str] = mapped_column(Text)
+    priority: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = _created_at()
+    updated_at: Mapped[datetime] = _updated_at()
+
+
+class MaterialTask(Base):
+    __tablename__ = "material_tasks"
+    id: Mapped[str] = _uuid_pk()
+    order_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("orders.id"))
+    material_needed: Mapped[str] = mapped_column(Text)
+    material_status: Mapped[str] = mapped_column(Text)
+    assigned_to: Mapped[str] = mapped_column(Text)
+    quantity: Mapped[str] = mapped_column(Text)
+    notes: Mapped[str] = mapped_column(Text)
+    purchased_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = _created_at()
+    updated_at: Mapped[datetime] = _updated_at()
+
+
+class WhatsappTemplate(Base):
+    __tablename__ = "whatsapp_templates"
+    id: Mapped[str] = _uuid_pk()
+    slug: Mapped[str] = mapped_column(Text, unique=True)
+    name: Mapped[str] = mapped_column(Text)
+    body: Mapped[str] = mapped_column(Text)
+    is_active: Mapped[bool] = mapped_column(Boolean, server_default=text("true"))
+    sort_order: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    created_at: Mapped[datetime] = _created_at()
+    updated_at: Mapped[datetime] = _updated_at()
+
+
+__all__ = [
+    "Base", "ShopSettings", "Category", "Collection", "DailyRate", "Product",
+    "Customer", "Order", "OrderItem", "Payment", "RepairJob", "Lead",
+    "AdminTask", "MaterialTask", "WhatsappTemplate",
+]
