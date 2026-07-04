@@ -35,15 +35,18 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[!]` blocked/needs dec
 - [ ] Seed reference data: default categories, collections, singleton shop_settings row.
 - [ ] Verify schema applies cleanly; capture the generated types if using them.
 
-## Phase S2 — Backend data layer (FastAPI ↔ Postgres)
-- [ ] Add deps to `backend/requirements.txt`: `sqlalchemy[asyncio]`, `asyncpg`, `supabase` (or `httpx` for admin API), `pyjwt` (already present).
-- [ ] `backend/db.py`: async engine + session factory (asyncpg), from `SUPABASE_DB_URL`.
-- [ ] `backend/config.py`: extend with Supabase settings + reuse ENVIRONMENT/cookie/CORS helpers.
-- [ ] SQLAlchemy models mirroring the schema (or Core tables) per domain.
-- [ ] Repositories/services per domain, reusing `utils.py` (compute_price, tola/BS dates, mask_name, safe_regex-equivalent not needed — use parameterised queries).
-- [ ] Transactional balance update: writing a payment recomputes advance/remaining/payment_status atomically.
-- [ ] Sequence-based code generation (product/order/repair) via Postgres sequences.
-- [ ] Health check endpoint hitting the DB.
+## Phase S2 — Backend data layer (FastAPI ↔ Postgres)  ✅ COMPLETE (2026-07-04)
+- [x] Add deps to `backend/requirements.txt`: `SQLAlchemy==2.0.36`, `asyncpg==0.30.0`, `greenlet==3.1.1`. (`PyJWT` already present for S3 JWT verify; no `supabase` client needed — FastAPI talks to Postgres directly.)
+- [x] `backend/db.py`: lazy async engine + session factory + `session_scope`/`get_session` + `check_connection()` + `dispose_engine()`. Import-safe without env.
+- [x] `backend/config.py`: Supabase settings (URL/service-role/DB URL/JWT secret) + `ENVIRONMENT`, `ADMIN_EMAIL`, `get_allowed_origins()`, `async_database_url()` (asyncpg URL normaliser), `missing_backend_settings()`.
+- [x] SQLAlchemy 2.0 models for all 14 tables (`backend/models.py`).
+- [x] Async repositories per domain (`backend/repositories/`): settings, reference (categories/collections), rates, products, customers, orders, payments, repairs, leads, tasks (admin+material), templates — reusing `utils.compute_price` / `ad_to_bs` / tola helpers (no duplication).
+- [x] Transactional balance update: `PaymentsRepository.add_payment` + `recompute_balances` update advance/remaining/`payment_status` in the caller's session.
+- [x] Sequence-based codes (product/order/repair) — via Postgres sequence defaults from migration 0001; models rely on DB defaults.
+- [~] Health-check **helper** done (`db.check_connection()`); a health-check **route** is deferred to S3+ (no routes wired in S2 by design).
+- [x] Tests: `backend/tests/test_data_layer.py` — config loads safely, no backend secrets in frontend, DB helper importable (no engine created), repositories importable, payment-status derivation, existing Mongo backend still compiles. **10 passed.**
+
+> Pending for S3: real secrets in `backend/.env` (service-role key, DB URL, JWT secret) to exercise `check_connection()` against the live DB; Supabase Auth JWT verification; wiring routes.
 
 ## Phase S3 — Auth (Supabase Auth)
 - [ ] Frontend: add `@supabase/supabase-js`; `lib/supabase.js` client from `REACT_APP_SUPABASE_URL` + anon key.
