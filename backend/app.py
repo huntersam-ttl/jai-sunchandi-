@@ -6,11 +6,17 @@ business routes are migrated in later phases. The legacy Mongo app (server.py)
 is untouched and separate.
 """
 import logging
+from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException
-from starlette.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
 
-import config
+# Load backend/.env before importing config (config reads os.environ at import).
+load_dotenv(Path(__file__).parent / ".env")
+
+from fastapi import Depends, FastAPI, HTTPException  # noqa: E402
+from starlette.middleware.cors import CORSMiddleware  # noqa: E402
+
+import config  # noqa: E402
 import db
 from supabase_auth import get_current_admin
 
