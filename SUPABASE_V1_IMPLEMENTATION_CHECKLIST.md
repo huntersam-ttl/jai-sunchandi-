@@ -60,10 +60,11 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[!]` blocked/needs dec
 > S3 verification: py_compile + 12 backend tests pass; frontend `yarn build` "Compiled successfully"; no service-role/DB-URL refs in frontend. **Live DB connection via `/api/health/supabase` NOT yet exercised** — needs real `SUPABASE_DB_URL` + service-role key in `backend/.env` (not available locally; no secrets committed).
 
 ## Phase S4 — Storage
-- [ ] Frontend upload helper: compress → upload to the right bucket → return URL/path.
-- [ ] Wire product photos, repair photos, lead photos, shop logo to Storage (store URLs).
-- [ ] Backend validates/records URLs; no base64 persisted.
-- [ ] Signed URLs for private buckets (repairs/leads) where needed.
+- [x] Frontend upload helper (`frontend/src/lib/storage.js`): compress (reuses `compressImage`) → upload via supabase-js (anon key) → return public URL (public buckets) or stored path (private buckets). Helpers: `uploadImage`, `getPublicUrl`, `getSignedUrl`, `removeImage`; `STORAGE_BUCKETS` map (product/shop public, repair/lead private).
+- [ ] Wire product photos, repair photos, lead photos, shop logo to Storage in the forms (deferred to S5 — no route/form wiring in S4).
+- [ ] Backend validates/records URLs; no base64 persisted (S5).
+- [x] Signed URLs for private buckets available via `getSignedUrl` (used from admin at display time).
+- [ ] **Policy needed (S5):** add anon INSERT policy on `repair-photos`/`lead-photos` so the public repair/enquiry forms can upload (write-only; no anon read) — OR route those uploads through the backend (service role). Migration 0001 currently allows only `authenticated` to write to buckets.
 
 ## Phase S5 — Feature parity (V1 scope)
 Admin:
