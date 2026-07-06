@@ -17,7 +17,7 @@ import db
 from models import Product
 from repositories import (
     CategoriesRepository, CollectionsRepository, CustomersRepository, ProductsRepository,
-    OrdersRepository, RatesRepository,
+    OrdersRepository, PaymentsRepository, RatesRepository,
 )
 from supabase_auth import get_current_admin
 from utils import grams_to_tola, tola_lal_aana_to_grams
@@ -433,6 +433,13 @@ class StatusBody(BaseModel):
     status: str
 
 
+class PaymentBody(BaseModel):
+    amount: float
+    method: str = "cash"
+    payment_date_ad: Optional[str] = None
+    note: str = ""
+
+
 def _payment(p) -> dict:
     return {
         "id": str(p.id), "payment_date_ad": _iso(p.payment_date_ad),
@@ -600,3 +607,40 @@ async def update_order_status(oid: str, body: StatusBody, session: AsyncSession 
     await session.commit()
     await session.refresh(order)
     return _order(order)
+
+
+@router.get("/orders/{oid}/payments")
+async def list_order_payments(oid: str, session: AsyncSession = Depends(db.get_session)):
+    order = await OrdersRepository(session).get(oid)
+    if not order or order.is_deleted:
+        raise HTTPException(status_code=404, detail="Order not found")
+    return [_payment(p) for p in order.payments]
+
+
+@router.post("/orders/{oid}/payments")
+async def add_order_payment(oid: str, body: PaymentBody, session: AsyncSession = Depends(db.get_session)):
+    if body.amount <= 0:
+        raise HTTPException(status_code=400, detail="Payment amount must be greater than 0")
+    order = await OrdersRepository(session).get(oid)
+    if not order or order.is_deleted:
+        raise HTTPException(status_code=404, detail="Order not found")
+    try:
+        payment = await PaymentsRepository(session).add_payment(
+            order=order,
+            amount=body.amount,
+            method=body.method,
+            payment_date_ad=body.payment_date_ad,
+            note=body.note,
+        )
+        await session.commit()
+        await session.refresh(order)
+        await session.refresh(payment)
+    except ValueError as exc:
+        await session.rollback()
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {
+        "payment": _payment(payment),
+        "advance_total": float(order.advance_total),
+        "remaining_balance": float(order.remaining_balance),
+        "payment_status": order.payment_status,
+    }

@@ -156,6 +156,14 @@ class TestSupabaseAppAndAuth:
     def test_order_number_uses_server_default(self):
         assert models.Order.__table__.c.order_number.server_default is not None
 
+    def test_admin_payment_routes_registered(self):
+        import app
+        routes = [(r.path, tuple(sorted(getattr(r, "methods", []) or [])))
+                  for r in app.app.routes]
+        for method, path in (("GET", "/api/admin/orders/{oid}/payments"),
+                             ("POST", "/api/admin/orders/{oid}/payments")):
+            assert any(p == path and method in m for p, m in routes), f"{method} {path}"
+
 
 class TestExistingMongoBackendStillCompiles:
     def test_mongo_modules_parse(self):

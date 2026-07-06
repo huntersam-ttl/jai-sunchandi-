@@ -4,7 +4,7 @@ Adding a payment and recomputing the parent order's advance/remaining/
 payment_status happen in the same session (the caller's transaction), giving
 atomic ledger updates — the integrity the Mongo version could not guarantee.
 """
-from datetime import date
+from datetime import date, datetime
 
 from sqlalchemy import func, select
 
@@ -16,9 +16,21 @@ from .base import BaseRepository, derive_payment_status
 class PaymentsRepository(BaseRepository):
     model = Payment
 
+    @staticmethod
+    def _date_or_today(value) -> date:
+        if value in (None, ""):
+            return date.today()
+        if isinstance(value, datetime):
+            return value.date()
+        if isinstance(value, date):
+            return value
+        if isinstance(value, str):
+            return datetime.fromisoformat(value.replace("Z", "+00:00")).date() if "T" in value else date.fromisoformat(value)
+        raise ValueError("Invalid payment date")
+
     async def add_payment(self, *, order: Order, amount, method="cash",
                           payment_date_ad=None, note="") -> Payment:
-        payment_date_ad = payment_date_ad or date.today().isoformat()
+        payment_date_ad = self._date_or_today(payment_date_ad)
         bs = ad_to_bs(payment_date_ad)
         payment = Payment(
             order_id=order.id, customer_id=order.customer_id, amount=amount, method=method,
