@@ -14,8 +14,12 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import db
-from repositories import CategoriesRepository, CollectionsRepository, RatesRepository
+from models import Product
+from repositories import (
+    CategoriesRepository, CollectionsRepository, ProductsRepository, RatesRepository,
+)
 from supabase_auth import get_current_admin
+from utils import grams_to_tola, tola_lal_aana_to_grams
 
 router = APIRouter(prefix="/api/admin", dependencies=[Depends(get_current_admin)])
 
@@ -151,3 +155,143 @@ async def update_collection(cid: str, body: ReferenceUpdate, session: AsyncSessi
 @router.delete("/collections/{cid}")
 async def delete_collection(cid: str, session: AsyncSession = Depends(db.get_session)):
     return await _ref_delete(CollectionsRepository, cid, session)
+
+
+# ---------- Products ----------
+class WeightInput(BaseModel):
+    grams: Optional[float] = None
+    tola: Optional[float] = None
+    lal: Optional[float] = None
+    aana: Optional[float] = None
+
+
+class ProductBody(BaseModel):
+    name: str
+    name_np: str = ""
+    description: str = ""
+    category: str = ""
+    collection: str = ""
+    metal: str = "gold"
+    purity: str = "24K"
+    weight: WeightInput
+    jarti_percent: float = 0
+    jyala_amount: float = 0
+    jyala_type: str = "flat"
+    stone_cost: float = 0
+    polishing_cost: float = 0
+    cutting_cost: float = 0
+    worker_charge: float = 0
+    other_cost: float = 0
+    status: str = "available"
+    show_on_website: bool = True
+    show_price_on_website: bool = True
+    photos: list = []   # public product-photos URLs (never base64)
+
+
+def _rate_dict(rate):
+    return {"gold_24k": float(rate.gold_24k), "silver": float(rate.silver)} if rate else None
+
+
+def _product(p, rate) -> dict:
+    return {
+        "id": str(p.id), "product_code": p.product_code, "name": p.name, "name_np": p.name_np,
+        "description": p.description, "category": p.category, "collection": p.collection,
+        "metal": p.metal, "purity": p.purity,
+        "weight_grams": float(p.weight_grams), "weight_tola": grams_to_tola(float(p.weight_grams)),
+        "jarti_percent": float(p.jarti_percent), "jyala_amount": float(p.jyala_amount),
+        "jyala_type": p.jyala_type, "stone_cost": float(p.stone_cost),
+        "polishing_cost": float(p.polishing_cost), "cutting_cost": float(p.cutting_cost),
+        "worker_charge": float(p.worker_charge), "other_cost": float(p.other_cost),
+        "status": p.status, "show_on_website": p.show_on_website,
+        "show_price_on_website": p.show_price_on_website, "photos": p.photos or [],
+        "is_deleted": p.is_deleted,
+        "live_price": ProductsRepository.live_price(p, _rate_dict(rate)),
+    }
+
+
+def _grams(w: WeightInput) -> float:
+    return w.grams if w.grams else tola_lal_aana_to_grams(w.tola or 0, w.lal or 0, w.aana or 0)
+
+
+def _apply_product_fields(p, body: ProductBody, grams: float):
+    p.name = body.name
+    p.name_np = body.name_np
+    p.description = body.description
+    p.category = body.category
+    p.collection = body.collection
+    p.metal = body.metal
+    p.purity = body.purity
+    p.weight_grams = grams
+    p.jarti_percent = body.jarti_percent
+    p.jyala_amount = body.jyala_amount
+    p.jyala_type = body.jyala_type
+    p.stone_cost = body.stone_cost
+    p.polishing_cost = body.polishing_cost
+    p.cutting_cost = body.cutting_cost
+    p.worker_charge = body.worker_charge
+    p.other_cost = body.other_cost
+    p.status = body.status
+    p.show_on_website = body.show_on_website
+    p.show_price_on_website = body.show_price_on_website
+    p.photos = body.photos
+
+
+@router.get("/products")
+async def list_products(status: Optional[str] = None, metal: Optional[str] = None,
+                        q: Optional[str] = None, session: AsyncSession = Depends(db.get_session)):
+    rows = await ProductsRepository(session).list(status=status, metal=metal)
+    if q:
+        ql = q.lower()
+        rows = [r for r in rows if ql in r.name.lower() or ql in (r.product_code or "").lower()]
+    rate = await RatesRepository(session).latest()
+    return [_product(p, rate) for p in rows]
+
+
+@router.post("/products")
+async def create_product(body: ProductBody, session: AsyncSession = Depends(db.get_session)):
+    grams = _grams(body.weight)
+    if grams <= 0:
+        raise HTTPException(status_code=400, detail="Weight must be greater than 0")
+    p = Product()
+    _apply_product_fields(p, body, grams)
+    session.add(p)
+    await session.commit()
+    await session.refresh(p)   # load DB-generated product_code + timestamps
+    rate = await RatesRepository(session).latest()
+    return _product(p, rate)
+
+
+@router.get("/products/{pid}")
+async def get_product(pid: str, session: AsyncSession = Depends(db.get_session)):
+    p = await ProductsRepository(session).get(pid)
+    if not p or p.is_deleted:
+        raise HTTPException(status_code=404, detail="Product not found")
+    rate = await RatesRepository(session).latest()
+    return _product(p, rate)
+
+
+@router.put("/products/{pid}")
+async def update_product(pid: str, body: ProductBody, session: AsyncSession = Depends(db.get_session)):
+    repo = ProductsRepository(session)
+    p = await repo.get(pid)
+    if not p:
+        raise HTTPException(status_code=404, detail="Product not found")
+    grams = _grams(body.weight)
+    if grams <= 0:
+        raise HTTPException(status_code=400, detail="Weight must be greater than 0")
+    _apply_product_fields(p, body, grams)
+    await session.commit()
+    await session.refresh(p)
+    rate = await RatesRepository(session).latest()
+    return _product(p, rate)
+
+
+@router.delete("/products/{pid}")
+async def delete_product(pid: str, session: AsyncSession = Depends(db.get_session)):
+    repo = ProductsRepository(session)
+    p = await repo.get(pid)
+    if not p:
+        raise HTTPException(status_code=404, detail="Product not found")
+    await repo.soft_delete(pid)
+    await session.commit()
+    return {"ok": True}

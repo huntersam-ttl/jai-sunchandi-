@@ -68,7 +68,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[!]` blocked/needs dec
 
 ## Phase S5 — Feature parity (V1 scope)
 Admin:  (S5C — authenticated routes via get_current_admin; `backend/admin_routes.py`)
-- [ ] Products CRUD + live price + website toggles + photos + soft delete.
+- [x] **S5C2** Products CRUD (`GET/POST /api/admin/products`, `GET/PUT/DELETE /api/admin/products/{id}`): weight tola↔grams, live-price enrichment (compute_price + today's rate), website/price toggles, soft delete; product_code via DB sequence. Admin Products page wired: photos upload to the public `product-photos` bucket via the S4 storage helper (public URLs stored, no base64); form contract otherwise unchanged.
 - [x] **S5C1** Daily rates entry (`POST /api/admin/rates`, upsert + BS date) — admin Rates page + Dashboard rate form use it unchanged (contract match); history via public `/api/rates/history`.
 - [x] **S5C1** Categories/collections admin CRUD (`GET/POST /api/admin/categories`, `PUT/DELETE /api/admin/categories/{id}`; same for collections). No admin management UI exists yet — backend routes only.
 - [ ] Customers CRUD + search.

@@ -123,6 +123,18 @@ class TestSupabaseAppAndAuth:
         assert any(p == "/api/admin/rates" and "POST" in m for p, m in routes)
         assert any(p == "/api/admin/categories/{cid}" and "DELETE" in m for p, m in routes)
 
+    def test_admin_product_routes_registered(self):
+        import app
+        routes = [(r.path, tuple(sorted(getattr(r, "methods", []) or [])))
+                  for r in app.app.routes]
+        paths = {p for p, _ in routes}
+        assert "/api/admin/products" in paths
+        assert "/api/admin/products/{pid}" in paths
+        for method, path in (("GET", "/api/admin/products"), ("POST", "/api/admin/products"),
+                             ("GET", "/api/admin/products/{pid}"), ("PUT", "/api/admin/products/{pid}"),
+                             ("DELETE", "/api/admin/products/{pid}")):
+            assert any(p == path and method in m for p, m in routes), f"{method} {path}"
+
 
 class TestExistingMongoBackendStillCompiles:
     def test_mongo_modules_parse(self):

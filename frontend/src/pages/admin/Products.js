@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
 import { api, apiError } from "@/lib/api";
-import { rs, compressImage, STATUS_COLORS, gramsToTola, tolaToGrams, PURITY_FACTORS, GRAMS_PER_TOLA } from "@/lib/format";
+import { rs, STATUS_COLORS, gramsToTola, tolaToGrams, PURITY_FACTORS, GRAMS_PER_TOLA } from "@/lib/format";
+import { uploadImage } from "@/lib/storage";
 import { inp, btnGold, btnGhost, Badge, F } from "@/components/admin/ui";
 import { Plus, Pencil, Trash2, QrCode, X, Printer } from "lucide-react";
 
@@ -111,8 +112,15 @@ function ProductForm({ form, setForm, cats, cols, rate, onSaved }) {
 
   const onPhotos = async (e) => {
     const files = Array.from(e.target.files || []);
-    const compressed = await Promise.all(files.map((f) => compressImage(f)));
-    setForm({ ...form, photos: [...(form.photos || []), ...compressed] });
+    if (!files.length) return;
+    try {
+      // Upload to the public product-photos bucket; store the public URLs
+      // (compression happens inside uploadImage — no base64 persisted).
+      const urls = await Promise.all(files.map(async (f) => (await uploadImage(f, "product")).publicUrl));
+      setForm({ ...form, photos: [...(form.photos || []), ...urls] });
+    } catch (err) {
+      toast.error(apiError(err));
+    }
   };
 
   const save = async () => {
