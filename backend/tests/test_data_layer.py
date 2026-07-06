@@ -93,6 +93,14 @@ class TestSupabaseAppAndAuth:
         assert "/api/health/supabase" in paths
         assert "/api/admin/whoami" in paths
 
+    def test_public_read_routes_registered(self):
+        import app
+        paths = {r.path for r in app.app.routes}
+        for p in ("/api/rates/today", "/api/rates/history", "/api/categories",
+                  "/api/collections", "/api/products", "/api/products/{id_or_code}",
+                  "/api/settings"):
+            assert p in paths, p
+
 
 class TestExistingMongoBackendStillCompiles:
     def test_mongo_modules_parse(self):

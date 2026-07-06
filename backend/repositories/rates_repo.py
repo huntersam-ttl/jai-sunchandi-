@@ -37,7 +37,7 @@ class RatesRepository(BaseRepository):
         return result.scalar_one_or_none()
 
     async def history(self, days: int = 30):
-        cutoff = (date.today() - timedelta(days=days)).isoformat()
+        cutoff = date.today() - timedelta(days=days)  # a date, not a string (date_ad is DATE)
         stmt = (select(DailyRate)
                 .where(DailyRate.date_ad >= cutoff)
                 .order_by(DailyRate.date_ad.asc()))

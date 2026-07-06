@@ -19,6 +19,7 @@ from starlette.middleware.cors import CORSMiddleware  # noqa: E402
 import config  # noqa: E402
 import db
 from supabase_auth import get_current_admin
+from public_routes import router as public_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -51,6 +52,10 @@ async def health_supabase():
 async def whoami(admin=Depends(get_current_admin)):
     """Protected: proves Supabase JWT verification + admin allowlist work."""
     return admin
+
+
+# Public (unauthenticated) read routes for the website.
+app.include_router(public_router)
 
 
 app.add_middleware(

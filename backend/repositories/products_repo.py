@@ -1,7 +1,7 @@
 """Products repository. Reuses compute_price/tola helpers from utils (no dup)."""
 from __future__ import annotations
 
-from sqlalchemy import select
+from sqlalchemy import String, cast, or_, select
 
 from models import Product
 from utils import compute_price, grams_to_tola
@@ -38,6 +38,16 @@ class ProductsRepository(BaseRepository):
         stmt = stmt.order_by(Product.created_at.desc())
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
+
+    async def get_public_detail(self, id_or_code):
+        """Public product by UUID id or product_code; website-visible only."""
+        stmt = select(Product).where(
+            Product.is_deleted.is_(False),
+            Product.show_on_website.is_(True),
+            or_(cast(Product.id, String) == id_or_code, Product.product_code == id_or_code),
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
 
     async def soft_delete(self, product_id) -> None:
         product = await self.get(product_id)
