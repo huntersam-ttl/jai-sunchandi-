@@ -135,6 +135,14 @@ class TestSupabaseAppAndAuth:
                              ("DELETE", "/api/admin/products/{pid}")):
             assert any(p == path and method in m for p, m in routes), f"{method} {path}"
 
+    def test_admin_customer_routes_registered(self):
+        import app
+        routes = [(r.path, tuple(sorted(getattr(r, "methods", []) or [])))
+                  for r in app.app.routes]
+        for method, path in (("GET", "/api/admin/customers"), ("POST", "/api/admin/customers"),
+                             ("GET", "/api/admin/customers/{cid}"), ("PUT", "/api/admin/customers/{cid}")):
+            assert any(p == path and method in m for p, m in routes), f"{method} {path}"
+
 
 class TestExistingMongoBackendStillCompiles:
     def test_mongo_modules_parse(self):

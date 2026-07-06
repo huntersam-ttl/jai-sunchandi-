@@ -71,8 +71,8 @@ Admin:  (S5C — authenticated routes via get_current_admin; `backend/admin_rout
 - [x] **S5C2** Products CRUD (`GET/POST /api/admin/products`, `GET/PUT/DELETE /api/admin/products/{id}`): weight tola↔grams, live-price enrichment (compute_price + today's rate), website/price toggles, soft delete; product_code via DB sequence. Admin Products page wired: photos upload to the public `product-photos` bucket via the S4 storage helper (public URLs stored, no base64); form contract otherwise unchanged.
 - [x] **S5C1** Daily rates entry (`POST /api/admin/rates`, upsert + BS date) — admin Rates page + Dashboard rate form use it unchanged (contract match); history via public `/api/rates/history`.
 - [x] **S5C1** Categories/collections admin CRUD (`GET/POST /api/admin/categories`, `PUT/DELETE /api/admin/categories/{id}`; same for collections). No admin management UI exists yet — backend routes only.
-- [ ] Customers CRUD + search.
-- [ ] Customer khata: orders, payments, repairs, total outstanding.
+- [x] **S5C3** Customers CRUD + search (`GET/POST /api/admin/customers`, `GET/PUT /api/admin/customers/{id}`; search by name/phone).
+- [x] **S5C3** Customer khata profile (read-only): `GET /api/admin/customers/{id}` returns customer + orders + payments + repairs + total_outstanding (via `CustomersRepository.profile`). Admin Customers + CustomerDetail pages use these unchanged (contract match). No order/payment writes in this slice.
 - [ ] Orders: create (stock/custom), order_items snapshot, old-gold, status workflow, delivery dates.
 - [ ] Payments: multiple per order; advance/remaining/payment_status maintained transactionally.
 - [ ] Material/task tracking on orders (fields + UI card).

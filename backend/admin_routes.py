@@ -16,7 +16,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import db
 from models import Product
 from repositories import (
-    CategoriesRepository, CollectionsRepository, ProductsRepository, RatesRepository,
+    CategoriesRepository, CollectionsRepository, CustomersRepository, ProductsRepository,
+    RatesRepository,
 )
 from supabase_auth import get_current_admin
 from utils import grams_to_tola, tola_lal_aana_to_grams
@@ -295,3 +296,81 @@ async def delete_product(pid: str, session: AsyncSession = Depends(db.get_sessio
     await repo.soft_delete(pid)
     await session.commit()
     return {"ok": True}
+
+
+# ---------- Customers ----------
+class CustomerBody(BaseModel):
+    name: str
+    phone: str
+    address: str = ""
+    notes: str = ""
+
+
+def _customer(c) -> dict:
+    return {
+        "id": str(c.id), "name": c.name, "phone": c.phone, "address": c.address,
+        "notes": c.notes, "is_deleted": c.is_deleted,
+        "created_at": c.created_at.isoformat() if c.created_at else None,
+    }
+
+
+def _profile(p: dict) -> dict:
+    """Customer khata profile — read-only summary of related records."""
+    return {
+        **_customer(p["customer"]),
+        "orders": [
+            {"id": str(o.id), "order_number": o.order_number, "order_type": o.order_type,
+             "order_date_ad": _iso(o.order_date_ad), "net_payable": float(o.net_payable),
+             "remaining_balance": float(o.remaining_balance), "status": o.status}
+            for o in p["orders"]
+        ],
+        "payments": [
+            {"id": str(pm.id), "payment_date_ad": _iso(pm.payment_date_ad), "method": pm.method,
+             "note": pm.note, "amount": float(pm.amount)}
+            for pm in p["payments"]
+        ],
+        "repairs": [
+            {"id": str(r.id), "repair_number": r.repair_number, "service_type": r.service_type,
+             "charge": float(r.charge), "status": r.status}
+            for r in p["repairs"]
+        ],
+        "total_outstanding": p["total_outstanding"],
+    }
+
+
+@router.get("/customers")
+async def list_customers(q: Optional[str] = None, session: AsyncSession = Depends(db.get_session)):
+    rows = await CustomersRepository(session).search(q)
+    return [_customer(c) for c in rows]
+
+
+@router.post("/customers")
+async def create_customer(body: CustomerBody, session: AsyncSession = Depends(db.get_session)):
+    repo = CustomersRepository(session)
+    c = repo.create(name=body.name, phone=body.phone, address=body.address, notes=body.notes)
+    await session.commit()
+    await session.refresh(c)
+    return _customer(c)
+
+
+@router.get("/customers/{cid}")
+async def customer_profile(cid: str, session: AsyncSession = Depends(db.get_session)):
+    profile = await CustomersRepository(session).profile(cid)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Customer not found")
+    return _profile(profile)
+
+
+@router.put("/customers/{cid}")
+async def update_customer(cid: str, body: CustomerBody, session: AsyncSession = Depends(db.get_session)):
+    repo = CustomersRepository(session)
+    c = await repo.get(cid)
+    if not c:
+        raise HTTPException(status_code=404, detail="Customer not found")
+    c.name = body.name
+    c.phone = body.phone
+    c.address = body.address
+    c.notes = body.notes
+    await session.commit()
+    await session.refresh(c)
+    return _customer(c)
