@@ -85,6 +85,17 @@ class OrdersRepository(BaseRepository):
         await self.session.flush()
         return order
 
+    async def public_status(self, order_number: str, phone: str) -> Order | None:
+        """Active (non-delivered/cancelled) order matching order_number + phone."""
+        stmt = select(Order).where(
+            Order.order_number == order_number,
+            Order.customer_phone == phone,
+            Order.is_deleted.is_(False),
+            Order.status.notin_(["delivered", "cancelled"]),
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
     async def update_status(self, order_id, status: str) -> Order | None:
         order = await self.get(order_id)
         if order is not None:

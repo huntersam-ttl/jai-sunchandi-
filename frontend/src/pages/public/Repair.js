@@ -1,26 +1,42 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { api, apiError } from "@/lib/api";
-import { compressImage } from "@/lib/format";
+import { uploadImage } from "@/lib/storage";
 import { Field, inputCls } from "./CustomOrder";
 
 export default function Repair() {
-  const [form, setForm] = useState({ name: "", phone: "", service_type: "repair", notes: "", photo: "" });
+  const [form, setForm] = useState({ name: "", phone: "", service_type: "repair", notes: "" });
+  const [photoFile, setPhotoFile] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState("");
   const [sent, setSent] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
-  const onPhoto = async (e) => {
-    const f = e.target.files?.[0];
-    if (f) setForm({ ...form, photo: await compressImage(f) });
+  const onPhoto = (e) => {
+    const f = e.target.files?.[0] || null;
+    setPhotoFile(f);
+    setPhotoPreview(f ? URL.createObjectURL(f) : "");
   };
 
   const submit = async (e) => {
     e.preventDefault();
     if (!form.name || !form.phone) return toast.error("Name and phone are required");
+    setSubmitting(true);
     try {
-      await api.post("/leads", { lead_type: "repair", ...form });
+      let photo_url = "";
+      if (photoFile) {
+        // Uploads to the private repair-photos bucket (anon write-only); we store
+        // only the path — the admin views it later via a signed URL.
+        const { path } = await uploadImage(photoFile, "repair");
+        photo_url = path;
+      }
+      await api.post("/leads", { lead_type: "repair", ...form, photo_url });
       setSent(true);
-    } catch (err) { toast.error(apiError(err)); }
+    } catch (err) {
+      toast.error(apiError(err));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (sent) return (
@@ -47,11 +63,11 @@ export default function Repair() {
         <Field label="Notes (what needs fixing?)"><textarea rows={3} className={inputCls} value={form.notes} onChange={set("notes")} data-testid="rp-notes" /></Field>
         <Field label="Photo (optional)">
           <input type="file" accept="image/*" onChange={onPhoto} className="text-sm" data-testid="rp-photo" />
-          {form.photo && <img src={form.photo} alt="upload" className="mt-2 h-24 rounded border" />}
+          {photoPreview && <img src={photoPreview} alt="upload preview" className="mt-2 h-24 rounded border" />}
         </Field>
-        <button type="submit" data-testid="rp-submit"
-          className="w-full bg-[#0F172A] text-white py-4 rounded-md min-h-[52px] text-base font-semibold hover:bg-slate-800 transition-colors duration-300">
-          Send Request
+        <button type="submit" disabled={submitting} data-testid="rp-submit"
+          className="w-full bg-[#0F172A] text-white py-4 rounded-md min-h-[52px] text-base font-semibold hover:bg-slate-800 transition-colors duration-300 disabled:opacity-60">
+          {submitting ? "Sending…" : "Send Request"}
         </button>
       </form>
     </div>

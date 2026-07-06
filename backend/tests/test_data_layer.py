@@ -101,6 +101,16 @@ class TestSupabaseAppAndAuth:
                   "/api/settings"):
             assert p in paths, p
 
+    def test_public_write_routes_registered(self):
+        import app
+        routes = [(r.path, tuple(sorted(getattr(r, "methods", []) or [])))
+                  for r in app.app.routes]
+        paths = {p for p, _ in routes}
+        assert "/api/leads" in paths
+        assert "/api/public/order-status" in paths
+        # /api/leads must accept POST
+        assert any(p == "/api/leads" and "POST" in m for p, m in routes)
+
 
 class TestExistingMongoBackendStillCompiles:
     def test_mongo_modules_parse(self):

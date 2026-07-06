@@ -85,7 +85,13 @@ Admin:
 ### S5A — Public read routes  ✅ (2026-07-05)
 - [x] Backend public read routes on the Supabase app (`backend/public_routes.py`, included in `app.py`): `/api/rates/today`, `/api/rates/history`, `/api/categories`, `/api/collections`, `/api/products`, `/api/products/{id_or_code}`, `/api/settings`. Use the SQLAlchemy repos; return public-safe fields matching the legacy Mongo contracts (estimated price via `compute_price`; `logo_url`→`logo`). Fixed a repo bug (rates history compared DATE column to a string).
 - [x] Public pages read these routes unchanged (contract match — no frontend edits needed): Home, Rates + history chart, Catalogue (filters), Product detail, Contact/About (settings).
-- [ ] Custom-order form, Repair form (writes → S5B), Order status (order# + phone → S5B, orders).
+
+### S5B — Public writes + order status  ✅ (2026-07-05)
+- [x] `POST /api/leads` (custom-order + repair enquiries; legacy contract) and `GET /api/public/order-status` (order# + phone required; minimal fields, no balance) in `public_routes.py`.
+- [x] `OrdersRepository.public_status(order_number, phone)`.
+- [x] Storage for public photos = **anon INSERT-only** policy on `lead-photos`/`repair-photos` (migration `0004`; write-only, no anon read; 5MB + image-MIME limits). Repair form uploads via the S4 helper and stores the private **path** (admin views via signed URL).
+- [x] Frontend: `Repair.js` (photo → Storage path, no base64), `OrderStatus.js` (order# + phone). `CustomOrder.js` unchanged (contract match).
+- [ ] Rate limiting on public writes (`/leads`, `/public/order-status`, login) — deferred to S6 hardening.
 - [ ] Error boundary re-added (deferred).
 - [ ] No cart / checkout / payment. No invoices/certificates/verify pages in V1.
 

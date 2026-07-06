@@ -8,12 +8,13 @@ public-safe fields (no cost/profit columns, no private data).
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import db
 from repositories import (
-    CategoriesRepository, CollectionsRepository, ProductsRepository,
-    RatesRepository, SettingsRepository,
+    CategoriesRepository, CollectionsRepository, LeadsRepository, OrdersRepository,
+    ProductsRepository, RatesRepository, SettingsRepository,
 )
 from utils import compute_price, grams_to_tola, to_nepali_digits
 
@@ -118,3 +119,47 @@ async def public_settings(session: AsyncSession = Depends(db.get_session)):
     if "logo_url" in data:
         data["logo"] = data.pop("logo_url")
     return data
+
+
+# ---------- Public writes ----------
+class LeadCreate(BaseModel):
+    lead_type: str = "custom_order"
+    name: str
+    phone: str
+    item_type: str = ""
+    metal: str = ""
+    service_type: str = ""
+    approx_weight: str = ""
+    budget: str = ""
+    deadline: str = ""
+    notes: str = ""
+    photo_url: str = ""   # stored Storage path (private) — never base64
+
+
+@router.post("/leads")
+async def create_lead(body: LeadCreate, session: AsyncSession = Depends(db.get_session)):
+    """Public custom-order / repair enquiry (matches the legacy /leads contract)."""
+    if body.lead_type not in ("custom_order", "repair"):
+        raise HTTPException(status_code=422, detail="Invalid lead_type")
+    if not body.name.strip() or not body.phone.strip():
+        raise HTTPException(status_code=422, detail="Name and phone are required")
+    lead = await LeadsRepository(session).create_lead(**body.model_dump())
+    await session.commit()
+    return {"ok": True, "id": str(lead.id)}
+
+
+@router.get("/public/order-status")
+async def public_order_status(order_number: str, phone: str,
+                              session: AsyncSession = Depends(db.get_session)):
+    """Order status by order number + phone (both required). Minimal fields only —
+    no balance/payment/customer data."""
+    order = await OrdersRepository(session).public_status(order_number.strip(), phone.strip())
+    if not order:
+        raise HTTPException(status_code=404, detail="No active order found for that order number and phone")
+    return {
+        "order_number": order.order_number,
+        "order_type": order.order_type,
+        "status": order.status,
+        "delivery_date_ad": _iso(order.delivery_date_ad) if order.delivery_date_ad else None,
+        "delivery_date_bs_np": order.delivery_date_bs_np,
+    }
