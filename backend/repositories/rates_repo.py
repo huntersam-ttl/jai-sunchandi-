@@ -17,8 +17,10 @@ class RatesRepository(BaseRepository):
     async def upsert(self, date_ad: str, gold_24k, gold_22k, silver) -> DailyRate:
         """Insert or update a day's rate; BS dates are derived (utils.ad_to_bs)."""
         bs = ad_to_bs(date_ad)
+        # date_ad is a DATE column — pass a date object, not a string (asyncpg).
+        d = date.fromisoformat(date_ad) if isinstance(date_ad, str) else date_ad
         values = dict(
-            date_ad=date_ad, gold_24k=gold_24k, gold_22k=gold_22k, silver=silver,
+            date_ad=d, gold_24k=gold_24k, gold_22k=gold_22k, silver=silver,
             bs_date=bs["bs_date"], bs_date_np=bs["bs_date_np"],
             bs_date_long_np=bs["bs_date_long_np"],
         )

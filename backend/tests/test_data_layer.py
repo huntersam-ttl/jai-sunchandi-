@@ -111,6 +111,18 @@ class TestSupabaseAppAndAuth:
         # /api/leads must accept POST
         assert any(p == "/api/leads" and "POST" in m for p, m in routes)
 
+    def test_admin_reference_routes_registered(self):
+        import app
+        routes = [(r.path, tuple(sorted(getattr(r, "methods", []) or [])))
+                  for r in app.app.routes]
+        paths = {p for p, _ in routes}
+        for p in ("/api/admin/rates", "/api/admin/categories",
+                  "/api/admin/categories/{cid}", "/api/admin/collections",
+                  "/api/admin/collections/{cid}"):
+            assert p in paths, p
+        assert any(p == "/api/admin/rates" and "POST" in m for p, m in routes)
+        assert any(p == "/api/admin/categories/{cid}" and "DELETE" in m for p, m in routes)
+
 
 class TestExistingMongoBackendStillCompiles:
     def test_mongo_modules_parse(self):

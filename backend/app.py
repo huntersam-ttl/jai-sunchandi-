@@ -20,6 +20,7 @@ import config  # noqa: E402
 import db
 from supabase_auth import get_current_admin
 from public_routes import router as public_router
+from admin_routes import router as admin_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -54,8 +55,10 @@ async def whoami(admin=Depends(get_current_admin)):
     return admin
 
 
-# Public (unauthenticated) read routes for the website.
+# Public (unauthenticated) read/write routes for the website.
 app.include_router(public_router)
+# Authenticated admin routes (require a valid Supabase admin JWT).
+app.include_router(admin_router)
 
 
 app.add_middleware(

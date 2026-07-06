@@ -67,9 +67,10 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[!]` blocked/needs dec
 - [ ] **Policy needed (S5):** add anon INSERT policy on `repair-photos`/`lead-photos` so the public repair/enquiry forms can upload (write-only; no anon read) — OR route those uploads through the backend (service role). Migration 0001 currently allows only `authenticated` to write to buckets.
 
 ## Phase S5 — Feature parity (V1 scope)
-Admin:
+Admin:  (S5C — authenticated routes via get_current_admin; `backend/admin_routes.py`)
 - [ ] Products CRUD + live price + website toggles + photos + soft delete.
-- [ ] Daily rates entry + history.
+- [x] **S5C1** Daily rates entry (`POST /api/admin/rates`, upsert + BS date) — admin Rates page + Dashboard rate form use it unchanged (contract match); history via public `/api/rates/history`.
+- [x] **S5C1** Categories/collections admin CRUD (`GET/POST /api/admin/categories`, `PUT/DELETE /api/admin/categories/{id}`; same for collections). No admin management UI exists yet — backend routes only.
 - [ ] Customers CRUD + search.
 - [ ] Customer khata: orders, payments, repairs, total outstanding.
 - [ ] Orders: create (stock/custom), order_items snapshot, old-gold, status workflow, delivery dates.
