@@ -17,7 +17,7 @@ import db
 from models import Product
 from repositories import (
     CategoriesRepository, CollectionsRepository, CustomersRepository, ProductsRepository,
-    RatesRepository,
+    OrdersRepository, RatesRepository,
 )
 from supabase_auth import get_current_admin
 from utils import grams_to_tola, tola_lal_aana_to_grams
@@ -374,3 +374,229 @@ async def update_customer(cid: str, body: CustomerBody, session: AsyncSession = 
     await session.commit()
     await session.refresh(c)
     return _customer(c)
+
+
+# ---------- Orders ----------
+ORDER_STATUSES = {"new", "in_progress", "making", "polishing", "ready", "delivered", "cancelled"}
+
+
+class OrderItemBody(BaseModel):
+    product_id: Optional[str] = None
+    name: str
+    metal: str = "gold"
+    purity: str = "24K"
+    weight_grams: float
+    rate_per_tola: float
+    jarti_percent: float = 0
+    jyala_amount: float = 0
+    jyala_type: str = "flat"
+    stone_cost: float = 0
+    polishing_cost: float = 0
+    cutting_cost: float = 0
+    worker_charge: float = 0
+    other_cost: float = 0
+    discount: float = 0
+
+
+class InlineCustomerBody(BaseModel):
+    name: str
+    phone: str
+    address: str = ""
+    notes: str = ""
+
+
+class OrderBody(BaseModel):
+    customer_id: Optional[str] = None
+    customer: Optional[InlineCustomerBody] = None
+    customer_name: str = ""
+    customer_phone: str = ""
+    customer_address: str = ""
+    order_type: str = "purchase"
+    custom_description: str = ""
+    delivery_date_ad: Optional[str] = None
+    delivery_time: str = ""
+    notes: str = ""
+    old_gold: Optional[dict] = None
+    items: list[OrderItemBody] = []
+
+
+class OrderUpdateBody(BaseModel):
+    order_type: Optional[str] = None
+    custom_description: Optional[str] = None
+    delivery_date_ad: Optional[str] = None
+    delivery_time: Optional[str] = None
+    notes: Optional[str] = None
+    status: Optional[str] = None
+
+
+class StatusBody(BaseModel):
+    status: str
+
+
+def _payment(p) -> dict:
+    return {
+        "id": str(p.id), "payment_date_ad": _iso(p.payment_date_ad),
+        "payment_date_bs": p.payment_date_bs, "payment_date_bs_np": p.payment_date_bs_np,
+        "method": p.method, "note": p.note, "amount": float(p.amount),
+    }
+
+
+def _order_item(i) -> dict:
+    return {
+        "id": str(i.id), "product_id": str(i.product_id) if i.product_id else None,
+        "name": i.name, "metal": i.metal, "purity": i.purity,
+        "weight_grams": float(i.weight_grams), "weight_tola": float(i.weight_tola),
+        "rate_per_tola": float(i.rate_per_tola), "purity_factor": float(i.purity_factor),
+        "metal_value": float(i.metal_value), "jarti_percent": float(i.jarti_percent),
+        "jarti_amount": float(i.jarti_amount), "jyala_type": i.jyala_type,
+        "jyala_input": float(i.jyala_input), "jyala_amount": float(i.jyala_amount),
+        "stone_cost": float(i.stone_cost), "polishing_cost": float(i.polishing_cost),
+        "cutting_cost": float(i.cutting_cost), "worker_charge": float(i.worker_charge),
+        "other_cost": float(i.other_cost), "discount": float(i.discount),
+        "total_price": float(i.total_price),
+    }
+
+
+def _order(o) -> dict:
+    return {
+        "id": str(o.id), "order_number": o.order_number, "customer_id": str(o.customer_id),
+        "customer_name": o.customer_name, "customer_phone": o.customer_phone,
+        "order_type": o.order_type, "custom_description": o.custom_description,
+        "reference_photo_url": o.reference_photo_url,
+        "order_date_ad": _iso(o.order_date_ad), "order_date_bs": o.order_date_bs,
+        "order_date_bs_np": o.order_date_bs_np,
+        "delivery_date_ad": _iso(o.delivery_date_ad),
+        "delivery_date_bs": o.delivery_date_bs, "delivery_date_bs_np": o.delivery_date_bs_np,
+        "delivery_time": o.delivery_time, "status": o.status, "notes": o.notes,
+        "old_gold": o.old_gold, "total_price": float(o.total_price),
+        "old_gold_value": float(o.old_gold_value), "net_payable": float(o.net_payable),
+        "advance_total": float(o.advance_total), "remaining_balance": float(o.remaining_balance),
+        "payment_status": o.payment_status, "items": [_order_item(i) for i in o.items],
+        "payments": [_payment(p) for p in o.payments],
+        "created_at": o.created_at.isoformat() if o.created_at else None,
+    }
+
+
+async def _customer_for_order(body: OrderBody, session: AsyncSession):
+    repo = CustomersRepository(session)
+    if body.customer_id:
+        customer = await repo.get(body.customer_id)
+        if not customer or customer.is_deleted:
+            raise HTTPException(status_code=404, detail="Customer not found")
+        return customer
+    inline = body.customer or InlineCustomerBody(
+        name=body.customer_name, phone=body.customer_phone, address=body.customer_address)
+    if not inline.name.strip() or not inline.phone.strip():
+        raise HTTPException(status_code=400, detail="Customer is required")
+    customer = repo.create(
+        name=inline.name.strip(), phone=inline.phone.strip(),
+        address=inline.address, notes=inline.notes,
+    )
+    await session.flush()
+    return customer
+
+
+def _validate_order_items(items: list[OrderItemBody]) -> list[dict]:
+    if not items:
+        raise HTTPException(status_code=400, detail="At least one order item is required")
+    cleaned = []
+    for item in items:
+        if not item.name.strip():
+            raise HTTPException(status_code=400, detail="Item name is required")
+        if item.weight_grams <= 0:
+            raise HTTPException(status_code=400, detail="Item weight must be greater than 0")
+        if item.rate_per_tola <= 0:
+            raise HTTPException(status_code=400, detail="Item rate must be greater than 0")
+        cleaned.append(item.model_dump())
+    return cleaned
+
+
+def _apply_order_update(order, body: OrderUpdateBody):
+    data = body.model_dump(exclude_unset=True)
+    if "status" in data:
+        status = data.pop("status")
+        if status not in ORDER_STATUSES:
+            raise HTTPException(status_code=400, detail="Invalid order status")
+        order.status = status
+    for key in ("order_type", "custom_description", "delivery_time", "notes"):
+        if key in data:
+            setattr(order, key, data[key] or "")
+    if "delivery_date_ad" in data:
+        delivery_date = OrdersRepository._date_or_none(data["delivery_date_ad"])
+        delivery_bs = ad_to_bs(delivery_date) if delivery_date else {}
+        order.delivery_date_ad = delivery_date
+        order.delivery_date_bs = delivery_bs.get("bs_date")
+        order.delivery_date_bs_np = delivery_bs.get("bs_date_np")
+
+
+@router.get("/orders")
+async def list_orders(status: Optional[str] = None, q: Optional[str] = None,
+                      session: AsyncSession = Depends(db.get_session)):
+    rows = await OrdersRepository(session).list(status=status)
+    if q:
+        ql = q.lower()
+        rows = [o for o in rows if ql in (o.order_number or "").lower()
+                or ql in o.customer_name.lower() or ql in o.customer_phone.lower()]
+    return [_order(o) for o in rows]
+
+
+@router.post("/orders")
+async def create_order(body: OrderBody, session: AsyncSession = Depends(db.get_session)):
+    customer = await _customer_for_order(body, session)
+    try:
+        order = await OrdersRepository(session).create_order(
+            customer=customer,
+            items=_validate_order_items(body.items),
+            order_type=body.order_type,
+            old_gold=body.old_gold,
+            custom_description=body.custom_description,
+            delivery_date_ad=body.delivery_date_ad,
+            delivery_time=body.delivery_time,
+            notes=body.notes,
+        )
+        await session.commit()
+        await session.refresh(order)
+    except ValueError as exc:
+        await session.rollback()
+        raise HTTPException(status_code=400, detail=str(exc))
+    return _order(order)
+
+
+@router.get("/orders/{oid}")
+async def get_order(oid: str, session: AsyncSession = Depends(db.get_session)):
+    order = await OrdersRepository(session).get(oid)
+    if not order or order.is_deleted:
+        raise HTTPException(status_code=404, detail="Order not found")
+    return _order(order)
+
+
+@router.put("/orders/{oid}")
+async def put_order(oid: str, body: OrderUpdateBody, session: AsyncSession = Depends(db.get_session)):
+    return await patch_order(oid, body, session)
+
+
+@router.patch("/orders/{oid}")
+async def patch_order(oid: str, body: OrderUpdateBody, session: AsyncSession = Depends(db.get_session)):
+    order = await OrdersRepository(session).get(oid)
+    if not order or order.is_deleted:
+        raise HTTPException(status_code=404, detail="Order not found")
+    try:
+        _apply_order_update(order, body)
+        await session.commit()
+        await session.refresh(order)
+    except ValueError as exc:
+        await session.rollback()
+        raise HTTPException(status_code=400, detail=str(exc))
+    return _order(order)
+
+
+@router.patch("/orders/{oid}/status")
+async def update_order_status(oid: str, body: StatusBody, session: AsyncSession = Depends(db.get_session)):
+    if body.status not in ORDER_STATUSES:
+        raise HTTPException(status_code=400, detail="Invalid order status")
+    order = await OrdersRepository(session).update_status(oid, body.status)
+    if not order or order.is_deleted:
+        raise HTTPException(status_code=404, detail="Order not found")
+    await session.commit()
+    await session.refresh(order)
+    return _order(order)

@@ -133,7 +133,7 @@ class Customer(Base):
 class Order(Base):
     __tablename__ = "orders"
     id: Mapped[str] = _uuid_pk()
-    order_number: Mapped[str] = mapped_column(Text, unique=True)
+    order_number: Mapped[str] = mapped_column(Text, unique=True, server_default=FetchedValue())
     customer_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("customers.id"))
     customer_name: Mapped[str] = mapped_column(Text)
     customer_phone: Mapped[str] = mapped_column(Text)

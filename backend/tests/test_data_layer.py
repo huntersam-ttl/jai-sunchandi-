@@ -143,6 +143,19 @@ class TestSupabaseAppAndAuth:
                              ("GET", "/api/admin/customers/{cid}"), ("PUT", "/api/admin/customers/{cid}")):
             assert any(p == path and method in m for p, m in routes), f"{method} {path}"
 
+    def test_admin_order_routes_registered(self):
+        import app
+        routes = [(r.path, tuple(sorted(getattr(r, "methods", []) or [])))
+                  for r in app.app.routes]
+        for method, path in (("GET", "/api/admin/orders"), ("POST", "/api/admin/orders"),
+                             ("GET", "/api/admin/orders/{oid}"), ("PUT", "/api/admin/orders/{oid}"),
+                             ("PATCH", "/api/admin/orders/{oid}"),
+                             ("PATCH", "/api/admin/orders/{oid}/status")):
+            assert any(p == path and method in m for p, m in routes), f"{method} {path}"
+
+    def test_order_number_uses_server_default(self):
+        assert models.Order.__table__.c.order_number.server_default is not None
+
 
 class TestExistingMongoBackendStillCompiles:
     def test_mongo_modules_parse(self):

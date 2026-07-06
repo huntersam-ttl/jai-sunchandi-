@@ -4,11 +4,11 @@ never diverges between stacks.
 """
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 
 from sqlalchemy import select
 
-from models import Order, OrderItem
+from models import Order, OrderItem, Product
 from utils import ad_to_bs, compute_price, GRAMS_PER_TOLA
 from .base import BaseRepository, derive_payment_status
 
@@ -26,6 +26,18 @@ class OrdersRepository(BaseRepository):
         stmt = stmt.order_by(Order.created_at.desc())
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
+
+    @staticmethod
+    def _date_or_none(value) -> date | None:
+        if value in (None, ""):
+            return None
+        if isinstance(value, datetime):
+            return value.date()
+        if isinstance(value, date):
+            return value
+        if isinstance(value, str):
+            return datetime.fromisoformat(value.replace("Z", "+00:00")).date() if "T" in value else date.fromisoformat(value)
+        raise ValueError("Invalid date value")
 
     async def create_order(self, *, customer, items, order_type="purchase",
                            old_gold=None, custom_description="", delivery_date_ad=None,
@@ -65,15 +77,16 @@ class OrdersRepository(BaseRepository):
             og["old_gold_value"] = old_value
 
         net = round(total - old_value, 2)
-        today = date.today().isoformat()
+        today = date.today()
+        delivery_date = self._date_or_none(delivery_date_ad)
         order_bs = ad_to_bs(today)
-        delivery_bs = ad_to_bs(delivery_date_ad) if delivery_date_ad else {}
+        delivery_bs = ad_to_bs(delivery_date) if delivery_date else {}
 
         order = Order(
             customer_id=customer.id, customer_name=customer.name, customer_phone=customer.phone,
             order_type=order_type, custom_description=custom_description, reference_photo_url="",
             order_date_ad=today, order_date_bs=order_bs["bs_date"], order_date_bs_np=order_bs["bs_date_np"],
-            delivery_date_ad=delivery_date_ad, delivery_date_bs=delivery_bs.get("bs_date"),
+            delivery_date_ad=delivery_date, delivery_date_bs=delivery_bs.get("bs_date"),
             delivery_date_bs_np=delivery_bs.get("bs_date_np"), delivery_time=delivery_time,
             status="new", notes=notes, old_gold=og,
             total_price=round(total, 2), old_gold_value=old_value, net_payable=net,
@@ -82,6 +95,11 @@ class OrdersRepository(BaseRepository):
             items=order_items,
         )
         self.session.add(order)
+        for item in order_items:
+            if item.product_id:
+                product = await self.session.get(Product, item.product_id)
+                if product is not None:
+                    product.status = "reserved"
         await self.session.flush()
         return order
 
@@ -100,5 +118,12 @@ class OrdersRepository(BaseRepository):
         order = await self.get(order_id)
         if order is not None:
             order.status = status
+            product_status = {"delivered": "sold", "cancelled": "available"}.get(status)
+            if product_status:
+                for item in order.items:
+                    if item.product_id:
+                        product = await self.session.get(Product, item.product_id)
+                        if product is not None:
+                            product.status = product_status
             await self.session.flush()
         return order
