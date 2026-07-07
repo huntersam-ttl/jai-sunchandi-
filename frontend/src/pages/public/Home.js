@@ -51,19 +51,18 @@ export default function Home() {
         </div>
       </section>
       <section className="max-w-7xl mx-auto px-4 sm:px-6">
-        <div data-testid="home-rate-widget" className="bg-[#0F172A] text-white rounded-md p-6 sm:p-8 grid grid-cols-1 sm:grid-cols-4 gap-6 items-center">
+        <div data-testid="home-rate-widget" className="bg-[#0F172A] text-white rounded-md p-6 sm:p-8 grid grid-cols-1 sm:grid-cols-3 gap-6 items-center">
           <div>
             <p className="text-[#D4AF37] font-serif-display text-lg">आजको दर</p>
-            <p className="text-xs text-slate-400">Today's Rate {rate ? `· ${rate.date_ad}` : ""}</p>
+            <p className="text-xs text-slate-400">Last updated {rate ? `· ${rate.date_ad}` : ""}</p>
           </div>
           {rate ? (
             <>
-              <RateBox label="Gold 24K / tola" value={rs(rate.gold_24k)} np={rate.gold_24k_np} testId="today-gold-rate" />
-              <RateBox label="Gold 22K / tola" value={rs(rate.gold_22k)} np={rate.gold_22k_np} testId="today-gold22-rate" />
+              <RateBox label="24K Gold / tola" value={rs(rate.gold_24k)} np={rate.gold_24k_np} testId="today-gold-rate" />
               <RateBox label="Silver / tola" value={rs(rate.silver)} np={rate.silver_np} testId="today-silver-rate" />
             </>
           ) : (
-            <p className="sm:col-span-3 text-slate-400 text-sm">Rate not published yet. Please contact the shop.</p>
+            <p className="sm:col-span-2 text-slate-400 text-sm">Today's rate has not been published yet. Please contact the shop.</p>
           )}
         </div>
         <div className="text-right mt-2">

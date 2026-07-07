@@ -41,7 +41,7 @@ export default function ProductDetail() {
         )}
       </div>
       <div>
-        <p className="text-xs text-slate-500" data-testid="product-code">{p.product_code}</p>
+        <p className="text-xs text-slate-500 font-mono" data-testid="product-code">Code: {p.product_code}</p>
         <h1 className="font-serif-display text-3xl sm:text-4xl font-bold tracking-tight mt-1" data-testid="product-name">{p.name}</h1>
         {p.name_np && <p className="text-[#991B1B] mt-1">{p.name_np}</p>}
         <p className="mt-4 text-2xl font-bold text-[#991B1B]" data-testid="product-price">

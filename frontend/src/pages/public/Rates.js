@@ -16,9 +16,8 @@ export default function Rates() {
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-12">
       <h1 className="font-serif-display text-4xl sm:text-5xl font-bold tracking-tighter">Today's Rate <span className="gold-gradient-text">आजको दर</span></h1>
       {rate ? (
-        <div className="mt-8 grid sm:grid-cols-3 gap-4" data-testid="rates-page-widget">
-          {[["Gold 24K", rate.gold_24k, rate.gold_24k_np, "gold24"],
-            ["Gold 22K", rate.gold_22k, rate.gold_22k_np, "gold22"],
+        <div className="mt-8 grid sm:grid-cols-2 gap-4" data-testid="rates-page-widget">
+          {[["24K Gold", rate.gold_24k, rate.gold_24k_np, "gold24"],
             ["Silver", rate.silver, rate.silver_np, "silver"]].map(([label, v, np, key]) => (
             <div key={label} data-testid={`rate-card-${key}`} className="bg-white border border-slate-200 rounded-md p-6">
               <p className="text-sm text-slate-500">{label} / tola</p>
@@ -26,10 +25,10 @@ export default function Rates() {
               <p className="text-[#991B1B]">रु. {np}</p>
             </div>
           ))}
-          <p className="sm:col-span-3 text-xs text-slate-500">Updated: {rate.date_ad} (AD) · {rate.bs_date_np} (BS)</p>
+          <p className="sm:col-span-2 text-xs text-slate-500">Last updated: {rate.date_ad} (AD) · {rate.bs_date_np} (BS)</p>
         </div>
       ) : (
-        <p className="mt-8 text-slate-500" data-testid="no-rate-msg">Today's rate is not published yet. Please contact the shop.</p>
+        <p className="mt-8 text-slate-500" data-testid="no-rate-msg">Today's rate has not been published yet. Please contact the shop.</p>
       )}
 
       <div className="mt-12 bg-white border border-slate-200 rounded-md p-4 sm:p-6">
@@ -42,8 +41,7 @@ export default function Rates() {
                 <YAxis tick={{ fontSize: 11 }} domain={["auto", "auto"]} />
                 <Tooltip />
                 <Legend />
-                <Line type="monotone" dataKey="gold_24k" name="Gold 24K" stroke="#D4AF37" strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="gold_22k" name="Gold 22K" stroke="#B45309" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="gold_24k" name="24K Gold" stroke="#D4AF37" strokeWidth={2} dot={false} />
                 <Line type="monotone" dataKey="silver" name="Silver" stroke="#64748B" strokeWidth={2} dot={false} />
               </LineChart>
             </ResponsiveContainer>

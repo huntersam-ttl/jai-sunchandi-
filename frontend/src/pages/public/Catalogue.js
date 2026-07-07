@@ -55,7 +55,7 @@ export default function Catalogue() {
       </div>
 
       {loading ? <p className="mt-10 text-slate-500">Loading…</p> : products.length === 0 ? (
-        <p className="mt-10 text-slate-500" data-testid="catalogue-empty">No products found. Try different filters or contact us on WhatsApp.</p>
+        <p className="mt-10 text-slate-500" data-testid="catalogue-empty">Products coming soon. Visit the shop or WhatsApp us for available designs.</p>
       ) : (
         <div className="mt-8 grid grid-cols-2 lg:grid-cols-4 gap-4" data-testid="catalogue-grid">
           {products.map((p, i) => (
@@ -65,6 +65,7 @@ export default function Catalogue() {
               <img src={p.photos?.[0] || FALLBACK} alt={p.name} className="h-44 w-full object-cover" loading="lazy" />
               <div className="p-3">
                 <p className="text-sm font-semibold truncate">{p.name}</p>
+                <p className="text-[11px] text-slate-400 font-mono mt-0.5">{p.product_code}</p>
                 <p className="text-xs text-slate-500 mt-0.5 capitalize">{p.metal} · {p.purity} · {p.weight_tola} tola</p>
                 <p className="text-sm mt-1.5 font-semibold text-[#991B1B]">
                   {p.estimated_price ? `${rs(p.estimated_price)}*` : "Inquire for today's price"}

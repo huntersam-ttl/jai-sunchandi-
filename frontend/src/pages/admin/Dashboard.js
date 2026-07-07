@@ -7,11 +7,11 @@ import { inp, btnGold, Card, Badge, F } from "@/components/admin/ui";
 
 export default function Dashboard() {
   const [data, setData] = useState(null);
-  const [rateForm, setRateForm] = useState({ gold_24k: "", gold_22k: "", silver: "" });
+  const [rateForm, setRateForm] = useState({ gold_24k: "", silver: "" });
 
   const load = () => api.get("/admin/dashboard").then((r) => {
     setData(r.data);
-    if (r.data.rate) setRateForm({ gold_24k: r.data.rate.gold_24k, gold_22k: r.data.rate.gold_22k, silver: r.data.rate.silver });
+    if (r.data.rate) setRateForm({ gold_24k: r.data.rate.gold_24k, silver: r.data.rate.silver });
   });
   useEffect(() => { load(); }, []);
 
@@ -19,7 +19,7 @@ export default function Dashboard() {
     e.preventDefault();
     try {
       await api.post("/admin/rates", {
-        gold_24k: +rateForm.gold_24k, gold_22k: +rateForm.gold_22k, silver: +rateForm.silver,
+        gold_24k: +rateForm.gold_24k, gold_22k: +rateForm.gold_24k, silver: +rateForm.silver,
       });
       toast.success("Today's rate updated");
       load();
@@ -48,9 +48,8 @@ export default function Dashboard() {
       </div>
 
       <Card title="Today's Rate (per tola)">
-        <form onSubmit={saveRate} className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end" data-testid="dashboard-rate-form">
-          <F label="Gold 24K"><input className={inp} type="number" step="any" value={rateForm.gold_24k} onChange={(e) => setRateForm({ ...rateForm, gold_24k: e.target.value })} data-testid="rate-gold24-input" /></F>
-          <F label="Gold 22K"><input className={inp} type="number" step="any" value={rateForm.gold_22k} onChange={(e) => setRateForm({ ...rateForm, gold_22k: e.target.value })} data-testid="rate-gold22-input" /></F>
+        <form onSubmit={saveRate} className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end" data-testid="dashboard-rate-form">
+          <F label="24K Gold"><input className={inp} type="number" step="any" value={rateForm.gold_24k} onChange={(e) => setRateForm({ ...rateForm, gold_24k: e.target.value })} data-testid="rate-gold24-input" /></F>
           <F label="Silver"><input className={inp} type="number" step="any" value={rateForm.silver} onChange={(e) => setRateForm({ ...rateForm, silver: e.target.value })} data-testid="rate-silver-input" /></F>
           <button type="submit" className={btnGold} data-testid="rate-save-btn">Update Rate</button>
         </form>

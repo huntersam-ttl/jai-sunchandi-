@@ -5,7 +5,7 @@ import { api, apiError } from "@/lib/api";
 import { rs, STATUS_COLORS, gramsToTola, tolaToGrams, PURITY_FACTORS, GRAMS_PER_TOLA } from "@/lib/format";
 import { uploadImage } from "@/lib/storage";
 import { inp, btnGold, btnGhost, Badge, F } from "@/components/admin/ui";
-import { Plus, Pencil, Trash2, QrCode, X, Printer } from "lucide-react";
+import { Plus, Pencil, Trash2, QrCode, X, Printer, Copy } from "lucide-react";
 
 const EMPTY = {
   name: "", name_np: "", description: "", category: "", collection: "", metal: "gold", purity: "24K",
@@ -39,14 +39,28 @@ export default function Products() {
     load();
   };
 
-  const filtered = products.filter((p) => !q || p.name.toLowerCase().includes(q.toLowerCase()) || p.product_code.toLowerCase().includes(q.toLowerCase()));
+  const filtered = products.filter((p) => {
+    const query = q.toLowerCase();
+    return !q || p.name.toLowerCase().includes(query)
+      || (p.product_code || "").toLowerCase().includes(query)
+      || (p.category || "").toLowerCase().includes(query);
+  });
+
+  const copyCode = async (code) => {
+    try {
+      await navigator.clipboard?.writeText(code);
+    } catch {
+      return toast.error("Could not copy product code");
+    }
+    toast.success(`Copied ${code}`);
+  };
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">Products</h1>
         <div className="flex gap-2">
-          <input className={inp} style={{ width: 200 }} placeholder="Search name/code…" value={q} onChange={(e) => setQ(e.target.value)} data-testid="products-search-input" />
+          <input className={inp} style={{ width: 220 }} placeholder="Search code, name, category…" value={q} onChange={(e) => setQ(e.target.value)} data-testid="products-search-input" />
           <button className={btnGold} onClick={() => setEditing({ ...EMPTY })} data-testid="add-product-btn"><Plus size={16} /> Add Product</button>
         </div>
       </div>
@@ -54,17 +68,23 @@ export default function Products() {
       <div className="bg-white border border-slate-200 rounded-md overflow-x-auto">
         <table className="w-full text-sm">
           <thead><tr className="text-left text-xs text-slate-500 border-b">
-            <th className="p-3">Product</th><th>Metal/Purity</th><th>Weight</th><th>Live Price</th><th>Status</th><th>Website</th><th></th></tr></thead>
+            <th className="p-3">Product</th><th>Code</th><th>Metal/Purity</th><th>Category</th><th>Weight</th><th>Estimated Price</th><th>Status</th><th>Website</th><th></th></tr></thead>
           <tbody data-testid="products-table">
             {filtered.map((p) => (
               <tr key={p.id} className="border-b border-slate-50 hover:bg-slate-50">
                 <td className="p-3">
                   <div className="flex items-center gap-3">
-                    {p.photos?.[0] && <img src={p.photos[0]} alt="" className="h-9 w-9 rounded object-cover" />}
-                    <div><p className="font-semibold">{p.name}</p><p className="text-xs text-slate-400">{p.product_code}</p></div>
+                    <img src={p.photos?.[0] || "https://images.unsplash.com/photo-1721034917345-d17c5405ead0?crop=entropy&cs=srgb&fm=jpg&q=85&w=120"} alt="" className="h-10 w-10 rounded object-cover border border-slate-100" />
+                    <div><p className="font-semibold">{p.name}</p><p className="text-xs text-slate-400">{p.name_np || "—"}</p></div>
                   </div>
                 </td>
+                <td>
+                  <button className="inline-flex items-center gap-1 font-mono text-xs font-semibold text-[#991B1B] hover:text-[#D4AF37]" onClick={() => copyCode(p.product_code)} data-testid={`copy-product-code-${p.product_code}`}>
+                    {p.product_code} <Copy size={12} />
+                  </button>
+                </td>
                 <td className="capitalize">{p.metal} {p.purity}</td>
+                <td>{p.category || "—"}</td>
                 <td>{p.weight_tola} tola<br /><span className="text-xs text-slate-400">{p.weight_grams} g</span></td>
                 <td className="font-semibold">{p.live_price ? rs(p.live_price.total_price) : "—"}</td>
                 <td><Badge status={p.status} colors={STATUS_COLORS} /></td>
@@ -78,12 +98,12 @@ export default function Products() {
                 </td>
               </tr>
             ))}
-            {filtered.length === 0 && <tr><td colSpan={7} className="p-6 text-center text-slate-400">No products yet. Add your first product.</td></tr>}
+            {filtered.length === 0 && <tr><td colSpan={9} className="p-6 text-center text-slate-400">No products yet. Add your first product.</td></tr>}
           </tbody>
         </table>
       </div>
 
-      {editing && <ProductForm form={editing} setForm={setEditing} cats={cats} cols={cols} rate={rate} onSaved={() => { setEditing(null); load(); }} />}
+      {editing && <ProductForm form={editing} setForm={setEditing} cats={cats} cols={cols} rate={rate} onSaved={(saved) => { setEditing(null); load(); if (saved) setQrProduct(saved); }} />}
       {qrProduct && <QrModal product={qrProduct} onClose={() => setQrProduct(null)} />}
     </div>
   );
@@ -94,6 +114,14 @@ const toForm = (p) => ({ ...EMPTY, ...p, weight_mode: "grams", grams: p.weight_g
 function ProductForm({ form, setForm, cats, cols, rate, onSaved }) {
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value });
   const isEdit = !!form.id;
+  const copyProductCode = async () => {
+    try {
+      await navigator.clipboard?.writeText(form.product_code);
+    } catch {
+      return toast.error("Could not copy product code");
+    }
+    toast.success(`Copied ${form.product_code}`);
+  };
 
   const grams = form.weight_mode === "grams"
     ? +form.grams || 0
@@ -137,10 +165,18 @@ function ProductForm({ form, setForm, cats, cols, rate, onSaved }) {
       photos: form.photos || [],
     };
     try {
-      if (isEdit) await api.put(`/admin/products/${form.id}`, body);
-      else await api.post("/admin/products", body);
-      toast.success(isEdit ? "Product updated" : "Product added");
-      onSaved();
+      const res = isEdit ? await api.put(`/admin/products/${form.id}`, body) : await api.post("/admin/products", body);
+      if (!isEdit && res.data?.product_code) {
+        try {
+          await navigator.clipboard?.writeText(res.data.product_code);
+        } catch {
+          // Product creation should not fail if the browser blocks clipboard access.
+        }
+        toast.success(`Product added: ${res.data.product_code} copied`);
+      } else {
+        toast.success("Product updated");
+      }
+      onSaved(isEdit ? null : res.data);
     } catch (err) { toast.error(apiError(err)); }
   };
 
@@ -157,9 +193,18 @@ function ProductForm({ form, setForm, cats, cols, rate, onSaved }) {
           <F label="Category"><select className={inp} value={form.category} onChange={set("category")} data-testid="pf-category"><option value="">—</option>{cats.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}</select></F>
           <F label="Collection"><select className={inp} value={form.collection} onChange={set("collection")} data-testid="pf-collection"><option value="">—</option>{cols.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}</select></F>
           <F label="Status"><select className={inp} value={form.status} onChange={set("status")} data-testid="pf-status">{["available", "reserved", "sold", "inactive"].map((s) => <option key={s}>{s}</option>)}</select></F>
+          {form.product_code && (
+            <div className="sm:col-span-3 bg-[#FDFCF8] border border-[#D4AF37]/40 rounded p-3 text-sm">
+              <p className="text-xs text-slate-500">Product code</p>
+              <button className="inline-flex items-center gap-2 font-mono font-bold text-[#991B1B]" onClick={copyProductCode}>
+                {form.product_code} <Copy size={14} />
+              </button>
+              <p className="text-xs text-slate-500 mt-1">Write this product code on the physical jewellery tag with the weight.</p>
+            </div>
+          )}
           <F label="Metal"><select className={inp} value={form.metal} onChange={(e) => setForm({ ...form, metal: e.target.value, purity: e.target.value === "silver" ? "silver" : "24K" })} data-testid="pf-metal"><option value="gold">Gold</option><option value="silver">Silver</option></select></F>
           <F label="Purity"><select className={inp} value={form.purity} onChange={set("purity")} data-testid="pf-purity">{(form.metal === "silver" ? ["silver"] : ["24K", "22K", "18K"]).map((p) => <option key={p}>{p}</option>)}</select></F>
-          <F label="Weight Input">
+          <F label="Weight Entry">
             <select className={inp} value={form.weight_mode} onChange={set("weight_mode")} data-testid="pf-weight-mode">
               <option value="tola">Tola / Lal / Aana</option><option value="grams">Grams</option>
             </select>
@@ -175,6 +220,9 @@ function ProductForm({ form, setForm, cats, cols, rate, onSaved }) {
           )}
           <div className="sm:col-span-3 text-xs bg-slate-50 rounded p-2" data-testid="pf-weight-preview">
             = <b>{grams.toFixed(3)} g</b> · <b>{gramsToTola(grams)} tola</b>
+          </div>
+          <div className="sm:col-span-3 text-xs bg-amber-50 border border-amber-100 rounded p-2 text-slate-600">
+            24K gold rate is used for public rate; final jewellery price depends on weight, jarti/jyala/making charge.
           </div>
           <F label="Jarti %"><input className={inp} type="number" step="any" value={form.jarti_percent} onChange={set("jarti_percent")} data-testid="pf-jarti" /></F>
           <F label="Jyala (making charge)"><input className={inp} type="number" step="any" value={form.jyala_amount} onChange={set("jyala_amount")} data-testid="pf-jyala" /></F>
@@ -218,6 +266,14 @@ function ProductForm({ form, setForm, cats, cols, rate, onSaved }) {
 
 function QrModal({ product, onClose }) {
   const url = `${window.location.origin}/product/${product.id}`;
+  const copyCode = async () => {
+    try {
+      await navigator.clipboard?.writeText(product.product_code);
+    } catch {
+      return toast.error("Could not copy product code");
+    }
+    toast.success(`Copied ${product.product_code}`);
+  };
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-white rounded-md p-6 text-center" onClick={(e) => e.stopPropagation()} data-testid="product-qr-modal">
@@ -225,8 +281,10 @@ function QrModal({ product, onClose }) {
           <QRCodeSVG value={url} size={140} />
           <p className="text-xs font-bold mt-2">{product.product_code}</p>
           <p className="text-[10px] text-slate-500 capitalize">{product.metal} {product.purity} · {product.weight_tola} tola</p>
+          <p className="text-[10px] text-slate-500 mt-1">Write this code on the physical jewellery tag with the weight.</p>
         </div>
         <div className="mt-4 flex gap-2 justify-center no-print">
+          <button className={btnGhost} onClick={copyCode} data-testid="copy-qr-product-code"><Copy size={14} /> Copy Code</button>
           <button className={btnGhost} onClick={() => window.print()} data-testid="print-qr-btn"><Printer size={14} /> Print Tag</button>
           <button className={btnGhost} onClick={onClose}>Close</button>
         </div>
