@@ -1,0 +1,14 @@
+# Minimal dependency set for the Supabase FastAPI app (backend/app.py) on
+# Vercel's Python runtime. backend/requirements.txt also contains the legacy
+# Mongo app's dependencies (motor, pymongo, boto3, google-genai, etc.) which
+# are not needed here and would bloat/slow the serverless function build.
+fastapi==0.110.1
+starlette==0.37.2
+pydantic==2.13.4
+SQLAlchemy==2.0.36
+asyncpg==0.30.0
+greenlet==3.1.1
+PyJWT==2.13.0
+httpx==0.28.1
+nepali-datetime==1.0.8.5
+python-dotenv==1.2.2
