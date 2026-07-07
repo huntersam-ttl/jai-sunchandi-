@@ -14,8 +14,12 @@ export default function Repairs() {
   const [customers, setCustomers] = useState([]);
   const [form, setForm] = useState(null);
 
-  const load = () => api.get("/admin/repairs").then((r) => setRepairs(r.data));
-  useEffect(() => { load(); api.get("/admin/customers").then((r) => setCustomers(r.data)); }, []);
+  const load = () => api.get("/admin/repairs").then((r) => setRepairs(r.data))
+    .catch((err) => { console.error("Repairs load failed:", err); toast.error(apiError(err)); });
+  useEffect(() => {
+    load();
+    api.get("/admin/customers").then((r) => setCustomers(r.data)).catch((err) => console.error("Customers load failed:", err));
+  }, []);
 
   const save = async () => {
     if (!form.customer_id) return toast.error("Select a customer");

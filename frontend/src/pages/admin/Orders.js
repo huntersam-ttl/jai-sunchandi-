@@ -13,7 +13,8 @@ export default function Orders() {
   const [status, setStatus] = useState("");
   const [showForm, setShowForm] = useState(false);
 
-  const load = () => api.get("/admin/orders", { params: status ? { status } : {} }).then((r) => setOrders(r.data));
+  const load = () => api.get("/admin/orders", { params: status ? { status } : {} }).then((r) => setOrders(r.data))
+    .catch((err) => { console.error("Orders load failed:", err); toast.error(apiError(err)); });
   useEffect(() => { load(); }, [status]); // eslint-disable-line
 
   return (
@@ -64,9 +65,9 @@ function OrderForm({ onClose, onSaved }) {
   const [oldGold, setOldGold] = useState({ enabled: false, old_item_description: "", old_weight_tola: "", old_valuation_rate_per_tola: "", old_deduction_percent: "" });
 
   useEffect(() => {
-    api.get("/admin/customers").then((r) => setCustomers(r.data));
-    api.get("/admin/products", { params: { status: "available" } }).then((r) => setProducts(r.data));
-    api.get("/rates/today").then((r) => setRate(r.data));
+    api.get("/admin/customers").then((r) => setCustomers(r.data)).catch((err) => console.error("Customers load failed:", err));
+    api.get("/admin/products", { params: { status: "available" } }).then((r) => setProducts(r.data)).catch((err) => console.error("Products load failed:", err));
+    api.get("/rates/today").then((r) => setRate(r.data)).catch((err) => console.error("Rate load failed:", err));
   }, []);
 
   const addStockItem = (pid) => {

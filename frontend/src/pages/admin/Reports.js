@@ -1,10 +1,29 @@
 import { useEffect, useState } from "react";
-import { api } from "@/lib/api";
+import { api, apiError } from "@/lib/api";
 import { rs } from "@/lib/format";
+import { btnGhost } from "@/components/admin/ui";
+import { RefreshCw } from "lucide-react";
 
 export default function Reports() {
   const [r, setR] = useState(null);
-  useEffect(() => { api.get("/admin/reports").then((res) => setR(res.data)); }, []);
+  const [error, setError] = useState(null);
+
+  const load = () => {
+    setError(null);
+    api.get("/admin/reports").then((res) => setR(res.data))
+      .catch((err) => { console.error("Reports load failed:", err); setError(apiError(err)); });
+  };
+  useEffect(() => { load(); }, []);
+
+  if (error && !r) {
+    return (
+      <div className="bg-white border border-red-200 rounded-md p-6 text-center space-y-3">
+        <p className="text-red-700 font-medium">Could not load data. Please refresh or contact admin.</p>
+        <p className="text-xs text-slate-400">{error}</p>
+        <button className={btnGhost} onClick={load}><RefreshCw size={14} /> Retry</button>
+      </div>
+    );
+  }
   if (!r) return <p className="text-sm text-slate-500">Loading…</p>;
 
   const cards = [

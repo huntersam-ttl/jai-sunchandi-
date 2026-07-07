@@ -1,19 +1,22 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { api } from "@/lib/api";
+import { api, apiError } from "@/lib/api";
 import { STATUS_COLORS } from "@/lib/format";
 import { inp, Badge } from "@/components/admin/ui";
 
 export default function Leads() {
   const [leads, setLeads] = useState([]);
 
-  const load = () => api.get("/admin/leads").then((r) => setLeads(r.data));
+  const load = () => api.get("/admin/leads").then((r) => setLeads(r.data))
+    .catch((err) => { console.error("Leads load failed:", err); toast.error(apiError(err)); });
   useEffect(() => { load(); }, []);
 
   const setStatus = async (id, status) => {
-    await api.patch(`/admin/leads/${id}/status`, { status });
-    toast.success("Lead updated");
-    load();
+    try {
+      await api.patch(`/admin/leads/${id}/status`, { status });
+      toast.success("Lead updated");
+      load();
+    } catch (err) { toast.error(apiError(err)); }
   };
 
   return (

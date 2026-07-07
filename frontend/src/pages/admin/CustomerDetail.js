@@ -1,14 +1,31 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { api } from "@/lib/api";
+import { api, apiError } from "@/lib/api";
 import { rs, STATUS_COLORS } from "@/lib/format";
-import { Card, Badge } from "@/components/admin/ui";
+import { Card, Badge, btnGhost } from "@/components/admin/ui";
+import { RefreshCw } from "lucide-react";
 
 export default function CustomerDetail() {
   const { id } = useParams();
   const [c, setC] = useState(null);
+  const [error, setError] = useState(null);
 
-  useEffect(() => { api.get(`/admin/customers/${id}`).then((r) => setC(r.data)); }, [id]);
+  const load = () => {
+    setError(null);
+    api.get(`/admin/customers/${id}`).then((r) => setC(r.data))
+      .catch((err) => { console.error("Customer detail load failed:", err); setError(apiError(err)); });
+  };
+  useEffect(() => { load(); }, [id]); // eslint-disable-line
+
+  if (error && !c) {
+    return (
+      <div className="bg-white border border-red-200 rounded-md p-6 text-center space-y-3">
+        <p className="text-red-700 font-medium">Could not load data. Please refresh or contact admin.</p>
+        <p className="text-xs text-slate-400">{error}</p>
+        <button className={btnGhost} onClick={load}><RefreshCw size={14} /> Retry</button>
+      </div>
+    );
+  }
   if (!c) return <p className="text-sm text-slate-500">Loading…</p>;
 
   return (

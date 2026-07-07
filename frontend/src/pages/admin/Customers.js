@@ -10,7 +10,8 @@ export default function Customers() {
   const [q, setQ] = useState("");
   const [form, setForm] = useState(null);
 
-  const load = (query = "") => api.get("/admin/customers", { params: query ? { q: query } : {} }).then((r) => setCustomers(r.data));
+  const load = (query = "") => api.get("/admin/customers", { params: query ? { q: query } : {} }).then((r) => setCustomers(r.data))
+    .catch((err) => { console.error("Customers load failed:", err); toast.error(apiError(err)); });
   useEffect(() => { load(); }, []);
 
   const save = async () => {

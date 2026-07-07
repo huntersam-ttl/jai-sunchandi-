@@ -1,23 +1,36 @@
 import { useEffect, useState } from "react";
-import { Link, useParams, useNavigate } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
 import { api, apiError } from "@/lib/api";
 import { rs, STATUS_COLORS } from "@/lib/format";
 import { inp, btnGold, btnGhost, Card, Badge, F } from "@/components/admin/ui";
+import { RefreshCw } from "lucide-react";
 
 const ORDER_STATUSES = ["new", "in_progress", "making", "polishing", "ready", "delivered", "cancelled"];
 
 export default function OrderDetail() {
   const { id } = useParams();
-  const navigate = useNavigate();
   const [order, setOrder] = useState(null);
+  const [error, setError] = useState(null);
   const [pay, setPay] = useState({ amount: "", method: "cash", note: "", payment_date_ad: new Date().toISOString().slice(0, 10) });
-  const [bill, setBill] = useState("");
 
-  const load = () => api.get(`/admin/orders/${id}`).then((r) => setOrder(r.data));
+  const load = () => {
+    setError(null);
+    api.get(`/admin/orders/${id}`).then((r) => setOrder(r.data))
+      .catch((err) => { console.error("Order detail load failed:", err); setError(apiError(err)); });
+  };
   useEffect(() => { load(); }, [id]); // eslint-disable-line
 
+  if (error && !order) {
+    return (
+      <div className="bg-white border border-red-200 rounded-md p-6 text-center space-y-3">
+        <p className="text-red-700 font-medium">Could not load data. Please refresh or contact admin.</p>
+        <p className="text-xs text-slate-400">{error}</p>
+        <button className={btnGhost} onClick={load}><RefreshCw size={14} /> Retry</button>
+      </div>
+    );
+  }
   if (!order) return <p className="text-sm text-slate-500">Loading…</p>;
 
   const setStatus = async (status) => {
@@ -35,15 +48,6 @@ export default function OrderDetail() {
       toast.success("Payment recorded");
       setPay({ ...pay, amount: "", note: "" });
       load();
-    } catch (e) { toast.error(apiError(e)); }
-  };
-
-  const createInvoice = async () => {
-    if (!bill.trim()) return toast.error("Enter physical bill number first");
-    try {
-      const { data } = await api.post("/admin/invoices", { order_id: id, bill_number: bill.trim() });
-      toast.success(`Invoice ${data.bill_number} created`);
-      navigate(`/admin/invoices/${data.id}`);
     } catch (e) { toast.error(apiError(e)); }
   };
 
@@ -126,12 +130,8 @@ export default function OrderDetail() {
             <div className="flex justify-between text-lg"><span>Remaining</span><b className="text-red-400" data-testid="order-remaining">{rs(order.remaining_balance)}</b></div>
           </div>
 
-          <Card title="Create Invoice (physical bill sync)">
-            <p className="text-xs text-slate-500 mb-2">Enter the bill number from the physical stamped bill book. System entry must exist before writing the paper bill.</p>
-            <div className="flex gap-2">
-              <input className={inp} placeholder="Bill No. e.g. 1234" value={bill} onChange={(e) => setBill(e.target.value)} data-testid="invoice-bill-number-input" />
-              <button className={btnGold} onClick={createInvoice} data-testid="invoice-create-btn">Create</button>
-            </div>
+          <Card title="Invoice (Coming soon)">
+            <p className="text-xs text-slate-500">Invoice printing/sync with the physical bill book is a Phase 2 feature — not available yet.</p>
           </Card>
 
           <Card title="Order QR">
