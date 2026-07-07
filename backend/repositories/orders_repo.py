@@ -4,9 +4,9 @@ never diverges between stacks.
 """
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from models import Order, OrderItem, Product
 from utils import ad_to_bs, compute_price, GRAMS_PER_TOLA
@@ -113,6 +113,44 @@ class OrdersRepository(BaseRepository):
         )
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
+
+    async def due_today(self) -> list[Order]:
+        today = date.today()
+        stmt = (select(Order).where(
+            Order.is_deleted.is_(False), Order.status.notin_(["delivered", "cancelled"]),
+            Order.delivery_date_ad == today,
+        ).order_by(Order.created_at.desc()))
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def due_this_week(self) -> list[Order]:
+        today = date.today()
+        week_end = today + timedelta(days=7)
+        stmt = (select(Order).where(
+            Order.is_deleted.is_(False), Order.status.notin_(["delivered", "cancelled"]),
+            Order.delivery_date_ad > today, Order.delivery_date_ad <= week_end,
+        ).order_by(Order.delivery_date_ad.asc()))
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def ready_for_collection(self) -> list[Order]:
+        stmt = (select(Order).where(Order.is_deleted.is_(False), Order.status == "ready")
+                .order_by(Order.created_at.desc()))
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def pending_payments(self) -> list[Order]:
+        stmt = (select(Order).where(
+            Order.is_deleted.is_(False), Order.status != "cancelled", Order.remaining_balance > 0,
+        ).order_by(Order.created_at.desc()))
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def active_count(self) -> int:
+        stmt = select(func.count()).select_from(Order).where(
+            Order.is_deleted.is_(False), Order.status.notin_(["delivered", "cancelled"]))
+        result = await self.session.execute(stmt)
+        return result.scalar_one()
 
     async def update_status(self, order_id, status: str) -> Order | None:
         order = await self.get(order_id)

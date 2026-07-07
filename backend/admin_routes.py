@@ -5,7 +5,7 @@ the router level). Reads/writes go through the existing SQLAlchemy repos. Only
 rates, categories, and collections are wired here; other admin domains follow in
 later S5C slices.
 """
-from datetime import date
+from datetime import date, datetime
 from typing import Optional
 
 import httpx
@@ -18,9 +18,9 @@ import db
 import config
 from models import Product
 from repositories import (
-    CategoriesRepository, CollectionsRepository, CustomersRepository, LeadsRepository,
-    OrdersRepository, PaymentsRepository, ProductsRepository, RatesRepository,
-    RepairsRepository,
+    AdminTasksRepository, CategoriesRepository, CollectionsRepository, CustomersRepository,
+    LeadsRepository, MaterialTasksRepository, OrdersRepository, PaymentsRepository,
+    ProductsRepository, RatesRepository, RepairsRepository, TemplatesRepository,
 )
 from supabase_auth import get_current_admin
 from utils import grams_to_tola, tola_lal_aana_to_grams
@@ -892,3 +892,197 @@ async def patch_repair(rid: str, body: RepairUpdateBody, session: AsyncSession =
         await session.rollback()
         raise HTTPException(status_code=400, detail=str(exc))
     return await _repair(repair)
+
+
+# ---------- Dashboard ----------
+@router.get("/dashboard")
+async def dashboard(session: AsyncSession = Depends(db.get_session)):
+    orders_repo = OrdersRepository(session)
+    rate = await RatesRepository(session).latest()
+    due_today = await orders_repo.due_today()
+    due_week = await orders_repo.due_this_week()
+    ready = await orders_repo.ready_for_collection()
+    pending_pay = await orders_repo.pending_payments()
+    todays_sales = await PaymentsRepository(session).todays_total()
+    pending_orders_count = await orders_repo.active_count()
+    new_leads = await LeadsRepository(session).count_new()
+    return {
+        "rate": _rate(rate) if rate else None,
+        "orders_due_today": [_order(o) for o in due_today],
+        "orders_due_week": [_order(o) for o in due_week],
+        "ready_for_collection": [_order(o) for o in ready],
+        "pending_payments": [_order(o) for o in pending_pay],
+        "todays_sales": todays_sales,
+        "todays_invoices": 0,
+        "pending_orders_count": pending_orders_count,
+        "new_leads": new_leads,
+    }
+
+
+# ---------- Admin tasks / reminders ----------
+def _to_date(value) -> Optional[date]:
+    if value in (None, ""):
+        return None
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str):
+        return datetime.fromisoformat(value.replace("Z", "+00:00")).date() if "T" in value else date.fromisoformat(value)
+    raise HTTPException(status_code=400, detail="Invalid date value")
+
+
+class TaskBody(BaseModel):
+    title: str
+    description: str = ""
+    related_order_id: Optional[str] = None
+    related_customer_id: Optional[str] = None
+    due_date_ad: Optional[str] = None
+    assigned_to: str = ""
+    priority: str = "normal"
+    status: str = "pending"
+
+
+class TaskUpdateBody(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    related_order_id: Optional[str] = None
+    related_customer_id: Optional[str] = None
+    due_date_ad: Optional[str] = None
+    assigned_to: Optional[str] = None
+    priority: Optional[str] = None
+    status: Optional[str] = None
+
+
+def _task(t) -> dict:
+    return {
+        "id": str(t.id), "title": t.title, "description": t.description,
+        "related_order_id": str(t.related_order_id) if t.related_order_id else None,
+        "related_customer_id": str(t.related_customer_id) if t.related_customer_id else None,
+        "due_date_ad": _iso(t.due_date_ad), "assigned_to": t.assigned_to,
+        "priority": t.priority, "status": t.status,
+        "created_at": t.created_at.isoformat() if t.created_at else None,
+        "updated_at": t.updated_at.isoformat() if t.updated_at else None,
+    }
+
+
+@router.get("/tasks")
+async def list_tasks(status: Optional[str] = None, session: AsyncSession = Depends(db.get_session)):
+    rows = await AdminTasksRepository(session).list(status=status)
+    return [_task(t) for t in rows]
+
+
+@router.post("/tasks")
+async def create_task(body: TaskBody, session: AsyncSession = Depends(db.get_session)):
+    task = AdminTasksRepository(session).create(
+        title=body.title, description=body.description,
+        related_order_id=body.related_order_id, related_customer_id=body.related_customer_id,
+        due_date_ad=_to_date(body.due_date_ad), assigned_to=body.assigned_to,
+        priority=body.priority, status=body.status,
+    )
+    await session.commit()
+    await session.refresh(task)
+    return _task(task)
+
+
+@router.patch("/tasks/{tid}")
+async def patch_task(tid: str, body: TaskUpdateBody, session: AsyncSession = Depends(db.get_session)):
+    task = await AdminTasksRepository(session).get(tid)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    data = body.model_dump(exclude_unset=True)
+    if "due_date_ad" in data:
+        task.due_date_ad = _to_date(data.pop("due_date_ad"))
+    for key, value in data.items():
+        setattr(task, key, value)
+    await session.commit()
+    await session.refresh(task)
+    return _task(task)
+
+
+# ---------- Material tasks (per-order material tracking) ----------
+class MaterialTaskUpdateBody(BaseModel):
+    material_needed: Optional[str] = None
+    material_status: Optional[str] = None
+    assigned_to: Optional[str] = None
+    quantity: Optional[str] = None
+    notes: Optional[str] = None
+
+
+def _material_task(t) -> dict:
+    return {
+        "id": str(t.id), "order_id": str(t.order_id), "material_needed": t.material_needed,
+        "material_status": t.material_status, "assigned_to": t.assigned_to,
+        "quantity": t.quantity, "notes": t.notes,
+        "purchased_at": t.purchased_at.isoformat() if t.purchased_at else None,
+        "created_at": t.created_at.isoformat() if t.created_at else None,
+        "updated_at": t.updated_at.isoformat() if t.updated_at else None,
+    }
+
+
+@router.get("/material-tasks")
+async def list_material_tasks(order_id: Optional[str] = None, status: Optional[str] = None,
+                               session: AsyncSession = Depends(db.get_session)):
+    repo = MaterialTasksRepository(session)
+    if order_id:
+        rows = await repo.list_for_order(order_id)
+    elif status:
+        rows = await repo.list_by_status(status)
+    else:
+        rows = await repo.list()
+    return [_material_task(t) for t in rows]
+
+
+@router.patch("/material-tasks/{mid}")
+async def patch_material_task(mid: str, body: MaterialTaskUpdateBody,
+                              session: AsyncSession = Depends(db.get_session)):
+    repo = MaterialTasksRepository(session)
+    task = await repo.get(mid)
+    if not task:
+        raise HTTPException(status_code=404, detail="Material task not found")
+    if body.material_status == "purchased" and task.material_status != "purchased":
+        await repo.mark_purchased(mid)
+        await session.refresh(task)
+        data = body.model_dump(exclude_unset=True, exclude={"material_status"})
+    else:
+        data = body.model_dump(exclude_unset=True)
+        if "material_status" in data:
+            task.material_status = data.pop("material_status")
+    for key, value in data.items():
+        setattr(task, key, value)
+    await session.commit()
+    await session.refresh(task)
+    return _material_task(task)
+
+
+# ---------- WhatsApp templates (manual wa.me links only; no paid API, no auto-send) ----------
+class TemplateUpdateBody(BaseModel):
+    name: Optional[str] = None
+    body: Optional[str] = None
+    is_active: Optional[bool] = None
+    sort_order: Optional[int] = None
+
+
+def _template(t) -> dict:
+    return {
+        "id": str(t.id), "slug": t.slug, "name": t.name, "body": t.body,
+        "is_active": t.is_active, "sort_order": t.sort_order,
+    }
+
+
+@router.get("/templates")
+async def list_templates(session: AsyncSession = Depends(db.get_session)):
+    rows = await TemplatesRepository(session).list(order_by=TemplatesRepository.model.sort_order)
+    return [_template(t) for t in rows]
+
+
+@router.patch("/templates/{tpid}")
+async def patch_template(tpid: str, body: TemplateUpdateBody, session: AsyncSession = Depends(db.get_session)):
+    repo = TemplatesRepository(session)
+    template = await repo.get(tpid)
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+    data = body.model_dump(exclude_unset=True)
+    for key, value in data.items():
+        setattr(template, key, value)
+    await session.commit()
+    await session.refresh(template)
+    return _template(template)

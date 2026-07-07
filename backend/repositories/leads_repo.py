@@ -1,7 +1,7 @@
 """Public leads (website enquiries) repository."""
 from __future__ import annotations
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from models import Lead
 from .base import BaseRepository
@@ -9,6 +9,11 @@ from .base import BaseRepository
 
 class LeadsRepository(BaseRepository):
     model = Lead
+
+    async def count_new(self) -> int:
+        result = await self.session.execute(
+            select(func.count()).select_from(Lead).where(Lead.status == "new"))
+        return result.scalar_one()
 
     async def list(self, *, status=None):
         stmt = select(Lead)

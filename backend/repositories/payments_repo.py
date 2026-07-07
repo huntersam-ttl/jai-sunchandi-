@@ -42,6 +42,12 @@ class PaymentsRepository(BaseRepository):
         await self.recompute_balances(order)
         return payment
 
+    async def todays_total(self) -> float:
+        total = (await self.session.execute(
+            select(func.coalesce(func.sum(Payment.amount), 0))
+            .where(Payment.payment_date_ad == date.today()))).scalar_one()
+        return round(float(total), 2)
+
     async def recompute_balances(self, order: Order) -> Order:
         """Recompute advance_total / remaining_balance / payment_status for an order."""
         total_paid = (await self.session.execute(

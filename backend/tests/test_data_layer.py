@@ -185,6 +185,30 @@ class TestSupabaseAppAndAuth:
     def test_repair_number_uses_server_default(self):
         assert models.RepairJob.__table__.c.repair_number.server_default is not None
 
+    def test_admin_dashboard_route_registered(self):
+        import app
+        routes = [(r.path, tuple(sorted(getattr(r, "methods", []) or [])))
+                  for r in app.app.routes]
+        assert any(p == "/api/admin/dashboard" and "GET" in m for p, m in routes)
+
+    def test_admin_task_routes_registered(self):
+        import app
+        routes = [(r.path, tuple(sorted(getattr(r, "methods", []) or [])))
+                  for r in app.app.routes]
+        for method, path in (("GET", "/api/admin/tasks"), ("POST", "/api/admin/tasks"),
+                             ("PATCH", "/api/admin/tasks/{tid}"),
+                             ("GET", "/api/admin/material-tasks"),
+                             ("PATCH", "/api/admin/material-tasks/{mid}")):
+            assert any(p == path and method in m for p, m in routes), f"{method} {path}"
+
+    def test_admin_template_routes_registered(self):
+        import app
+        routes = [(r.path, tuple(sorted(getattr(r, "methods", []) or [])))
+                  for r in app.app.routes]
+        for method, path in (("GET", "/api/admin/templates"),
+                             ("PATCH", "/api/admin/templates/{tpid}")):
+            assert any(p == path and method in m for p, m in routes), f"{method} {path}"
+
 
 class TestExistingMongoBackendStillCompiles:
     def test_mongo_modules_parse(self):
