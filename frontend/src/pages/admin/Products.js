@@ -11,7 +11,7 @@ const EMPTY = {
   name: "", name_np: "", description: "", category: "", collection: "", metal: "gold", purity: "24K",
   weight_mode: "tola", tola: "", lal: "", aana: "", grams: "",
   jarti_percent: 0, jyala_amount: 0, jyala_type: "flat", stone_cost: 0, polishing_cost: 0,
-  cutting_cost: 0, worker_charge: 0, other_cost: 0, status: "available",
+  cutting_cost: 0, worker_charge: 0, other_cost: 0, cost_price: "", status: "available",
   show_on_website: true, show_price_on_website: true, photos: [],
 };
 
@@ -112,7 +112,7 @@ export default function Products() {
   );
 }
 
-const toForm = (p) => ({ ...EMPTY, ...p, weight_mode: "grams", grams: p.weight_grams, tola: "", lal: "", aana: "" });
+const toForm = (p) => ({ ...EMPTY, ...p, weight_mode: "grams", grams: p.weight_grams, tola: "", lal: "", aana: "", cost_price: p.cost_price ?? "" });
 
 function ProductForm({ form, setForm, cats, cols, rate, onSaved }) {
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value });
@@ -164,6 +164,7 @@ function ProductForm({ form, setForm, cats, cols, rate, onSaved }) {
       jarti_percent: +form.jarti_percent || 0, jyala_amount: +form.jyala_amount || 0, jyala_type: form.jyala_type,
       stone_cost: +form.stone_cost || 0, polishing_cost: +form.polishing_cost || 0, cutting_cost: +form.cutting_cost || 0,
       worker_charge: +form.worker_charge || 0, other_cost: +form.other_cost || 0,
+      cost_price: form.cost_price === "" || form.cost_price === null || form.cost_price === undefined ? null : +form.cost_price,
       status: form.status, show_on_website: !!form.show_on_website, show_price_on_website: !!form.show_price_on_website,
       photos: form.photos || [],
     };
@@ -235,6 +236,12 @@ function ProductForm({ form, setForm, cats, cols, rate, onSaved }) {
           <F label="Cutting Cost"><input className={inp} type="number" step="any" value={form.cutting_cost} onChange={set("cutting_cost")} data-testid="pf-cutting" /></F>
           <F label="Worker Charge"><input className={inp} type="number" step="any" value={form.worker_charge} onChange={set("worker_charge")} data-testid="pf-worker" /></F>
           <F label="Other Cost"><input className={inp} type="number" step="any" value={form.other_cost} onChange={set("other_cost")} data-testid="pf-other" /></F>
+          <div className="sm:col-span-3 bg-slate-50 border border-slate-200 rounded p-3">
+            <F label="Cost Price (admin only — not shown to customers)">
+              <input className={inp} type="number" step="any" placeholder="e.g. 95000" value={form.cost_price} onChange={set("cost_price")} data-testid="pf-cost-price" />
+            </F>
+            <p className="text-xs text-slate-500 mt-1">Optional. Leave blank if unknown — do not guess.</p>
+          </div>
           <F label="Description" className="sm:col-span-3"><textarea rows={2} className={inp} value={form.description} onChange={set("description")} data-testid="pf-description" /></F>
           <div className="sm:col-span-3 flex flex-wrap gap-6 items-center">
             <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={!!form.show_on_website} onChange={set("show_on_website")} data-testid="pf-show-website" /> Show on website</label>

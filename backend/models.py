@@ -109,6 +109,9 @@ class Product(Base):
     cutting_cost: Mapped[Decimal] = mapped_column(Numeric(12, 2))
     worker_charge: Mapped[Decimal] = mapped_column(Numeric(12, 2))
     other_cost: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    # What the shop paid/acquired/made this item for. Optional — unknown cost
+    # stays NULL, never defaults to 0 (never fake a profit number).
+    cost_price: Mapped[Optional[Decimal]] = mapped_column(Numeric(12, 2), nullable=True)
     status: Mapped[str] = mapped_column(Text)
     show_on_website: Mapped[bool] = mapped_column(Boolean)
     show_price_on_website: Mapped[bool] = mapped_column(Boolean)
@@ -192,6 +195,10 @@ class OrderItem(Base):
     other_cost: Mapped[Decimal] = mapped_column(Numeric(12, 2))
     discount: Mapped[Decimal] = mapped_column(Numeric(12, 2))
     total_price: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    # Frozen snapshot of the linked product's cost_price at sale time. Never
+    # trust a client-supplied value when product_id is set — the server
+    # copies it from the Product row. NULL for custom items or unknown cost.
+    cost_price: Mapped[Optional[Decimal]] = mapped_column(Numeric(12, 2), nullable=True)
     created_at: Mapped[datetime] = _created_at()
 
     order: Mapped["Order"] = relationship(back_populates="items")

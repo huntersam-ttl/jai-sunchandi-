@@ -207,6 +207,7 @@ class ProductBody(BaseModel):
     cutting_cost: float = 0
     worker_charge: float = 0
     other_cost: float = 0
+    cost_price: Optional[float] = None  # what the shop paid for this item; leave unset if unknown
     status: str = "available"
     show_on_website: bool = True
     show_price_on_website: bool = True
@@ -227,6 +228,7 @@ def _product(p, rate) -> dict:
         "jyala_type": p.jyala_type, "stone_cost": float(p.stone_cost),
         "polishing_cost": float(p.polishing_cost), "cutting_cost": float(p.cutting_cost),
         "worker_charge": float(p.worker_charge), "other_cost": float(p.other_cost),
+        "cost_price": float(p.cost_price) if p.cost_price is not None else None,
         "status": p.status, "show_on_website": p.show_on_website,
         "show_price_on_website": p.show_price_on_website, "photos": p.photos or [],
         "is_deleted": p.is_deleted,
@@ -255,6 +257,7 @@ def _apply_product_fields(p, body: ProductBody, grams: float):
     p.cutting_cost = body.cutting_cost
     p.worker_charge = body.worker_charge
     p.other_cost = body.other_cost
+    p.cost_price = body.cost_price
     p.status = body.status
     p.show_on_website = body.show_on_website
     p.show_price_on_website = body.show_price_on_website
@@ -537,6 +540,7 @@ def _order_item(i) -> dict:
         "cutting_cost": float(i.cutting_cost), "worker_charge": float(i.worker_charge),
         "other_cost": float(i.other_cost), "discount": float(i.discount),
         "total_price": float(i.total_price),
+        "cost_price": float(i.cost_price) if i.cost_price is not None else None,
     }
 
 
@@ -623,13 +627,30 @@ async def list_orders(status: Optional[str] = None, q: Optional[str] = None,
     return [_order(o) for o in rows]
 
 
+async def _snapshot_item_cost_prices(items: list[dict], session: AsyncSession) -> list[dict]:
+    """Attach cost_price from the linked Product, never trusting a client value.
+
+    Custom/manual items (no product_id) keep cost_price unset (None) — unknown
+    cost stays unknown, it is never treated as zero.
+    """
+    for item in items:
+        product_id = item.get("product_id")
+        item["cost_price"] = None
+        if product_id:
+            product = await session.get(Product, product_id)
+            if product is not None and product.cost_price is not None:
+                item["cost_price"] = float(product.cost_price)
+    return items
+
+
 @router.post("/orders")
 async def create_order(body: OrderBody, session: AsyncSession = Depends(db.get_session)):
     customer = await _customer_for_order(body, session)
     try:
+        items = await _snapshot_item_cost_prices(_validate_order_items(body.items), session)
         order = await OrdersRepository(session).create_order(
             customer=customer,
-            items=_validate_order_items(body.items),
+            items=items,
             order_type=body.order_type,
             old_gold=body.old_gold,
             custom_description=body.custom_description,

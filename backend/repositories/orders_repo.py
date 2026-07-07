@@ -63,6 +63,7 @@ class OrdersRepository(BaseRepository):
                 stone_cost=snap["stone_cost"], polishing_cost=snap["polishing_cost"],
                 cutting_cost=snap["cutting_cost"], worker_charge=snap["worker_charge"],
                 other_cost=snap["other_cost"], discount=snap["discount"], total_price=snap["total_price"],
+                cost_price=it.get("cost_price"),
             ))
             total += snap["total_price"]
 

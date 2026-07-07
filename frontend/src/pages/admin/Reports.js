@@ -55,7 +55,7 @@ export default function Reports() {
           </div>
         ))}
       </div>
-      <p className="text-xs text-slate-400">Advanced reports (profit analysis, monthly trends) coming in v2.</p>
+      <p className="text-xs text-slate-400">Advanced reports (profit analysis, monthly trends) coming in v2. Profit reporting will only use products with recorded cost price.</p>
 
       <div className="pt-4 border-t border-slate-200">
         <div className="flex items-center justify-between flex-wrap gap-2 mb-2">

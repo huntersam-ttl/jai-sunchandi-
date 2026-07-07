@@ -164,6 +164,33 @@ class TestSupabaseAppAndAuth:
     def test_order_number_uses_server_default(self):
         assert models.Order.__table__.c.order_number.server_default is not None
 
+    def test_product_cost_price_column_nullable(self):
+        col = models.Product.__table__.c.cost_price
+        assert col.nullable is True
+
+    def test_order_item_cost_price_column_nullable(self):
+        col = models.OrderItem.__table__.c.cost_price
+        assert col.nullable is True
+
+    def test_product_body_accepts_optional_cost_price(self):
+        import admin_routes
+        body = admin_routes.ProductBody(name="Ring", weight=admin_routes.WeightInput(grams=5))
+        assert body.cost_price is None
+        body_with_cost = admin_routes.ProductBody(
+            name="Ring", weight=admin_routes.WeightInput(grams=5), cost_price=1500.0)
+        assert body_with_cost.cost_price == 1500.0
+
+    def test_order_item_cost_snapshot_never_trusts_client_value(self):
+        import inspect
+
+        import admin_routes
+        src = inspect.getsource(admin_routes._snapshot_item_cost_prices)
+        # Every item's cost_price is reset to None first, then only overridden
+        # from the server-fetched Product row — never from client input.
+        assert 'item["cost_price"] = None' in src
+        assert "product.cost_price" in src
+        assert "session.get(Product" in src
+
     def test_admin_payment_routes_registered(self):
         import app
         routes = [(r.path, tuple(sorted(getattr(r, "methods", []) or [])))
