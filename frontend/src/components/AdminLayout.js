@@ -3,9 +3,10 @@ import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useSettings } from "@/context/SettingsContext";
 import { api } from "@/lib/api";
-import { LayoutDashboard, Gem, Users, ClipboardList, Receipt, Wrench, Award, Inbox, TrendingUp, BarChart3, LogOut, Search, Menu, X, Settings } from "lucide-react";
+import { LayoutDashboard, Gem, Users, ClipboardList, Receipt, Wrench, Award, Inbox, TrendingUp, BarChart3, LogOut, Search, Menu, X, Settings, ClipboardCheck } from "lucide-react";
 const nav = [
   { to: "/admin", label: "Today", icon: LayoutDashboard, end: true },
+  { to: "/admin/handover", label: "Handover", icon: ClipboardCheck },
   { to: "/admin/rates", label: "Daily Rates", icon: TrendingUp },
   { to: "/admin/products", label: "Products", icon: Gem },
   { to: "/admin/customers", label: "Customers", icon: Users },

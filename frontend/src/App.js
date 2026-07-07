@@ -18,6 +18,7 @@ import VerifyInvoice from "@/pages/public/VerifyInvoice";
 import VerifyCertificate from "@/pages/public/VerifyCertificate";
 import Login from "@/pages/admin/Login";
 import Dashboard from "@/pages/admin/Dashboard";
+import Handover from "@/pages/admin/Handover";
 import RatesAdmin from "@/pages/admin/Rates";
 import Products from "@/pages/admin/Products";
 import Customers from "@/pages/admin/Customers";
@@ -55,6 +56,7 @@ function App() {
               <Route path="/admin/login" element={<Login />} />
               <Route path="/admin" element={<AdminLayout />}>
                 <Route index element={<Dashboard />} />
+                <Route path="handover" element={<Handover />} />
                 <Route path="rates" element={<RatesAdmin />} />
                 <Route path="products" element={<Products />} />
                 <Route path="customers" element={<Customers />} />

@@ -11,6 +11,7 @@ export default function Dashboard() {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [rateForm, setRateForm] = useState({ gold_24k: "", silver: "" });
+  const [openTasks, setOpenTasks] = useState([]);
 
   const load = () => {
     setLoading(true);
@@ -26,7 +27,11 @@ export default function Dashboard() {
       })
       .finally(() => setLoading(false));
   };
-  useEffect(() => { load(); }, []);
+  const loadTasks = () => {
+    api.get("/admin/tasks", { params: { status: "pending" } }).then((r) => setOpenTasks(r.data))
+      .catch((err) => console.error("Handover tasks load failed:", err));
+  };
+  useEffect(() => { load(); loadTasks(); }, []);
 
   const saveRate = async (e) => {
     e.preventDefault();
@@ -66,6 +71,7 @@ export default function Dashboard() {
     ["Add Customer", "/admin/customers"],
     ["Add Order", "/admin/orders"],
     ["Add Repair", "/admin/repairs"],
+    ["Handover Notes", "/admin/handover"],
   ];
 
   return (
@@ -120,6 +126,8 @@ export default function Dashboard() {
         <RepairList repairs={data.pending_repairs} />
         <LeadList leads={data.recent_leads} />
       </div>
+
+      <HandoverList tasks={openTasks} />
     </div>
   );
 }
@@ -149,6 +157,20 @@ const RepairList = ({ repairs = [] }) => (
         <Link key={r.id} to="/admin/repairs" className="flex items-center justify-between text-sm py-1.5 border-b border-slate-50 hover:bg-slate-50 px-1 rounded">
           <span>{r.repair_number} · {r.customer_name}</span>
           <Badge status={r.status} colors={STATUS_COLORS} />
+        </Link>
+      ))}
+    </div>
+  </Card>
+);
+
+const HandoverList = ({ tasks = [] }) => (
+  <Card title={`Handover Notes — Open (${tasks.length})`} actions={<Link to="/admin/handover" className="text-xs underline text-slate-500">View all</Link>}>
+    <div className="space-y-2" data-testid="list-handover-tasks">
+      {tasks.length === 0 && <p className="text-xs text-slate-400">Nothing to hand over right now.</p>}
+      {tasks.slice(0, 5).map((t) => (
+        <Link key={t.id} to="/admin/handover" className="flex items-center justify-between text-sm py-1.5 border-b border-slate-50 hover:bg-slate-50 px-1 rounded">
+          <span>{t.title}{t.priority === "high" && <span className="text-[#991B1B] text-xs font-semibold ml-2">High</span>}</span>
+          <span className="text-xs text-slate-400">{t.due_date_ad || ""}</span>
         </Link>
       ))}
     </div>
