@@ -191,6 +191,26 @@ class TestSupabaseAppAndAuth:
         assert "product.cost_price" in src
         assert "session.get(Product" in src
 
+    def test_order_item_line_number_has_no_default(self):
+        # line_number must be supplied by the app for every item — a static
+        # column default previously made every row in a multi-item order
+        # collide on UNIQUE(order_id, line_number).
+        col = models.OrderItem.__table__.c.line_number
+        assert col.nullable is False
+        assert col.server_default is None
+        assert col.default is None
+
+    def test_create_order_assigns_sequential_line_numbers(self):
+        import inspect
+
+        from repositories.orders_repo import OrdersRepository
+        src = inspect.getsource(OrdersRepository.create_order)
+        assert "enumerate(items, start=1)" in src
+        assert "line_number=line_number" in src
+
+    def test_order_items_relationship_ordered_by_line_number(self):
+        assert models.Order.items.property.order_by is not None
+
     def test_admin_payment_routes_registered(self):
         import app
         routes = [(r.path, tuple(sorted(getattr(r, "methods", []) or [])))

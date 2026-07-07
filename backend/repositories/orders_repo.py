@@ -46,7 +46,7 @@ class OrdersRepository(BaseRepository):
         of pricing inputs; `customer` is a Customer model."""
         total = 0.0
         order_items: list[OrderItem] = []
-        for it in items:
+        for line_number, it in enumerate(items, start=1):
             snap = compute_price(
                 it["weight_grams"], it["rate_per_tola"], it.get("purity", "24K"),
                 it.get("jarti_percent", 0), it.get("jyala_amount", 0), it.get("jyala_type", "flat"),
@@ -63,7 +63,7 @@ class OrdersRepository(BaseRepository):
                 stone_cost=snap["stone_cost"], polishing_cost=snap["polishing_cost"],
                 cutting_cost=snap["cutting_cost"], worker_charge=snap["worker_charge"],
                 other_cost=snap["other_cost"], discount=snap["discount"], total_price=snap["total_price"],
-                cost_price=it.get("cost_price"),
+                cost_price=it.get("cost_price"), line_number=line_number,
             ))
             total += snap["total_price"]
 

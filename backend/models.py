@@ -164,7 +164,8 @@ class Order(Base):
     updated_at: Mapped[datetime] = _updated_at()
 
     items: Mapped[list["OrderItem"]] = relationship(
-        back_populates="order", cascade="all, delete-orphan", lazy="selectin")
+        back_populates="order", cascade="all, delete-orphan", lazy="selectin",
+        order_by="OrderItem.line_number")
     payments: Mapped[list["Payment"]] = relationship(
         back_populates="order", lazy="selectin")
 
@@ -199,7 +200,19 @@ class OrderItem(Base):
     # trust a client-supplied value when product_id is set — the server
     # copies it from the Product row. NULL for custom items or unknown cost.
     cost_price: Mapped[Optional[Decimal]] = mapped_column(Numeric(12, 2), nullable=True)
+    # Explicit per-item position within the order (1, 2, 3...). Must be set by
+    # the application for every item — the column has no default, since a
+    # single-row default previously collided across multi-item orders (every
+    # row got the same value, violating UNIQUE(order_id, line_number)).
+    line_number: Mapped[int] = mapped_column(Integer)
+    # The next three columns exist on the live table but aren't actively
+    # written by this app yet; DB-side defaults are enough, so SQLAlchemy
+    # omits them from INSERT and fetches the default back via server_default.
+    item_type: Mapped[str] = mapped_column(Text, server_default=text("'product'"))
+    line_total: Mapped[Decimal] = mapped_column(Numeric(12, 2), server_default=text("0"))
+    snapshot: Mapped[dict] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
     created_at: Mapped[datetime] = _created_at()
+    updated_at: Mapped[datetime] = _updated_at()
 
     order: Mapped["Order"] = relationship(back_populates="items")
 

@@ -541,6 +541,7 @@ def _order_item(i) -> dict:
         "other_cost": float(i.other_cost), "discount": float(i.discount),
         "total_price": float(i.total_price),
         "cost_price": float(i.cost_price) if i.cost_price is not None else None,
+        "line_number": i.line_number,
     }
 
 
