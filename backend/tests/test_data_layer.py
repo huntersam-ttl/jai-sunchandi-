@@ -191,6 +191,14 @@ class TestSupabaseAppAndAuth:
                   for r in app.app.routes]
         assert any(p == "/api/admin/dashboard" and "GET" in m for p, m in routes)
 
+    def test_admin_dashboard_includes_repairs_and_leads_summary(self):
+        import inspect
+
+        import admin_routes
+        src = inspect.getsource(admin_routes.dashboard)
+        for key in ("pending_repairs_count", "pending_repairs", "recent_leads"):
+            assert key in src, key
+
     def test_admin_task_routes_registered(self):
         import app
         routes = [(r.path, tuple(sorted(getattr(r, "methods", []) or [])))

@@ -3,16 +3,29 @@ import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { api, apiError } from "@/lib/api";
 import { rs, STATUS_COLORS } from "@/lib/format";
-import { inp, btnGold, Card, Badge, F } from "@/components/admin/ui";
+import { inp, btnGold, btnGhost, Card, Badge, F } from "@/components/admin/ui";
+import { Plus, RefreshCw } from "lucide-react";
 
 export default function Dashboard() {
   const [data, setData] = useState(null);
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [rateForm, setRateForm] = useState({ gold_24k: "", silver: "" });
 
-  const load = () => api.get("/admin/dashboard").then((r) => {
-    setData(r.data);
-    if (r.data.rate) setRateForm({ gold_24k: r.data.rate.gold_24k, silver: r.data.rate.silver });
-  });
+  const load = () => {
+    setLoading(true);
+    setError(null);
+    return api.get("/admin/dashboard")
+      .then((r) => {
+        setData(r.data);
+        if (r.data.rate) setRateForm({ gold_24k: r.data.rate.gold_24k, silver: r.data.rate.silver });
+      })
+      .catch((err) => {
+        console.error("Dashboard load failed:", err);
+        setError(apiError(err));
+      })
+      .finally(() => setLoading(false));
+  };
   useEffect(() => { load(); }, []);
 
   const saveRate = async (e) => {
@@ -26,18 +39,56 @@ export default function Dashboard() {
     } catch (err) { toast.error(apiError(err)); }
   };
 
-  if (!data) return <p className="text-slate-500 text-sm">Loading…</p>;
+  if (loading && !data) return <p className="text-slate-500 text-sm">Loading…</p>;
+
+  if (error && !data) {
+    return (
+      <div className="bg-white border border-red-200 rounded-md p-6 text-center space-y-3">
+        <p className="text-red-700 font-medium">Could not load data. Please refresh or contact admin.</p>
+        <p className="text-xs text-slate-400">{error}</p>
+        <button className={btnGhost} onClick={load} data-testid="dashboard-retry-btn">
+          <RefreshCw size={14} /> Retry
+        </button>
+      </div>
+    );
+  }
 
   const stats = [
     ["Today's Sales", rs(data.todays_sales), "todays-sales"],
     ["Pending Orders", data.pending_orders_count, "pending-orders"],
-    ["Invoices Today", data.todays_invoices, "invoices-today"],
+    ["Pending Repairs", data.pending_repairs_count ?? 0, "pending-repairs"],
     ["New Leads", data.new_leads, "new-leads"],
+  ];
+
+  const quickActions = [
+    ["Add Product", "/admin/products"],
+    ["Add Rate", "/admin/rates"],
+    ["Add Customer", "/admin/customers"],
+    ["Add Order", "/admin/orders"],
+    ["Add Repair", "/admin/repairs"],
   ];
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Today View</h1>
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <h1 className="text-2xl font-bold">Today View</h1>
+        {error && (
+          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+            Some data may be out of date — last refresh failed. <button className="underline" onClick={load}>Retry</button>
+          </p>
+        )}
+      </div>
+
+      <Card title="Quick Actions">
+        <div className="flex flex-wrap gap-2" data-testid="quick-actions">
+          {quickActions.map(([label, to]) => (
+            <Link key={label} to={to} className={btnGhost} data-testid={`quick-action-${label.toLowerCase().replace(/\s+/g, "-")}`}>
+              <Plus size={14} /> {label}
+            </Link>
+          ))}
+        </div>
+      </Card>
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map(([label, value, id]) => (
           <div key={label} className="bg-white border border-slate-200 rounded-md p-4" data-testid={`stat-${id}`}>
@@ -53,7 +104,9 @@ export default function Dashboard() {
           <F label="Silver"><input className={inp} type="number" step="any" value={rateForm.silver} onChange={(e) => setRateForm({ ...rateForm, silver: e.target.value })} data-testid="rate-silver-input" /></F>
           <button type="submit" className={btnGold} data-testid="rate-save-btn">Update Rate</button>
         </form>
-        {data.rate && <p className="text-xs text-slate-500 mt-2">Last updated: {data.rate.date_ad} (BS {data.rate.bs_date_np})</p>}
+        {data.rate
+          ? <p className="text-xs text-slate-500 mt-2">Last updated: {data.rate.date_ad} (BS {data.rate.bs_date_np})</p>
+          : <p className="text-xs text-amber-700 mt-2">No rate set yet today — enter one above so the website shows a live price.</p>}
       </Card>
 
       <div className="grid lg:grid-cols-2 gap-4">
@@ -61,6 +114,11 @@ export default function Dashboard() {
         <OrderList title="Orders Due This Week" orders={data.orders_due_week} testId="due-week" />
         <OrderList title="Ready for Collection" orders={data.ready_for_collection} testId="ready" />
         <OrderList title="Pending Payments" orders={data.pending_payments} showBalance testId="pending-pay" />
+      </div>
+
+      <div className="grid lg:grid-cols-2 gap-4">
+        <RepairList repairs={data.pending_repairs} />
+        <LeadList leads={data.recent_leads} />
       </div>
     </div>
   );
@@ -77,6 +135,34 @@ const OrderList = ({ title, orders, showBalance, testId }) => (
             {showBalance && <b className="text-[#991B1B]">{rs(o.remaining_balance)}</b>}
             <Badge status={o.status} colors={STATUS_COLORS} />
           </span>
+        </Link>
+      ))}
+    </div>
+  </Card>
+);
+
+const RepairList = ({ repairs = [] }) => (
+  <Card title={`Pending Repairs (${repairs.length})`}>
+    <div className="space-y-2" data-testid="list-pending-repairs">
+      {repairs.length === 0 && <p className="text-xs text-slate-400">No repairs waiting on the shop right now.</p>}
+      {repairs.map((r) => (
+        <Link key={r.id} to="/admin/repairs" className="flex items-center justify-between text-sm py-1.5 border-b border-slate-50 hover:bg-slate-50 px-1 rounded">
+          <span>{r.repair_number} · {r.customer_name}</span>
+          <Badge status={r.status} colors={STATUS_COLORS} />
+        </Link>
+      ))}
+    </div>
+  </Card>
+);
+
+const LeadList = ({ leads = [] }) => (
+  <Card title={`Recent Leads (${leads.length})`}>
+    <div className="space-y-2" data-testid="list-recent-leads">
+      {leads.length === 0 && <p className="text-xs text-slate-400">No customer enquiries yet.</p>}
+      {leads.map((l) => (
+        <Link key={l.id} to="/admin/leads" className="flex items-center justify-between text-sm py-1.5 border-b border-slate-50 hover:bg-slate-50 px-1 rounded">
+          <span>{l.name} · {l.phone}</span>
+          <Badge status={l.status} colors={STATUS_COLORS} />
         </Link>
       ))}
     </div>

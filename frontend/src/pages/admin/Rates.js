@@ -8,7 +8,8 @@ export default function RatesAdmin() {
   const [history, setHistory] = useState([]);
   const [form, setForm] = useState({ date_ad: new Date().toISOString().slice(0, 10), gold_24k: "", silver: "" });
 
-  const load = () => api.get("/rates/history", { params: { days: 90 } }).then((r) => setHistory(r.data.slice().reverse()));
+  const load = () => api.get("/rates/history", { params: { days: 90 } }).then((r) => setHistory(r.data.slice().reverse()))
+    .catch((err) => { console.error("Rate history load failed:", err); toast.error(apiError(err)); });
   useEffect(() => { load(); }, []);
 
   const submit = async (e) => {

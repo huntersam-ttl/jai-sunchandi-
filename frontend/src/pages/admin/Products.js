@@ -24,19 +24,22 @@ export default function Products() {
   const [qrProduct, setQrProduct] = useState(null);
   const [q, setQ] = useState("");
 
-  const load = () => api.get("/admin/products").then((r) => setProducts(r.data));
+  const load = () => api.get("/admin/products").then((r) => setProducts(r.data))
+    .catch((err) => { console.error("Products load failed:", err); toast.error(apiError(err)); });
   useEffect(() => {
     load();
-    api.get("/categories").then((r) => setCats(r.data));
-    api.get("/collections").then((r) => setCols(r.data));
-    api.get("/rates/today").then((r) => setRate(r.data));
+    api.get("/categories").then((r) => setCats(r.data)).catch((err) => console.error("Categories load failed:", err));
+    api.get("/collections").then((r) => setCols(r.data)).catch((err) => console.error("Collections load failed:", err));
+    api.get("/rates/today").then((r) => setRate(r.data)).catch((err) => console.error("Rate load failed:", err));
   }, []);
 
   const del = async (p) => {
     if (!window.confirm(`Soft-delete ${p.name}?`)) return;
-    await api.delete(`/admin/products/${p.id}`);
-    toast.success("Product removed");
-    load();
+    try {
+      await api.delete(`/admin/products/${p.id}`);
+      toast.success("Product removed");
+      load();
+    } catch (err) { toast.error(apiError(err)); }
   };
 
   const filtered = products.filter((p) => {

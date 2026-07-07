@@ -896,6 +896,21 @@ async def patch_repair(rid: str, body: RepairUpdateBody, session: AsyncSession =
 
 
 # ---------- Dashboard ----------
+def _repair_summary(r) -> dict:
+    return {
+        "id": str(r.id), "repair_number": r.repair_number, "customer_name": r.customer_name,
+        "service_type": r.service_type, "status": r.status,
+        "promised_date_ad": _iso(r.promised_date_ad),
+    }
+
+
+def _lead_summary(l) -> dict:
+    return {
+        "id": str(l.id), "lead_type": l.lead_type, "name": l.name, "phone": l.phone,
+        "status": l.status, "created_at": l.created_at.isoformat() if l.created_at else None,
+    }
+
+
 @router.get("/dashboard")
 async def dashboard(session: AsyncSession = Depends(db.get_session)):
     orders_repo = OrdersRepository(session)
@@ -907,6 +922,12 @@ async def dashboard(session: AsyncSession = Depends(db.get_session)):
     todays_sales = await PaymentsRepository(session).todays_total()
     pending_orders_count = await orders_repo.active_count()
     new_leads = await LeadsRepository(session).count_new()
+
+    all_repairs = await RepairsRepository(session).list()
+    pending_repairs = [r for r in all_repairs if r.status not in ("delivered", "cancelled")]
+
+    recent_leads = await LeadsRepository(session).list()
+
     return {
         "rate": _rate(rate) if rate else None,
         "orders_due_today": [_order(o) for o in due_today],
@@ -917,6 +938,9 @@ async def dashboard(session: AsyncSession = Depends(db.get_session)):
         "todays_invoices": 0,
         "pending_orders_count": pending_orders_count,
         "new_leads": new_leads,
+        "pending_repairs_count": len(pending_repairs),
+        "pending_repairs": [_repair_summary(r) for r in pending_repairs[:8]],
+        "recent_leads": [_lead_summary(l) for l in recent_leads[:5]],
     }
 
 

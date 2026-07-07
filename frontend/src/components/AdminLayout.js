@@ -10,12 +10,16 @@ const nav = [
   { to: "/admin/products", label: "Products", icon: Gem },
   { to: "/admin/customers", label: "Customers", icon: Users },
   { to: "/admin/orders", label: "Orders", icon: ClipboardList },
-  { to: "/admin/invoices", label: "Invoices", icon: Receipt },
   { to: "/admin/repairs", label: "Repairs", icon: Wrench },
-  { to: "/admin/certificates", label: "Certificates", icon: Award },
   { to: "/admin/leads", label: "Leads", icon: Inbox },
   { to: "/admin/reports", label: "Reports", icon: BarChart3 },
   { to: "/admin/settings", label: "Settings", icon: Settings },
+];
+// Phase 2 — not wired to the backend yet; shown as disabled so they don't
+// look like broken links.
+const comingSoon = [
+  { label: "Invoices", icon: Receipt },
+  { label: "Certificates", icon: Award },
 ];
 export default function AdminLayout() {
   const { user, logout } = useAuth();
@@ -29,8 +33,13 @@ export default function AdminLayout() {
   const doSearch = async (e) => {
     e.preventDefault();
     if (!q.trim()) return;
-    const { data } = await api.get("/admin/search", { params: { q } });
-    setResults(data);
+    try {
+      const { data } = await api.get("/admin/search", { params: { q } });
+      setResults(data);
+    } catch (err) {
+      console.error("Search failed:", err);
+      setResults({});
+    }
   };
   const go = (path) => { setResults(null); setQ(""); navigate(path); };
   return (
@@ -50,6 +59,13 @@ export default function AdminLayout() {
               className={({ isActive }) => `flex items-center gap-3 px-4 py-2.5 text-sm transition-colors duration-200 ${isActive ? "bg-slate-800 text-[#D4AF37] border-l-2 border-[#D4AF37]" : "hover:bg-slate-800/60"}`}>
               <n.icon size={17} strokeWidth={1.5} /> {n.label}
             </NavLink>
+          ))}
+          {comingSoon.map((n) => (
+            <div key={n.label} data-testid={`admin-nav-${n.label.toLowerCase()}-soon`}
+              className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm text-slate-500 cursor-not-allowed" title="Coming soon">
+              <span className="flex items-center gap-3"><n.icon size={17} strokeWidth={1.5} /> {n.label}</span>
+              <span className="text-[10px] uppercase tracking-wide bg-slate-800 text-slate-400 rounded px-1.5 py-0.5">Soon</span>
+            </div>
           ))}
         </nav>
         <button onClick={logout} data-testid="admin-logout-btn"
