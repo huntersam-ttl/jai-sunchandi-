@@ -24,6 +24,8 @@ import Products from "@/pages/admin/Products";
 import Customers from "@/pages/admin/Customers";
 import CustomerDues from "@/pages/admin/CustomerDues";
 import CustomerDetail from "@/pages/admin/CustomerDetail";
+import Expenses from "@/pages/admin/Expenses";
+import Cashbook from "@/pages/admin/Cashbook";
 import Orders from "@/pages/admin/Orders";
 import OrderDetail from "@/pages/admin/OrderDetail";
 import Invoices from "@/pages/admin/Invoices";
@@ -63,6 +65,8 @@ function App() {
                 <Route path="customers" element={<Customers />} />
                 <Route path="customer-dues" element={<CustomerDues />} />
                 <Route path="customers/:id" element={<CustomerDetail />} />
+                <Route path="expenses" element={<Expenses />} />
+                <Route path="cashbook" element={<Cashbook />} />
                 <Route path="orders" element={<Orders />} />
                 <Route path="orders/:id" element={<OrderDetail />} />
                 <Route path="invoices" element={<Invoices />} />

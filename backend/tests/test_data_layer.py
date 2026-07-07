@@ -60,16 +60,23 @@ class TestDataLayerImports:
     def test_all_models_present(self):
         for name in ("ShopSettings", "Category", "Collection", "DailyRate", "Product",
                      "Customer", "Order", "OrderItem", "Payment", "RepairJob", "Lead",
-                     "AdminTask", "MaterialTask", "WhatsappTemplate"):
+                     "Expense", "AdminTask", "MaterialTask", "WhatsappTemplate"):
             assert hasattr(models, name), name
 
     def test_all_repositories_present(self):
         for name in ("SettingsRepository", "CategoriesRepository", "CollectionsRepository",
                      "RatesRepository", "ProductsRepository", "CustomersRepository",
-                     "OrdersRepository", "PaymentsRepository", "RepairsRepository",
+                     "OrdersRepository", "PaymentsRepository", "ExpensesRepository", "RepairsRepository",
                      "LeadsRepository", "AdminTasksRepository", "MaterialTasksRepository",
                      "TemplatesRepository"):
             assert hasattr(repos, name), name
+
+    def test_expense_model_fields(self):
+        cols = models.Expense.__table__.c
+        for name in ("id", "date_ad", "category", "description", "amount",
+                     "payment_method", "created_at", "updated_at"):
+            assert name in cols
+        assert str(cols.amount.type) == "NUMERIC(12, 2)"
 
 
 class TestPaymentStatusDerivation:
@@ -164,6 +171,26 @@ class TestSupabaseAppAndAuth:
         for method, path in (("GET", "/api/admin/orders/{oid}/payments"),
                              ("POST", "/api/admin/orders/{oid}/payments")):
             assert any(p == path and method in m for p, m in routes), f"{method} {path}"
+
+    def test_admin_expense_cashbook_routes_registered(self):
+        import app
+        routes = [(r.path, tuple(sorted(getattr(r, "methods", []) or [])))
+                  for r in app.app.routes]
+        for method, path in (("GET", "/api/admin/expenses"), ("POST", "/api/admin/expenses"),
+                             ("PATCH", "/api/admin/expenses/{eid}"),
+                             ("GET", "/api/admin/cashbook")):
+            assert any(p == path and method in m for p, m in routes), f"{method} {path}"
+
+    def test_cashbook_shape_is_cash_movement_only(self):
+        import inspect
+
+        from repositories.expenses_repo import ExpensesRepository
+        src = inspect.getsource(ExpensesRepository.cashbook)
+        assert "cash_in" in src
+        assert "cash_out" in src
+        assert "net_cash" in src
+        assert "repair_id" not in src
+        assert "cost_price" not in src
 
     def test_admin_lead_routes_registered(self):
         import app

@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useSettings } from "@/context/SettingsContext";
 import { api } from "@/lib/api";
-import { LayoutDashboard, Gem, Users, ClipboardList, Receipt, Wrench, Award, Inbox, TrendingUp, BarChart3, LogOut, Search, Menu, X, Settings, ClipboardCheck, Wallet } from "lucide-react";
+import { LayoutDashboard, Gem, Users, ClipboardList, Receipt, Wrench, Award, Inbox, TrendingUp, BarChart3, LogOut, Search, Menu, X, Settings, ClipboardCheck, Wallet, Banknote, BookOpen } from "lucide-react";
 const nav = [
   { to: "/admin", label: "Today", icon: LayoutDashboard, end: true },
   { to: "/admin/handover", label: "Handover", icon: ClipboardCheck },
@@ -12,6 +12,8 @@ const nav = [
   { to: "/admin/customers", label: "Customers", icon: Users },
   { to: "/admin/customer-dues", label: "Customer Dues", icon: Wallet },
   { to: "/admin/orders", label: "Orders", icon: ClipboardList },
+  { to: "/admin/expenses", label: "Expenses", icon: Banknote },
+  { to: "/admin/cashbook", label: "Cashbook", icon: BookOpen },
   { to: "/admin/repairs", label: "Repairs", icon: Wrench },
   { to: "/admin/leads", label: "Leads", icon: Inbox },
   { to: "/admin/reports", label: "Reports", icon: BarChart3 },

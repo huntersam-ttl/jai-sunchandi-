@@ -12,6 +12,7 @@ from .products_repo import ProductsRepository
 from .customers_repo import CustomersRepository
 from .orders_repo import OrdersRepository
 from .payments_repo import PaymentsRepository
+from .expenses_repo import ExpensesRepository
 from .repairs_repo import RepairsRepository
 from .leads_repo import LeadsRepository
 from .tasks_repo import AdminTasksRepository, MaterialTasksRepository
@@ -21,7 +22,7 @@ __all__ = [
     "BaseRepository", "derive_payment_status",
     "SettingsRepository", "CategoriesRepository", "CollectionsRepository",
     "RatesRepository", "ProductsRepository", "CustomersRepository",
-    "OrdersRepository", "PaymentsRepository", "RepairsRepository",
+    "OrdersRepository", "PaymentsRepository", "ExpensesRepository", "RepairsRepository",
     "LeadsRepository", "AdminTasksRepository", "MaterialTasksRepository",
     "TemplatesRepository",
 ]

@@ -213,6 +213,18 @@ class Payment(Base):
     order: Mapped["Order"] = relationship(back_populates="payments")
 
 
+class Expense(Base):
+    __tablename__ = "expenses"
+    id: Mapped[str] = _uuid_pk()
+    date_ad: Mapped[date] = mapped_column(Date, server_default=text("current_date"))
+    category: Mapped[str] = mapped_column(Text, server_default=text("'other'"))
+    description: Mapped[str] = mapped_column(Text, server_default=text("''"))
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    payment_method: Mapped[str] = mapped_column(Text, server_default=text("'cash'"))
+    created_at: Mapped[datetime] = _created_at()
+    updated_at: Mapped[datetime] = _updated_at()
+
+
 class RepairJob(Base):
     __tablename__ = "repair_jobs"
     id: Mapped[str] = _uuid_pk()
@@ -301,5 +313,5 @@ class WhatsappTemplate(Base):
 __all__ = [
     "Base", "ShopSettings", "Category", "Collection", "DailyRate", "Product",
     "Customer", "Order", "OrderItem", "Payment", "RepairJob", "Lead",
-    "AdminTask", "MaterialTask", "WhatsappTemplate",
+    "Expense", "AdminTask", "MaterialTask", "WhatsappTemplate",
 ]

@@ -19,7 +19,7 @@ import config
 from models import Product
 from repositories import (
     AdminTasksRepository, CategoriesRepository, CollectionsRepository, CustomersRepository,
-    LeadsRepository, MaterialTasksRepository, OrdersRepository, PaymentsRepository,
+    ExpensesRepository, LeadsRepository, MaterialTasksRepository, OrdersRepository, PaymentsRepository,
     ProductsRepository, RatesRepository, RepairsRepository, SettingsRepository,
     TemplatesRepository,
 )
@@ -491,12 +491,37 @@ class PaymentBody(BaseModel):
     note: str = ""
 
 
+class ExpenseBody(BaseModel):
+    date_ad: Optional[str] = None
+    category: str = "other"
+    description: str = ""
+    amount: float
+    payment_method: str = "cash"
+
+
 def _payment(p) -> dict:
     return {
         "id": str(p.id), "payment_date_ad": _iso(p.payment_date_ad),
         "payment_date_bs": p.payment_date_bs, "payment_date_bs_np": p.payment_date_bs_np,
         "method": p.method, "note": p.note, "amount": float(p.amount),
     }
+
+
+def _expense(e) -> dict:
+    return {
+        "id": str(e.id),
+        "date_ad": _iso(e.date_ad),
+        "category": e.category,
+        "description": e.description,
+        "amount": float(e.amount),
+        "payment_method": e.payment_method,
+        "created_at": e.created_at.isoformat() if e.created_at else None,
+        "updated_at": e.updated_at.isoformat() if e.updated_at else None,
+    }
+
+
+def _cashbook_entry(entry: dict) -> dict:
+    return {**entry, "date_ad": _iso(entry["date_ad"])}
 
 
 def _order_item(i) -> dict:
@@ -695,6 +720,69 @@ async def add_order_payment(oid: str, body: PaymentBody, session: AsyncSession =
         "remaining_balance": float(order.remaining_balance),
         "payment_status": order.payment_status,
     }
+
+
+# ---------- Expenses / cashbook ----------
+@router.get("/expenses")
+async def list_expenses(start_date: Optional[str] = None, end_date: Optional[str] = None,
+                        session: AsyncSession = Depends(db.get_session)):
+    try:
+        rows = await ExpensesRepository(session).list(start_date=start_date, end_date=end_date)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return [_expense(e) for e in rows]
+
+
+@router.post("/expenses")
+async def create_expense(body: ExpenseBody, session: AsyncSession = Depends(db.get_session)):
+    if body.amount <= 0:
+        raise HTTPException(status_code=400, detail="Expense amount must be greater than 0")
+    try:
+        expense = ExpensesRepository(session).create(
+            date_ad=body.date_ad,
+            category=body.category,
+            description=body.description,
+            amount=body.amount,
+            payment_method=body.payment_method,
+        )
+        await session.commit()
+        await session.refresh(expense)
+    except ValueError as exc:
+        await session.rollback()
+        raise HTTPException(status_code=400, detail=str(exc))
+    return _expense(expense)
+
+
+@router.patch("/expenses/{eid}")
+async def patch_expense(eid: str, body: ExpenseBody, session: AsyncSession = Depends(db.get_session)):
+    if body.amount <= 0:
+        raise HTTPException(status_code=400, detail="Expense amount must be greater than 0")
+    repo = ExpensesRepository(session)
+    expense = await repo.get(eid)
+    if not expense:
+        raise HTTPException(status_code=404, detail="Expense not found")
+    try:
+        expense.date_ad = repo._date_or_today(body.date_ad)
+        expense.category = body.category or "other"
+        expense.description = body.description or ""
+        expense.amount = body.amount
+        expense.payment_method = body.payment_method or "cash"
+        await session.commit()
+        await session.refresh(expense)
+    except ValueError as exc:
+        await session.rollback()
+        raise HTTPException(status_code=400, detail=str(exc))
+    return _expense(expense)
+
+
+@router.get("/cashbook")
+async def cashbook(start_date: Optional[str] = None, end_date: Optional[str] = None,
+                   session: AsyncSession = Depends(db.get_session)):
+    try:
+        data = await ExpensesRepository(session).cashbook(start_date=start_date, end_date=end_date)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {**data, "entries": [_cashbook_entry(e) for e in data["entries"]]}
 
 
 # ---------- Leads ----------
