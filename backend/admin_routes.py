@@ -20,7 +20,8 @@ from models import Product
 from repositories import (
     AdminTasksRepository, CategoriesRepository, CollectionsRepository, CustomersRepository,
     LeadsRepository, MaterialTasksRepository, OrdersRepository, PaymentsRepository,
-    ProductsRepository, RatesRepository, RepairsRepository, TemplatesRepository,
+    ProductsRepository, RatesRepository, RepairsRepository, SettingsRepository,
+    TemplatesRepository,
 )
 from supabase_auth import get_current_admin
 from utils import grams_to_tola, tola_lal_aana_to_grams
@@ -1086,3 +1087,68 @@ async def patch_template(tpid: str, body: TemplateUpdateBody, session: AsyncSess
     await session.commit()
     await session.refresh(template)
     return _template(template)
+
+
+# ---------- Shop settings ----------
+class SettingsBody(BaseModel):
+    shop_name: Optional[str] = None
+    shop_name_np: Optional[str] = None
+    tagline: Optional[str] = None
+    tagline_np: Optional[str] = None
+    phone: Optional[str] = None
+    whatsapp: Optional[str] = None
+    address: Optional[str] = None
+    maps_link: Optional[str] = None
+    opening_hours: Optional[str] = None
+    logo: Optional[str] = None
+    default_whatsapp_message: Optional[str] = None
+
+
+def _settings(row) -> dict:
+    return {
+        "shop_name": row.shop_name, "shop_name_np": row.shop_name_np,
+        "tagline": row.tagline, "tagline_np": row.tagline_np,
+        "phone": row.phone, "whatsapp": row.whatsapp, "address": row.address,
+        "maps_link": row.maps_link, "opening_hours": row.opening_hours,
+        "logo": row.logo_url, "default_whatsapp_message": row.default_whatsapp_message,
+    }
+
+
+@router.get("/settings")
+async def get_settings(session: AsyncSession = Depends(db.get_session)):
+    row = await SettingsRepository(session).get_settings()
+    if not row:
+        raise HTTPException(status_code=404, detail="Settings not found")
+    return _settings(row)
+
+
+@router.put("/settings")
+async def update_settings(body: SettingsBody, session: AsyncSession = Depends(db.get_session)):
+    data = body.model_dump(exclude_unset=True)
+    if "logo" in data:
+        data["logo_url"] = data.pop("logo")
+    row = await SettingsRepository(session).update_settings(**data)
+    if not row:
+        raise HTTPException(status_code=404, detail="Settings not found")
+    await session.commit()
+    await session.refresh(row)
+    return _settings(row)
+
+
+# ---------- Reports (read-only summaries; no new business logic) ----------
+@router.get("/reports")
+async def reports(session: AsyncSession = Depends(db.get_session)):
+    orders_repo = OrdersRepository(session)
+    products_repo = ProductsRepository(session)
+    due_week = await orders_repo.due_this_week()
+    pending = await orders_repo.pending_payments()
+    todays_sales = await PaymentsRepository(session).todays_total()
+    return {
+        "todays_sales": todays_sales,
+        "orders_due_week": len(due_week),
+        "pending_payments_total": round(sum(float(o.remaining_balance) for o in pending), 2),
+        "pending_payments_count": len(pending),
+        "available_stock": await products_repo.count_by_status("available"),
+        "reserved_stock": await products_repo.count_by_status("reserved"),
+        "sold_stock": await products_repo.count_by_status("sold"),
+    }

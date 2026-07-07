@@ -1,7 +1,7 @@
 """Products repository. Reuses compute_price/tola helpers from utils (no dup)."""
 from __future__ import annotations
 
-from sqlalchemy import String, cast, or_, select
+from sqlalchemy import String, cast, func, or_, select
 
 from models import Product
 from utils import compute_price, grams_to_tola
@@ -22,6 +22,12 @@ class ProductsRepository(BaseRepository):
         stmt = stmt.order_by(Product.created_at.desc())
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
+
+    async def count_by_status(self, status: str) -> int:
+        result = await self.session.execute(
+            select(func.count()).select_from(Product)
+            .where(Product.is_deleted.is_(False), Product.status == status))
+        return result.scalar_one()
 
     async def list_public(self, *, metal=None, category=None, collection=None):
         stmt = select(Product).where(

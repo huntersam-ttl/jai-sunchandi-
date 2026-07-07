@@ -209,6 +209,19 @@ class TestSupabaseAppAndAuth:
                              ("PATCH", "/api/admin/templates/{tpid}")):
             assert any(p == path and method in m for p, m in routes), f"{method} {path}"
 
+    def test_admin_settings_routes_registered(self):
+        import app
+        routes = [(r.path, tuple(sorted(getattr(r, "methods", []) or [])))
+                  for r in app.app.routes]
+        for method, path in (("GET", "/api/admin/settings"), ("PUT", "/api/admin/settings")):
+            assert any(p == path and method in m for p, m in routes), f"{method} {path}"
+
+    def test_admin_reports_route_registered(self):
+        import app
+        routes = [(r.path, tuple(sorted(getattr(r, "methods", []) or [])))
+                  for r in app.app.routes]
+        assert any(p == "/api/admin/reports" and "GET" in m for p, m in routes)
+
 
 class TestExistingMongoBackendStillCompiles:
     def test_mongo_modules_parse(self):
