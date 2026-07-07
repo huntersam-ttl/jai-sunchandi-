@@ -8,16 +8,19 @@ later S5C slices.
 from datetime import date
 from typing import Optional
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import db
+import config
 from models import Product
 from repositories import (
-    CategoriesRepository, CollectionsRepository, CustomersRepository, ProductsRepository,
-    OrdersRepository, PaymentsRepository, RatesRepository,
+    CategoriesRepository, CollectionsRepository, CustomersRepository, LeadsRepository,
+    OrdersRepository, PaymentsRepository, ProductsRepository, RatesRepository,
+    RepairsRepository,
 )
 from supabase_auth import get_current_admin
 from utils import grams_to_tola, tola_lal_aana_to_grams
@@ -61,6 +64,26 @@ def _rate(r) -> dict:
 
 def _ref(r) -> dict:
     return {"id": str(r.id), "name": r.name, "is_active": r.is_active, "sort_order": r.sort_order}
+
+
+async def _signed_storage_url(bucket: str, path: str, expires_in: int = 3600) -> str:
+    if not path:
+        return ""
+    if not config.SUPABASE_URL or not config.SUPABASE_SERVICE_ROLE_KEY:
+        return ""
+    url = f"{config.SUPABASE_URL}/storage/v1/object/sign/{bucket}/{path}"
+    headers = {
+        "apikey": config.SUPABASE_SERVICE_ROLE_KEY,
+        "Authorization": f"Bearer {config.SUPABASE_SERVICE_ROLE_KEY}",
+    }
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            response = await client.post(url, json={"expiresIn": expires_in}, headers=headers)
+            response.raise_for_status()
+            signed = response.json().get("signedURL") or response.json().get("signedUrl") or ""
+            return f"{config.SUPABASE_URL}/storage/v1{signed}" if signed.startswith("/") else signed
+    except Exception:
+        return ""
 
 
 # ---------- Rates ----------
@@ -644,3 +667,228 @@ async def add_order_payment(oid: str, body: PaymentBody, session: AsyncSession =
         "remaining_balance": float(order.remaining_balance),
         "payment_status": order.payment_status,
     }
+
+
+# ---------- Leads ----------
+LEAD_STATUSES = {"new", "contacted", "converted", "closed"}
+
+
+class LeadUpdateBody(BaseModel):
+    lead_type: Optional[str] = None
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    item_type: Optional[str] = None
+    metal: Optional[str] = None
+    service_type: Optional[str] = None
+    approx_weight: Optional[str] = None
+    budget: Optional[str] = None
+    deadline: Optional[str] = None
+    notes: Optional[str] = None
+    photo_url: Optional[str] = None
+    status: Optional[str] = None
+
+
+async def _lead(l) -> dict:
+    photo = await _signed_storage_url("lead-photos", l.photo_url)
+    return {
+        "id": str(l.id), "lead_type": l.lead_type, "name": l.name, "phone": l.phone,
+        "item_type": l.item_type, "metal": l.metal, "service_type": l.service_type,
+        "approx_weight": l.approx_weight, "budget": l.budget, "deadline": l.deadline,
+        "notes": l.notes, "photo_url": l.photo_url, "photo": photo,
+        "status": l.status, "created_at": l.created_at.isoformat() if l.created_at else None,
+        "updated_at": l.updated_at.isoformat() if l.updated_at else None,
+    }
+
+
+async def _lead_list(rows) -> list[dict]:
+    return [await _lead(row) for row in rows]
+
+
+def _apply_lead_update(lead, body: LeadUpdateBody):
+    data = body.model_dump(exclude_unset=True)
+    if "status" in data and data["status"] not in LEAD_STATUSES:
+        raise HTTPException(status_code=400, detail="Invalid lead status")
+    if "lead_type" in data and data["lead_type"] not in ("custom_order", "repair"):
+        raise HTTPException(status_code=400, detail="Invalid lead type")
+    for key, value in data.items():
+        setattr(lead, key, value or "")
+
+
+@router.get("/leads")
+async def list_leads(status: Optional[str] = None, session: AsyncSession = Depends(db.get_session)):
+    rows = await LeadsRepository(session).list(status=status)
+    return await _lead_list(rows)
+
+
+@router.get("/leads/{lid}")
+async def get_lead(lid: str, session: AsyncSession = Depends(db.get_session)):
+    lead = await LeadsRepository(session).get(lid)
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    return await _lead(lead)
+
+
+@router.patch("/leads/{lid}")
+async def patch_lead(lid: str, body: LeadUpdateBody, session: AsyncSession = Depends(db.get_session)):
+    lead = await LeadsRepository(session).get(lid)
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    _apply_lead_update(lead, body)
+    await session.commit()
+    await session.refresh(lead)
+    return await _lead(lead)
+
+
+@router.patch("/leads/{lid}/status")
+async def update_lead_status(lid: str, body: StatusBody, session: AsyncSession = Depends(db.get_session)):
+    return await patch_lead(lid, LeadUpdateBody(status=body.status), session)
+
+
+# ---------- Repairs ----------
+REPAIR_STATUSES = {"received", "working", "ready", "delivered", "cancelled"}
+
+
+class RepairBody(BaseModel):
+    customer_id: str
+    service_type: str = "repair"
+    description: str = ""
+    intake_photo_url: str = ""
+    damage_photo_url: str = ""
+    after_photo_url: str = ""
+    intake_photo: str = ""
+    damage_photo: str = ""
+    after_photo: str = ""
+    promised_date_ad: Optional[str] = None
+    charge: float = 0
+    status: str = "received"
+
+
+class RepairUpdateBody(BaseModel):
+    service_type: Optional[str] = None
+    description: Optional[str] = None
+    intake_photo_url: Optional[str] = None
+    damage_photo_url: Optional[str] = None
+    after_photo_url: Optional[str] = None
+    intake_photo: Optional[str] = None
+    damage_photo: Optional[str] = None
+    after_photo: Optional[str] = None
+    promised_date_ad: Optional[str] = None
+    charge: Optional[float] = None
+    status: Optional[str] = None
+
+
+async def _repair(r) -> dict:
+    intake_photo = await _signed_storage_url("repair-photos", r.intake_photo_url)
+    damage_photo = await _signed_storage_url("repair-photos", r.damage_photo_url)
+    after_photo = await _signed_storage_url("repair-photos", r.after_photo_url)
+    return {
+        "id": str(r.id), "repair_number": r.repair_number, "customer_id": str(r.customer_id),
+        "customer_name": r.customer_name, "customer_phone": r.customer_phone,
+        "service_type": r.service_type, "description": r.description,
+        "intake_photo_url": r.intake_photo_url, "damage_photo_url": r.damage_photo_url,
+        "after_photo_url": r.after_photo_url, "intake_photo": intake_photo,
+        "damage_photo": damage_photo, "after_photo": after_photo,
+        "promised_date_ad": _iso(r.promised_date_ad),
+        "promised_date_bs": r.promised_date_bs, "promised_date_bs_np": r.promised_date_bs_np,
+        "charge": float(r.charge), "paid_amount": float(r.paid_amount),
+        "status": r.status, "is_deleted": r.is_deleted,
+        "created_at": r.created_at.isoformat() if r.created_at else None,
+        "updated_at": r.updated_at.isoformat() if r.updated_at else None,
+    }
+
+
+async def _repair_list(rows) -> list[dict]:
+    return [await _repair(row) for row in rows]
+
+
+def _private_path(primary: Optional[str], alias: Optional[str]) -> str:
+    return primary or alias or ""
+
+
+def _validate_repair_fields(service_type: Optional[str] = None, status: Optional[str] = None):
+    if service_type is not None and service_type not in ("repair", "polish", "cleaning"):
+        raise HTTPException(status_code=400, detail="Invalid service type")
+    if status is not None and status not in REPAIR_STATUSES:
+        raise HTTPException(status_code=400, detail="Invalid repair status")
+
+
+def _apply_repair_update(repair, body: RepairUpdateBody):
+    data = body.model_dump(exclude_unset=True)
+    _validate_repair_fields(data.get("service_type"), data.get("status"))
+    for key in ("service_type", "description", "status"):
+        if key in data:
+            setattr(repair, key, data[key] or "")
+    if "charge" in data:
+        repair.charge = data["charge"] or 0
+    if "intake_photo_url" in data or "intake_photo" in data:
+        repair.intake_photo_url = _private_path(data.get("intake_photo_url"), data.get("intake_photo"))
+    if "damage_photo_url" in data or "damage_photo" in data:
+        repair.damage_photo_url = _private_path(data.get("damage_photo_url"), data.get("damage_photo"))
+    if "after_photo_url" in data or "after_photo" in data:
+        repair.after_photo_url = _private_path(data.get("after_photo_url"), data.get("after_photo"))
+    if "promised_date_ad" in data:
+        promised = RepairsRepository._date_or_none(data["promised_date_ad"])
+        promised_bs = ad_to_bs(promised) if promised else {}
+        repair.promised_date_ad = promised
+        repair.promised_date_bs = promised_bs.get("bs_date")
+        repair.promised_date_bs_np = promised_bs.get("bs_date_np")
+
+
+@router.get("/repairs")
+async def list_repairs(status: Optional[str] = None, session: AsyncSession = Depends(db.get_session)):
+    rows = await RepairsRepository(session).list(status=status)
+    return await _repair_list(rows)
+
+
+@router.post("/repairs")
+async def create_repair(body: RepairBody, session: AsyncSession = Depends(db.get_session)):
+    _validate_repair_fields(body.service_type, body.status)
+    customer = await CustomersRepository(session).get(body.customer_id)
+    if not customer or customer.is_deleted:
+        raise HTTPException(status_code=404, detail="Customer not found")
+    try:
+        repair = await RepairsRepository(session).create_repair(
+            customer=customer,
+            service_type=body.service_type,
+            description=body.description,
+            promised_date_ad=body.promised_date_ad,
+            charge=body.charge,
+            status=body.status,
+            intake_photo_url=_private_path(body.intake_photo_url, body.intake_photo),
+            damage_photo_url=_private_path(body.damage_photo_url, body.damage_photo),
+            after_photo_url=_private_path(body.after_photo_url, body.after_photo),
+        )
+        await session.commit()
+        await session.refresh(repair)
+    except ValueError as exc:
+        await session.rollback()
+        raise HTTPException(status_code=400, detail=str(exc))
+    return await _repair(repair)
+
+
+@router.get("/repairs/{rid}")
+async def get_repair(rid: str, session: AsyncSession = Depends(db.get_session)):
+    repair = await RepairsRepository(session).get(rid)
+    if not repair or repair.is_deleted:
+        raise HTTPException(status_code=404, detail="Repair not found")
+    return await _repair(repair)
+
+
+@router.put("/repairs/{rid}")
+async def put_repair(rid: str, body: RepairUpdateBody, session: AsyncSession = Depends(db.get_session)):
+    return await patch_repair(rid, body, session)
+
+
+@router.patch("/repairs/{rid}")
+async def patch_repair(rid: str, body: RepairUpdateBody, session: AsyncSession = Depends(db.get_session)):
+    repair = await RepairsRepository(session).get(rid)
+    if not repair or repair.is_deleted:
+        raise HTTPException(status_code=404, detail="Repair not found")
+    try:
+        _apply_repair_update(repair, body)
+        await session.commit()
+        await session.refresh(repair)
+    except ValueError as exc:
+        await session.rollback()
+        raise HTTPException(status_code=400, detail=str(exc))
+    return await _repair(repair)

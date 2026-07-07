@@ -216,7 +216,7 @@ class Payment(Base):
 class RepairJob(Base):
     __tablename__ = "repair_jobs"
     id: Mapped[str] = _uuid_pk()
-    repair_number: Mapped[str] = mapped_column(Text, unique=True)
+    repair_number: Mapped[str] = mapped_column(Text, unique=True, server_default=FetchedValue())
     customer_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("customers.id"))
     customer_name: Mapped[str] = mapped_column(Text)
     customer_phone: Mapped[str] = mapped_column(Text)

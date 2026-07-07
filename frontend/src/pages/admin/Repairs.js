@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { api, apiError } from "@/lib/api";
-import { rs, STATUS_COLORS, compressImage } from "@/lib/format";
+import { rs, STATUS_COLORS } from "@/lib/format";
+import { uploadImage } from "@/lib/storage";
 import { inp, btnGold, btnGhost, Badge, F } from "@/components/admin/ui";
 import { Plus, X, Pencil } from "lucide-react";
 
@@ -30,7 +31,16 @@ export default function Repairs() {
   const photoInput = (key, label) => (
     <F label={label}>
       <input type="file" accept="image/*" className="text-xs" data-testid={`repair-${key}`}
-        onChange={async (e) => { const f = e.target.files?.[0]; if (f) setForm({ ...form, [key]: await compressImage(f) }); }} />
+        onChange={async (e) => {
+          const f = e.target.files?.[0];
+          if (!f) return;
+          try {
+            const { path } = await uploadImage(f, "repair");
+            setForm({ ...form, [`${key}_url`]: path, [key]: URL.createObjectURL(f) });
+          } catch (err) {
+            toast.error(apiError(err));
+          }
+        }} />
       {form[key] && <img src={form[key]} alt="" className="h-14 mt-1 rounded border" />}
     </F>
   );
