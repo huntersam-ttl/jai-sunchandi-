@@ -3,8 +3,7 @@
   "outputDirectory": "frontend/build",
   "functions": {
     "api/index.py": {
-      "runtime": "python3.12",
-      "includeFiles": "backend/**"
+      "includeFiles": "backend/{*.py,repositories/*.py}"
     }
   },
   "rewrites": [

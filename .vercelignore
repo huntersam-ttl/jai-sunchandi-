@@ -1,0 +1,18 @@
+# Never bundle secrets or dev-only artifacts into a Vercel deployment.
+# (GitHub-integration deployments clone fresh from git, where these are
+# already absent — this guards local `vercel build`/`vercel deploy` runs,
+# which read the real local working tree instead.)
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+.pytest_cache
+**/__pycache__
+backend/tests
+memory
+node_modules
+frontend/node_modules
+frontend/build
+.git
