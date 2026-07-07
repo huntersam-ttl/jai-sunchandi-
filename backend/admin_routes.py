@@ -362,6 +362,22 @@ def _profile(p: dict) -> dict:
     }
 
 
+def _customer_due(row: dict) -> dict:
+    customer = row["customer"]
+    latest = row["latest_order"]
+    return {
+        "customer_id": str(customer.id),
+        "customer_name": customer.name,
+        "phone": customer.phone,
+        "outstanding_balance": row["outstanding_balance"],
+        "open_orders_count": row["open_orders_count"],
+        "latest_order_id": str(latest.id) if latest else None,
+        "latest_order_number": latest.order_number if latest else None,
+        "latest_order_date_ad": _iso(latest.order_date_ad) if latest else None,
+        "latest_order_status": latest.status if latest else None,
+    }
+
+
 @router.get("/customers")
 async def list_customers(q: Optional[str] = None, session: AsyncSession = Depends(db.get_session)):
     rows = await CustomersRepository(session).search(q)
@@ -375,6 +391,17 @@ async def create_customer(body: CustomerBody, session: AsyncSession = Depends(db
     await session.commit()
     await session.refresh(c)
     return _customer(c)
+
+
+@router.get("/customers/dues")
+async def customer_dues(session: AsyncSession = Depends(db.get_session)):
+    rows = await CustomersRepository(session).dues()
+    dues = [_customer_due(r) for r in rows]
+    return {
+        "total_outstanding": round(sum(d["outstanding_balance"] for d in dues), 2),
+        "customers_with_dues": len(dues),
+        "dues": dues,
+    }
 
 
 @router.get("/customers/{cid}")

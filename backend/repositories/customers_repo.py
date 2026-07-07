@@ -1,7 +1,7 @@
 """Customers repository, including the khata (outstanding) aggregation."""
 from __future__ import annotations
 
-from sqlalchemy import or_, select
+from sqlalchemy import desc, or_, select
 
 from models import Customer, Order, Payment, RepairJob
 from .base import BaseRepository
@@ -42,3 +42,37 @@ class CustomersRepository(BaseRepository):
             "repairs": list(repairs),
             "total_outstanding": round(outstanding, 2),
         }
+
+    async def dues(self):
+        """Customer-level unpaid balance summary from existing order balances."""
+        stmt = (
+            select(Order, Customer)
+            .join(Customer, Order.customer_id == Customer.id)
+            .where(
+                Customer.is_deleted.is_(False),
+                Order.is_deleted.is_(False),
+                Order.status != "cancelled",
+                Order.remaining_balance > 0,
+            )
+            .order_by(desc(Order.order_date_ad), desc(Order.created_at))
+        )
+        result = await self.session.execute(stmt)
+        grouped = {}
+        for order, customer in result.all():
+            cid = str(customer.id)
+            row = grouped.setdefault(cid, {
+                "customer": customer,
+                "outstanding_balance": 0.0,
+                "open_orders_count": 0,
+                "latest_order": None,
+            })
+            row["outstanding_balance"] += float(order.remaining_balance or 0)
+            row["open_orders_count"] += 1
+            latest = row["latest_order"]
+            if latest is None or order.order_date_ad > latest.order_date_ad:
+                row["latest_order"] = order
+
+        dues = list(grouped.values())
+        for row in dues:
+            row["outstanding_balance"] = round(row["outstanding_balance"], 2)
+        return sorted(dues, key=lambda r: r["outstanding_balance"], reverse=True)

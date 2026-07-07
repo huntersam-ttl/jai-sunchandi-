@@ -22,6 +22,7 @@ import Handover from "@/pages/admin/Handover";
 import RatesAdmin from "@/pages/admin/Rates";
 import Products from "@/pages/admin/Products";
 import Customers from "@/pages/admin/Customers";
+import CustomerDues from "@/pages/admin/CustomerDues";
 import CustomerDetail from "@/pages/admin/CustomerDetail";
 import Orders from "@/pages/admin/Orders";
 import OrderDetail from "@/pages/admin/OrderDetail";
@@ -60,6 +61,7 @@ function App() {
                 <Route path="rates" element={<RatesAdmin />} />
                 <Route path="products" element={<Products />} />
                 <Route path="customers" element={<Customers />} />
+                <Route path="customer-dues" element={<CustomerDues />} />
                 <Route path="customers/:id" element={<CustomerDetail />} />
                 <Route path="orders" element={<Orders />} />
                 <Route path="orders/:id" element={<OrderDetail />} />
