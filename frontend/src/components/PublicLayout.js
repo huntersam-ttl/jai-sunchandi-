@@ -16,6 +16,10 @@ export default function PublicLayout() {
   const [open, setOpen] = useState(false);
   const shop = useSettings();
   const waLink = (msg) => waLinkFromSettings(shop, msg);
+  const hasWhatsapp = Boolean(shop.whatsapp);
+  const hasAddress = Boolean(shop.address);
+  const hasPhone = Boolean(shop.phone);
+  const hasVisitDetails = hasAddress || hasPhone || shop.opening_hours;
   return (
     <div className="min-h-screen bg-[#FDFCF8] text-slate-900">
       <header className="sticky top-0 z-40 backdrop-blur-xl bg-white/70 border-b border-slate-200/60">
@@ -34,11 +38,13 @@ export default function PublicLayout() {
                 {l.label}
               </NavLink>
             ))}
-            <a href={waLink(shop.default_whatsapp_message || `Namaste! I have an enquiry for ${shop.shop_name}.`)} target="_blank" rel="noreferrer"
-              data-testid="header-whatsapp-btn"
-              className="inline-flex items-center gap-2 bg-[#0F172A] text-white px-4 py-2 rounded-md text-sm hover:bg-[#25D366] transition-colors duration-300">
-              <MessageCircle size={16} /> WhatsApp
-            </a>
+            {hasWhatsapp && (
+              <a href={waLink(shop.default_whatsapp_message || `Namaste! I have an enquiry for ${shop.shop_name}.`)} target="_blank" rel="noreferrer"
+                data-testid="header-whatsapp-btn"
+                className="inline-flex items-center gap-2 bg-[#0F172A] text-white px-4 py-2 rounded-md text-sm hover:bg-[#25D366] transition-colors duration-300">
+                <MessageCircle size={16} /> WhatsApp
+              </a>
+            )}
           </nav>
           <button className="lg:hidden p-2" data-testid="mobile-menu-btn" onClick={() => setOpen(!open)}>
             {open ? <X /> : <Menu />}
@@ -53,27 +59,36 @@ export default function PublicLayout() {
           </nav>
         )}
       </header>
-      <Outlet />
-      <a href={waLink(shop.default_whatsapp_message || `Namaste! I have an enquiry for ${shop.shop_name}.`)} target="_blank" rel="noreferrer"
-        data-testid="floating-whatsapp-btn"
-        className="fixed bottom-5 right-5 z-50 bg-[#25D366] text-white p-4 rounded-full shadow-lg hover:-translate-y-1 transition-transform duration-300">
-        <MessageCircle size={24} />
-      </a>
-      <footer className="bg-[#0F172A] text-slate-300 mt-20">
+      <main className="pb-20 sm:pb-0">
+        <Outlet />
+      </main>
+      {hasWhatsapp && (
+        <a href={waLink(shop.default_whatsapp_message || `Namaste! I have an enquiry for ${shop.shop_name}.`)} target="_blank" rel="noreferrer"
+          data-testid="floating-whatsapp-btn"
+          className="fixed bottom-5 right-5 z-50 bg-[#25D366] text-white p-4 rounded-full shadow-lg hover:-translate-y-1 transition-transform duration-300">
+          <MessageCircle size={24} />
+        </a>
+      )}
+      <footer className="bg-[#0F172A] text-slate-300 mt-12 sm:mt-20">
         <div className="max-w-7xl mx-auto px-6 py-12 grid grid-cols-1 sm:grid-cols-3 gap-8">
           <div>
             {shop.logo && <img src={shop.logo} alt="logo" className="h-12 mb-2 object-contain" />}
             <p className="font-serif-display text-white text-lg">{shop.shop_name}</p>
             <p className="text-[#D4AF37] text-sm mt-1">{shop.shop_name_np}</p>
-            <p className="text-sm mt-3 text-slate-400">{shop.tagline}</p>
+            {shop.tagline && <p className="text-sm mt-3 text-slate-400">{shop.tagline}</p>}
           </div>
           <div className="text-sm space-y-2">
             <p className="text-white font-semibold">Visit Us</p>
-            <p>{shop.address}</p>
-            <p>{shop.phone}</p>
+            {hasAddress && <p>{shop.address}</p>}
+            {hasPhone && <p>{shop.phone}</p>}
             {shop.opening_hours && <p>{shop.opening_hours}</p>}
+            {!hasVisitDetails && (
+              <p className="text-slate-400">
+                {hasWhatsapp ? "Message us on WhatsApp for address and hours." : "Details coming soon."}
+              </p>
+            )}
             {shop.maps_link && (
-              <a href={shop.maps_link} target="_blank" rel="noreferrer" className="text-[#D4AF37] hover:underline text-xs">
+              <a href={shop.maps_link} target="_blank" rel="noreferrer" className="text-[#D4AF37] hover:underline text-xs inline-block">
                 View on Google Maps →
               </a>
             )}
@@ -83,10 +98,17 @@ export default function PublicLayout() {
             <Link to="/rates" className="block hover:text-[#D4AF37]">Today's Rate</Link>
             <Link to="/catalogue" className="block hover:text-[#D4AF37]">Catalogue</Link>
             <Link to="/order-status" className="block hover:text-[#D4AF37]">Check Order Status</Link>
+            <Link to="/contact" className="block hover:text-[#D4AF37]">Contact Us</Link>
+            {hasWhatsapp && (
+              <a href={waLink(shop.default_whatsapp_message || `Namaste! I have an enquiry for ${shop.shop_name}.`)} target="_blank" rel="noreferrer"
+                className="block hover:text-[#D4AF37]">
+                Message on WhatsApp
+              </a>
+            )}
           </div>
         </div>
         <div className="border-t border-slate-800 py-4 text-center text-xs text-slate-500">
-          © {new Date().getFullYear()} {shop.shop_name} · {shop.tagline_np}
+          © {new Date().getFullYear()} {shop.shop_name}{shop.tagline_np ? ` · ${shop.tagline_np}` : ""}
         </div>
       </footer>
     </div>
