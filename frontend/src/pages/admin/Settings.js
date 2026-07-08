@@ -20,10 +20,15 @@ const EMPTY = {
   default_whatsapp_message: "",
 };
 
+// Phone/WhatsApp are optional -- a blank value is always valid. When a value
+// is given, strip spaces/dashes/parens/leading "+" (Nepali numbers are often
+// typed as "98XXXXXXXX", "+977-98XXXXXXXX", or "977 98XXXXXXXX") and just
+// sanity-check the digit count rather than enforcing one exact format.
 function validatePhone(value, label) {
+  if (!value || !value.trim()) return null;
   const digits = value.replace(/[^0-9]/g, "");
   if (digits.length < 7 || digits.length > 15) {
-    return `${label} must have 7–15 digits`;
+    return `${label} looks too short/long -- check the number (7-15 digits, e.g. 98XXXXXXXX or +977-98XXXXXXXX)`;
   }
   return null;
 }
@@ -84,15 +89,16 @@ export default function Settings() {
     const errs = validate();
     if (Object.keys(errs).length) {
       setErrors(errs);
+      toast.error("Please fix the highlighted fields before saving.");
       return;
     }
     setSaving(true);
     try {
       await api.put("/admin/settings", form);
-      toast.success("Settings saved successfully");
+      toast.success("Settings saved successfully — now live on the public site.");
       reload(); // refresh SettingsContext across the app
     } catch (e) {
-      toast.error(apiError(e));
+      toast.error(apiError(e) || "Could not save settings. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -112,11 +118,16 @@ export default function Settings() {
           </p>
         </div>
         <div className="flex gap-2">
-          <button className={btnGhost} onClick={load} data-testid="settings-reset-btn">
+          <button
+            className={btnGhost + (saving ? " opacity-50 cursor-not-allowed" : "")}
+            onClick={load}
+            disabled={saving}
+            data-testid="settings-reset-btn"
+          >
             <RotateCcw size={15} /> Reset
           </button>
           <button
-            className={btnGold}
+            className={btnGold + (saving ? " opacity-70 cursor-wait" : "")}
             onClick={save}
             disabled={saving}
             data-testid="settings-save-btn"
@@ -166,27 +177,30 @@ export default function Settings() {
 
       <Card title="Contact Details">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <F label="Phone Number *">
+          <F label="Phone Number (optional)">
             <input
               className={inp}
               value={form.phone}
               onChange={(e) => set("phone", e.target.value)}
-              placeholder="+977-9800000000"
+              placeholder="98XXXXXXXX or +977-98XXXXXXXX"
               data-testid="settings-phone"
             />
             {errors.phone && <p className="text-red-600 text-xs mt-1">{errors.phone}</p>}
           </F>
-          <F label="WhatsApp Number * (digits only, with country code)">
+          <F label="WhatsApp Number (optional)">
             <input
               className={inp}
               value={form.whatsapp}
               onChange={(e) => set("whatsapp", e.target.value)}
-              placeholder="9779800000000"
+              placeholder="97798XXXXXXXX or +977 98XXXXXXXX"
               data-testid="settings-whatsapp"
             />
             {errors.whatsapp && (
               <p className="text-red-600 text-xs mt-1">{errors.whatsapp}</p>
             )}
+            <p className="text-xs text-slate-400 mt-1">
+              Leave blank to hide the WhatsApp button on the public site.
+            </p>
           </F>
           <F label="Address" className="sm:col-span-2">
             <input
