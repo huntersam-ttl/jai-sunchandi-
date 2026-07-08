@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { api, apiError } from "@/lib/api";
 import { rs, STATUS_COLORS, GRAMS_PER_TOLA, PURITY_FACTORS } from "@/lib/format";
@@ -10,12 +10,15 @@ const ORDER_STATUSES = ["new", "in_progress", "making", "polishing", "ready", "d
 const PAGE_SIZE = 50;
 
 export default function Orders() {
+  // Dashboard shortcuts land here with ?new=1 (open the form right away) or
+  // ?status=ready (pre-filter) instead of making the admin click twice.
+  const [params] = useSearchParams();
   const [orders, setOrders] = useState([]);
   const [total, setTotal] = useState(0);
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState(() => params.get("status") || "");
   const [q, setQ] = useState("");
   const [qInput, setQInput] = useState("");
-  const [showForm, setShowForm] = useState(false);
+  const [showForm, setShowForm] = useState(() => params.get("new") === "1");
   const [loadingMore, setLoadingMore] = useState(false);
 
   const load = (query = q) =>

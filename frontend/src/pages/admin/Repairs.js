@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { api, apiError } from "@/lib/api";
 import { rs, STATUS_COLORS } from "@/lib/format";
@@ -10,9 +11,12 @@ const REPAIR_STATUSES = ["received", "working", "ready", "delivered", "cancelled
 const EMPTY = { customer_id: "", service_type: "repair", description: "", intake_photo: "", damage_photo: "", after_photo: "", promised_date_ad: "", charge: 0, status: "received" };
 
 export default function Repairs() {
+  // Dashboard's "New Repair" shortcut lands here with ?new=1 to open the
+  // form right away instead of making the admin click twice.
+  const [params] = useSearchParams();
   const [repairs, setRepairs] = useState([]);
   const [customers, setCustomers] = useState([]);
-  const [form, setForm] = useState(null);
+  const [form, setForm] = useState(() => (params.get("new") === "1" ? { ...EMPTY } : null));
 
   const load = () => api.get("/admin/repairs").then((r) => setRepairs(r.data))
     .catch((err) => { console.error("Repairs load failed:", err); toast.error(apiError(err)); });

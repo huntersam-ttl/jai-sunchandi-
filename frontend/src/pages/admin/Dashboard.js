@@ -4,7 +4,39 @@ import { toast } from "sonner";
 import { api, apiError } from "@/lib/api";
 import { rs, STATUS_COLORS } from "@/lib/format";
 import { inp, btnGold, btnGhost, Card, Badge, F } from "@/components/admin/ui";
-import { Plus, RefreshCw } from "lucide-react";
+import {
+  Plus, RefreshCw, Gem, Wrench, TrendingUp, Truck, Wallet, Search,
+  ClipboardList, PackageCheck,
+} from "lucide-react";
+
+// The big daily-workflow shortcuts a non-technical admin reaches for first
+// thing every day. "to" navigates; "anchor" scrolls to a section already on
+// this page instead of loading a new one.
+const DAILY_ACTIONS = [
+  { icon: Gem, label: "New Custom Order", note: "Take a new order", to: "/admin/orders?new=1", testId: "daily-new-custom-order" },
+  { icon: Wrench, label: "New Repair", note: "Log a repair job", to: "/admin/repairs?new=1", testId: "daily-new-repair" },
+  { icon: TrendingUp, label: "Update Today's Rate", note: "Gold & silver rate", to: "/admin/rates", testId: "daily-update-rate" },
+  { icon: Truck, label: "Today's Deliveries", note: "Orders due today", anchor: "#due-today-section", testId: "daily-todays-deliveries" },
+  { icon: Wallet, label: "Pending Payments", note: "Balance still owed", anchor: "#pending-pay-section", testId: "daily-pending-payments" },
+  { icon: Search, label: "Search Customer / Order", note: "Find by name or phone", to: "/admin/customers", testId: "daily-search" },
+  { icon: ClipboardList, label: "Pending Orders", note: "All open orders", to: "/admin/orders", testId: "daily-pending-orders" },
+  { icon: PackageCheck, label: "Ready for Collection", note: "Waiting for pickup", to: "/admin/orders?status=ready", testId: "daily-ready-collection" },
+];
+
+const DailyActionCard = ({ a }) => {
+  const content = (
+    <>
+      <a.icon className="text-[#D4AF37]" size={26} strokeWidth={1.5} />
+      <p className="font-semibold text-sm mt-2 leading-tight">{a.label}</p>
+      <p className="text-xs text-slate-500 mt-0.5">{a.note}</p>
+    </>
+  );
+  const className = "bg-white border border-slate-200 rounded-md p-4 flex flex-col items-start hover:-translate-y-0.5 hover:border-[#D4AF37] hover:shadow-sm transition-all duration-200";
+  if (a.anchor) {
+    return <a href={a.anchor} data-testid={a.testId} className={className}>{content}</a>;
+  }
+  return <Link to={a.to} data-testid={a.testId} className={className}>{content}</Link>;
+};
 
 export default function Dashboard() {
   const [data, setData] = useState(null);
@@ -85,6 +117,10 @@ export default function Dashboard() {
         )}
       </div>
 
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3" data-testid="daily-actions">
+        {DAILY_ACTIONS.map((a) => <DailyActionCard key={a.label} a={a} />)}
+      </div>
+
       <Card title="Quick Actions">
         <div className="flex flex-wrap gap-2" data-testid="quick-actions">
           {quickActions.map(([label, to]) => (
@@ -116,10 +152,14 @@ export default function Dashboard() {
       </Card>
 
       <div className="grid lg:grid-cols-2 gap-4">
-        <OrderList title="Orders Due Today" orders={data.orders_due_today} testId="due-today" />
+        <div id="due-today-section" className="scroll-mt-20">
+          <OrderList title="Orders Due Today" orders={data.orders_due_today} testId="due-today" />
+        </div>
         <OrderList title="Orders Due This Week" orders={data.orders_due_week} testId="due-week" />
         <OrderList title="Ready for Collection" orders={data.ready_for_collection} testId="ready" />
-        <OrderList title="Pending Payments" orders={data.pending_payments} showBalance testId="pending-pay" />
+        <div id="pending-pay-section" className="scroll-mt-20">
+          <OrderList title="Pending Payments" orders={data.pending_payments} showBalance testId="pending-pay" />
+        </div>
       </div>
 
       <div className="grid lg:grid-cols-2 gap-4">
