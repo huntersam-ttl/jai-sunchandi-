@@ -7,6 +7,8 @@ import py_compile
 import sys
 from pathlib import Path
 
+import pytest
+
 BACKEND = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND))
 
@@ -92,6 +94,46 @@ class TestSupabaseAppAndAuth:
         import supabase_auth
         assert hasattr(supabase_auth, "get_current_admin")
         assert hasattr(supabase_auth, "verify_supabase_jwt")
+
+    def test_admin_email_mismatch_returns_403_not_401(self, monkeypatch):
+        import asyncio
+
+        import jwt as pyjwt
+        from fastapi import HTTPException
+        import supabase_auth
+
+        monkeypatch.setattr(config, "SUPABASE_JWT_SECRET", "unit-test-secret-not-real-and-long-enough-for-hs256")
+        monkeypatch.setattr(config, "ADMIN_EMAIL", "admin@example.com")
+        token = pyjwt.encode(
+            {"sub": "u1", "email": "someone-else@example.com", "aud": "authenticated"},
+            "unit-test-secret-not-real-and-long-enough-for-hs256", algorithm="HS256")
+
+        class FakeRequest:
+            headers = {"Authorization": f"Bearer {token}"}
+
+        with pytest.raises(HTTPException) as exc_info:
+            asyncio.run(supabase_auth.get_current_admin(FakeRequest()))
+        assert exc_info.value.status_code == 403
+        assert exc_info.value.detail == "Admin access required"
+
+    def test_valid_admin_token_returns_claims(self, monkeypatch):
+        import asyncio
+
+        import jwt as pyjwt
+        from fastapi import HTTPException
+        import supabase_auth
+
+        monkeypatch.setattr(config, "SUPABASE_JWT_SECRET", "unit-test-secret-not-real-and-long-enough-for-hs256")
+        monkeypatch.setattr(config, "ADMIN_EMAIL", "admin@example.com")
+        token = pyjwt.encode(
+            {"sub": "u1", "email": "admin@example.com", "aud": "authenticated"},
+            "unit-test-secret-not-real-and-long-enough-for-hs256", algorithm="HS256")
+
+        class FakeRequest:
+            headers = {"Authorization": f"Bearer {token}"}
+
+        result = asyncio.run(supabase_auth.get_current_admin(FakeRequest()))
+        assert result["email"] == "admin@example.com"
 
     def test_app_health_and_protected_routes_registered(self):
         import app
