@@ -52,9 +52,20 @@ export default function AdminQuickSearch() {
     setLoading(true);
     const t = setTimeout(() => {
       setQ(trimmed);
+      // Diagnostic only -- query length and a fired/ok/failed outcome, never
+      // the query text itself or any token/credential. Safe to leave in;
+      // helps tell "request never fired" (stale bundle/JS not running) apart
+      // from "request fired but failed" (network/auth/server issue).
+      console.debug("[AdminQuickSearch] request firing, query_length=", trimmed.length);
       api.get("/admin/search", { params: { q: trimmed } })
-        .then((r) => setResults(r.data))
-        .catch(() => setResults(EMPTY))
+        .then((r) => {
+          console.debug("[AdminQuickSearch] request ok, groups=", Object.keys(r.data || {}));
+          setResults(r.data);
+        })
+        .catch((err) => {
+          console.debug("[AdminQuickSearch] request failed, status=", err?.response?.status);
+          setResults(EMPTY);
+        })
         .finally(() => setLoading(false));
     }, 350);
     return () => clearTimeout(t);
