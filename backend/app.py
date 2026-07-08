@@ -6,6 +6,7 @@ business routes are migrated in later phases. The legacy Mongo app (server.py)
 is untouched and separate.
 """
 import logging
+import time
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -41,11 +42,17 @@ async def health():
 @app.get("/api/health/supabase")
 async def health_supabase():
     """Verify the backend can reach Supabase Postgres via db.check_connection()."""
+    t0 = time.perf_counter()
     try:
         ok = await db.check_connection()
     except Exception as exc:  # connection/config error
-        logger.warning("Supabase DB health check failed: %s", exc)
+        duration_ms = round((time.perf_counter() - t0) * 1000, 1)
+        logger.warning(
+            "Supabase DB health check failed after %sms: %s", duration_ms, exc
+        )
         raise HTTPException(status_code=503, detail="Database connection failed")
+    duration_ms = round((time.perf_counter() - t0) * 1000, 1)
+    logger.info("Supabase DB health check ok, duration_ms=%s", duration_ms)
     return {"database": "ok" if ok else "unreachable"}
 
 

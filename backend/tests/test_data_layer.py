@@ -581,3 +581,57 @@ class TestVercelFunctionRegion:
         # implicit default, iad1/US-East) was the single biggest latency
         # source measured in the admin performance audit.
         assert data.get("regions") == ["bom1"]
+
+
+class TestServerlessSafeConnectionPool:
+    """Production hit EMAXCONNSESSION (Supavisor's session-mode pool of 15
+    clients exhausted) -- each serverless cold start held onto its own idle
+    QueuePool connections that never got released when the container froze.
+    NullPool means the app never holds an idle connection between requests."""
+
+    def test_engine_uses_nullpool_not_a_resident_pool(self):
+        import inspect
+
+        src = inspect.getsource(db.get_engine)
+        assert "NullPool" in src
+        assert "pool_size" not in src
+        assert "max_overflow" not in src
+
+    def test_engine_disables_asyncpg_statement_cache(self):
+        import inspect
+
+        src = inspect.getsource(db.get_engine)
+        # Required for transaction-mode pgbouncer/Supavisor compatibility;
+        # harmless no-op against session mode or a direct connection.
+        assert "statement_cache_size" in src
+        assert "0" in src
+
+    def test_engine_creation_log_never_includes_the_db_url(self):
+        import inspect
+
+        src = inspect.getsource(db.get_engine)
+        # The log call should reference the safe describer function, never
+        # the raw url/connection string itself.
+        log_call = src[src.index("logger.info("):]
+        assert "_describe_pooler_port(url)" in log_call
+
+    def test_describe_pooler_port_never_leaks_credentials(self):
+        described = db._describe_pooler_port(
+            "postgresql+asyncpg://postgres.abc:supersecret@aws-1-ap-south-1.pooler.supabase.com:6543/postgres"
+        )
+        assert "supersecret" not in described
+        assert "postgres.abc" not in described
+        assert "transaction-mode" in described
+
+    def test_describe_pooler_port_flags_session_mode(self):
+        described = db._describe_pooler_port(
+            "postgresql+asyncpg://postgres.abc:x@aws-1-ap-south-1.pooler.supabase.com:5432/postgres"
+        )
+        assert "session-mode" in described
+
+    def test_health_supabase_route_logs_duration_not_the_error_object_only(self):
+        import inspect
+
+        import app as app_module
+        src = inspect.getsource(app_module.health_supabase)
+        assert "duration_ms" in src
