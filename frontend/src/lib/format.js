@@ -12,7 +12,7 @@ const NEP = { 0: "०", 1: "१", 2: "२", 3: "३", 4: "४", 5: "५", 6: "�
 export const toNp = (v) => String(v).replace(/[0-9]/g, (d) => NEP[d]);
 
 export const GRAMS_PER_TOLA = 11.664;
-export const PURITY_FACTORS = { "24K": 1.0, "22K": 0.916, "18K": 0.75, silver: 1.0 };
+export const PURITY_FACTORS = { "24K": 1.0, "22K": 0.916, "21K": 0.875, "18K": 0.75, silver: 1.0 };
 
 export const gramsToTola = (g) => Math.round((g / GRAMS_PER_TOLA) * 10000) / 10000;
 export const tolaToGrams = (t) => Math.round(t * GRAMS_PER_TOLA * 1000) / 1000;

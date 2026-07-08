@@ -40,6 +40,7 @@ const Certificates = lazy(() => import("@/pages/admin/Certificates"));
 const Leads = lazy(() => import("@/pages/admin/Leads"));
 const Reports = lazy(() => import("@/pages/admin/Reports"));
 const Settings = lazy(() => import("@/pages/admin/Settings"));
+const PriceCalculator = lazy(() => import("@/pages/admin/Calculator"));
 
 const AdminPageFallback = () => <div className="p-6 text-sm text-slate-400">Loading…</div>;
 
@@ -86,6 +87,7 @@ function App() {
                 <Route path="leads" element={<Suspense fallback={<AdminPageFallback />}><Leads /></Suspense>} />
                 <Route path="reports" element={<Suspense fallback={<AdminPageFallback />}><Reports /></Suspense>} />
                 <Route path="settings" element={<Suspense fallback={<AdminPageFallback />}><Settings /></Suspense>} />
+                <Route path="calculator" element={<Suspense fallback={<AdminPageFallback />}><PriceCalculator /></Suspense>} />
               </Route>
             </Routes>
           </BrowserRouter>

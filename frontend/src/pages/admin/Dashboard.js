@@ -6,7 +6,7 @@ import { rs, STATUS_COLORS } from "@/lib/format";
 import { inp, btnGold, btnGhost, Card, Badge, F } from "@/components/admin/ui";
 import {
   Plus, RefreshCw, Gem, Wrench, TrendingUp, Truck, Wallet, Search,
-  ClipboardList, PackageCheck,
+  ClipboardList, PackageCheck, Calculator,
 } from "lucide-react";
 
 // The big daily-workflow shortcuts a non-technical admin reaches for first
@@ -16,6 +16,7 @@ const DAILY_ACTIONS = [
   { icon: Gem, label: "New Custom Order", note: "Take a new order", to: "/admin/orders?new=1", testId: "daily-new-custom-order" },
   { icon: Wrench, label: "New Repair", note: "Log a repair job", to: "/admin/repairs?new=1", testId: "daily-new-repair" },
   { icon: TrendingUp, label: "Update Today's Rate", note: "Gold & silver rate", to: "/admin/rates", testId: "daily-update-rate" },
+  { icon: Calculator, label: "Price Calculator", note: "Quick counter estimate", to: "/admin/calculator", testId: "daily-price-calculator" },
   { icon: Truck, label: "Today's Deliveries", note: "Orders due today", anchor: "#due-today-section", testId: "daily-todays-deliveries" },
   { icon: Wallet, label: "Pending Payments", note: "Balance still owed", anchor: "#pending-pay-section", testId: "daily-pending-payments" },
   { icon: Search, label: "Search Customer / Order", note: "Find by name or phone", to: "/admin/customers", testId: "daily-search" },

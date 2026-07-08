@@ -3,11 +3,12 @@ import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useSettings } from "@/context/SettingsContext";
 import AdminQuickSearch from "@/components/admin/AdminQuickSearch";
-import { LayoutDashboard, Gem, Users, ClipboardList, Receipt, Wrench, Award, Inbox, TrendingUp, BarChart3, LogOut, Menu, X, Settings, ClipboardCheck, Wallet, Banknote, BookOpen } from "lucide-react";
+import { LayoutDashboard, Gem, Users, ClipboardList, Receipt, Wrench, Award, Inbox, TrendingUp, BarChart3, LogOut, Menu, X, Settings, ClipboardCheck, Wallet, Banknote, BookOpen, Calculator } from "lucide-react";
 const nav = [
   { to: "/admin", label: "Today", icon: LayoutDashboard, end: true },
   { to: "/admin/handover", label: "Handover", icon: ClipboardCheck },
   { to: "/admin/rates", label: "Daily Rates", icon: TrendingUp },
+  { to: "/admin/calculator", label: "Calculator", icon: Calculator },
   { to: "/admin/products", label: "Products", icon: Gem },
   { to: "/admin/customers", label: "Customers", icon: Users },
   { to: "/admin/customer-dues", label: "Customer Dues", icon: Wallet },
