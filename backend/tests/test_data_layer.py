@@ -380,6 +380,60 @@ class TestSupabaseAppAndAuth:
         for key in ("pending_repairs_count", "pending_repairs", "recent_leads"):
             assert key in src, key
 
+    def test_dashboard_queries_are_capped_and_use_order_summary(self):
+        import inspect
+
+        import admin_routes
+        src = inspect.getsource(admin_routes.dashboard)
+        # Every order-list query passed a limit; none use the heavy full
+        # shaper (which touches .items/.payments -- an async lazy-load error
+        # now that those relationships are explicitly noload'd).
+        for call in ("due_today(limit=", "due_this_week(limit=",
+                     "ready_for_collection(limit=", "pending_payments(limit=",
+                     "list_pending(limit=", "list(limit="):
+            assert call in src, call
+        assert "_order(o)" not in src
+        assert "_order_summary(o)" in src
+
+    def test_order_summary_never_touches_items_or_payments(self):
+        import inspect
+
+        import admin_routes
+        src = inspect.getsource(admin_routes._order_summary)
+        assert ".items" not in src
+        assert ".payments" not in src
+
+    def test_orders_repo_dashboard_queries_use_noload(self):
+        import inspect
+
+        from repositories.orders_repo import OrdersRepository
+        for name in ("due_today", "due_this_week", "ready_for_collection", "pending_payments"):
+            src = inspect.getsource(getattr(OrdersRepository, name))
+            assert "noload(Order.items)" in src, name
+            assert "noload(Order.payments)" in src, name
+
+    def test_repairs_repo_has_capped_pending_query(self):
+        from repositories.repairs_repo import RepairsRepository
+        assert hasattr(RepairsRepository, "list_pending")
+        assert hasattr(RepairsRepository, "count_pending")
+
+    def test_leads_repo_list_accepts_limit(self):
+        import inspect
+
+        from repositories.leads_repo import LeadsRepository
+        sig = inspect.signature(LeadsRepository.list)
+        assert "limit" in sig.parameters
+
+    def test_reports_uses_uncapped_totals_for_accuracy(self):
+        import inspect
+
+        import admin_routes
+        src = inspect.getsource(admin_routes.reports)
+        # Reports needs true totals, not the dashboard's capped previews --
+        # must not pass a limit here.
+        assert "due_this_week()" in src
+        assert "pending_payments()" in src
+
     def test_admin_task_routes_registered(self):
         import app
         routes = [(r.path, tuple(sorted(getattr(r, "methods", []) or [])))

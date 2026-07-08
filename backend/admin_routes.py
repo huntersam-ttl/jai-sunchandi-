@@ -1048,36 +1048,58 @@ def _lead_summary(l) -> dict:
     }
 
 
+def _order_summary(o) -> dict:
+    """Lightweight order shape for dashboard previews only -- no items/payments
+    (those relationships are explicitly noload'd on these queries; touching
+    them here would trigger a lazy-load error in an async session)."""
+    return {
+        "id": str(o.id), "order_number": o.order_number, "customer_name": o.customer_name,
+        "customer_phone": o.customer_phone, "status": o.status,
+        "delivery_date_ad": _iso(o.delivery_date_ad),
+        "remaining_balance": float(o.remaining_balance),
+    }
+
+
+# Dashboard preview list caps -- small, fixed-size previews only. The shop is
+# small enough that these limits rarely truncate real data; the "(count)"
+# labels in the UI reflect the capped list length, not a separate exact
+# total, trading perfect accuracy at that edge for a bounded, fast payload.
+_DASHBOARD_LIST_LIMIT = 10
+_DASHBOARD_REPAIRS_LIMIT = 8
+_DASHBOARD_LEADS_LIMIT = 5
+
+
 @router.get("/dashboard")
 async def dashboard(session: AsyncSession = Depends(db.get_session)):
     orders_repo = OrdersRepository(session)
     rate = await RatesRepository(session).latest()
-    due_today = await orders_repo.due_today()
-    due_week = await orders_repo.due_this_week()
-    ready = await orders_repo.ready_for_collection()
-    pending_pay = await orders_repo.pending_payments()
+    due_today = await orders_repo.due_today(limit=_DASHBOARD_LIST_LIMIT)
+    due_week = await orders_repo.due_this_week(limit=_DASHBOARD_LIST_LIMIT)
+    ready = await orders_repo.ready_for_collection(limit=_DASHBOARD_LIST_LIMIT)
+    pending_pay = await orders_repo.pending_payments(limit=_DASHBOARD_LIST_LIMIT)
     todays_sales = await PaymentsRepository(session).todays_total()
     pending_orders_count = await orders_repo.active_count()
     new_leads = await LeadsRepository(session).count_new()
 
-    all_repairs = await RepairsRepository(session).list()
-    pending_repairs = [r for r in all_repairs if r.status not in ("delivered", "cancelled")]
+    repairs_repo = RepairsRepository(session)
+    pending_repairs_count = await repairs_repo.count_pending()
+    pending_repairs = await repairs_repo.list_pending(limit=_DASHBOARD_REPAIRS_LIMIT)
 
-    recent_leads = await LeadsRepository(session).list()
+    recent_leads = await LeadsRepository(session).list(limit=_DASHBOARD_LEADS_LIMIT)
 
     return {
         "rate": _rate(rate) if rate else None,
-        "orders_due_today": [_order(o) for o in due_today],
-        "orders_due_week": [_order(o) for o in due_week],
-        "ready_for_collection": [_order(o) for o in ready],
-        "pending_payments": [_order(o) for o in pending_pay],
+        "orders_due_today": [_order_summary(o) for o in due_today],
+        "orders_due_week": [_order_summary(o) for o in due_week],
+        "ready_for_collection": [_order_summary(o) for o in ready],
+        "pending_payments": [_order_summary(o) for o in pending_pay],
         "todays_sales": todays_sales,
         "todays_invoices": 0,
         "pending_orders_count": pending_orders_count,
         "new_leads": new_leads,
-        "pending_repairs_count": len(pending_repairs),
-        "pending_repairs": [_repair_summary(r) for r in pending_repairs[:8]],
-        "recent_leads": [_lead_summary(l) for l in recent_leads[:5]],
+        "pending_repairs_count": pending_repairs_count,
+        "pending_repairs": [_repair_summary(r) for r in pending_repairs],
+        "recent_leads": [_lead_summary(l) for l in recent_leads],
     }
 
 

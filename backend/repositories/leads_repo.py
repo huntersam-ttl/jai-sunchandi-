@@ -15,11 +15,13 @@ class LeadsRepository(BaseRepository):
             select(func.count()).select_from(Lead).where(Lead.status == "new"))
         return result.scalar_one()
 
-    async def list(self, *, status=None):
+    async def list(self, *, status=None, limit=None):
         stmt = select(Lead)
         if status:
             stmt = stmt.where(Lead.status == status)
         stmt = stmt.order_by(Lead.created_at.desc())
+        if limit:
+            stmt = stmt.limit(limit)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 

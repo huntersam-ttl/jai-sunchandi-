@@ -44,7 +44,7 @@ export default function Dashboard() {
     } catch (err) { toast.error(apiError(err)); }
   };
 
-  if (loading && !data) return <p className="text-slate-500 text-sm">Loading…</p>;
+  if (loading && !data) return <DashboardSkeleton />;
 
   if (error && !data) {
     return (
@@ -131,6 +131,25 @@ export default function Dashboard() {
     </div>
   );
 }
+
+const DashboardSkeleton = () => (
+  <div className="space-y-6 animate-pulse" data-testid="dashboard-skeleton">
+    <div className="h-7 w-32 bg-slate-200 rounded" />
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {[0, 1, 2, 3].map((i) => (
+        <div key={i} className="bg-white border border-slate-200 rounded-md p-4 h-20">
+          <div className="h-3 w-16 bg-slate-200 rounded mb-2" />
+          <div className="h-6 w-10 bg-slate-200 rounded" />
+        </div>
+      ))}
+    </div>
+    <div className="bg-white border border-slate-200 rounded-md h-28" />
+    <div className="grid lg:grid-cols-2 gap-4">
+      <div className="bg-white border border-slate-200 rounded-md h-40" />
+      <div className="bg-white border border-slate-200 rounded-md h-40" />
+    </div>
+  </div>
+);
 
 const OrderList = ({ title, orders, showBalance, testId }) => (
   <Card title={`${title} (${orders.length})`}>

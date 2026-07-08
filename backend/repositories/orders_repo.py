@@ -7,6 +7,7 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta
 
 from sqlalchemy import func, select
+from sqlalchemy.orm import noload
 
 from models import Order, OrderItem, Product
 from utils import ad_to_bs, compute_price, GRAMS_PER_TOLA
@@ -115,35 +116,49 @@ class OrdersRepository(BaseRepository):
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def due_today(self) -> list[Order]:
+    # These four are used by the dashboard (capped previews) and reports
+    # (accurate totals, uncapped). `noload` skips eager-loading items/payments
+    # -- neither caller needs the frozen line items or payment history, just
+    # order-level summary columns, so this drops the N+1 selectin subqueries
+    # entirely regardless of row count.
+    async def due_today(self, *, limit: int | None = None) -> list[Order]:
         today = date.today()
-        stmt = (select(Order).where(
+        stmt = (select(Order).options(noload(Order.items), noload(Order.payments)).where(
             Order.is_deleted.is_(False), Order.status.notin_(["delivered", "cancelled"]),
             Order.delivery_date_ad == today,
         ).order_by(Order.created_at.desc()))
+        if limit:
+            stmt = stmt.limit(limit)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
-    async def due_this_week(self) -> list[Order]:
+    async def due_this_week(self, *, limit: int | None = None) -> list[Order]:
         today = date.today()
         week_end = today + timedelta(days=7)
-        stmt = (select(Order).where(
+        stmt = (select(Order).options(noload(Order.items), noload(Order.payments)).where(
             Order.is_deleted.is_(False), Order.status.notin_(["delivered", "cancelled"]),
             Order.delivery_date_ad > today, Order.delivery_date_ad <= week_end,
         ).order_by(Order.delivery_date_ad.asc()))
+        if limit:
+            stmt = stmt.limit(limit)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
-    async def ready_for_collection(self) -> list[Order]:
-        stmt = (select(Order).where(Order.is_deleted.is_(False), Order.status == "ready")
+    async def ready_for_collection(self, *, limit: int | None = None) -> list[Order]:
+        stmt = (select(Order).options(noload(Order.items), noload(Order.payments))
+                .where(Order.is_deleted.is_(False), Order.status == "ready")
                 .order_by(Order.created_at.desc()))
+        if limit:
+            stmt = stmt.limit(limit)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
-    async def pending_payments(self) -> list[Order]:
-        stmt = (select(Order).where(
+    async def pending_payments(self, *, limit: int | None = None) -> list[Order]:
+        stmt = (select(Order).options(noload(Order.items), noload(Order.payments)).where(
             Order.is_deleted.is_(False), Order.status != "cancelled", Order.remaining_balance > 0,
         ).order_by(Order.created_at.desc()))
+        if limit:
+            stmt = stmt.limit(limit)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 

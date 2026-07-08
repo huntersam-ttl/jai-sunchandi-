@@ -3,11 +3,13 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from models import RepairJob
 from utils import ad_to_bs
 from .base import BaseRepository
+
+_FINISHED_STATUSES = ("delivered", "cancelled")
 
 
 class RepairsRepository(BaseRepository):
@@ -32,6 +34,24 @@ class RepairsRepository(BaseRepository):
         stmt = stmt.order_by(RepairJob.created_at.desc())
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
+
+    async def list_pending(self, *, limit: int | None = None) -> list[RepairJob]:
+        """Not-yet-finished repair jobs, filtered and capped at the DB level
+        (the dashboard previously fetched every repair row and filtered/sliced
+        in Python)."""
+        stmt = (select(RepairJob)
+                .where(RepairJob.is_deleted.is_(False), RepairJob.status.notin_(_FINISHED_STATUSES))
+                .order_by(RepairJob.created_at.desc()))
+        if limit:
+            stmt = stmt.limit(limit)
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def count_pending(self) -> int:
+        result = await self.session.execute(
+            select(func.count()).select_from(RepairJob)
+            .where(RepairJob.is_deleted.is_(False), RepairJob.status.notin_(_FINISHED_STATUSES)))
+        return result.scalar_one()
 
     async def create_repair(self, *, customer, service_type="repair", description="",
                             promised_date_ad=None, charge=0, status="received",

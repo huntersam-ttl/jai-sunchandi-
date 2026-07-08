@@ -1,4 +1,5 @@
 import "@/App.css";
+import { Suspense, lazy } from "react";
 import { BrowserRouter, Navigate, Routes, Route } from "react-router-dom";
 import { Toaster } from "sonner";
 import { AuthProvider } from "@/context/AuthContext";
@@ -16,25 +17,31 @@ import About from "@/pages/public/About";
 import Contact from "@/pages/public/Contact";
 import VerifyInvoice from "@/pages/public/VerifyInvoice";
 import VerifyCertificate from "@/pages/public/VerifyCertificate";
-import Login from "@/pages/admin/Login";
-import Dashboard from "@/pages/admin/Dashboard";
-import Handover from "@/pages/admin/Handover";
-import RatesAdmin from "@/pages/admin/Rates";
-import Products from "@/pages/admin/Products";
-import Customers from "@/pages/admin/Customers";
-import CustomerDues from "@/pages/admin/CustomerDues";
-import CustomerDetail from "@/pages/admin/CustomerDetail";
-import Expenses from "@/pages/admin/Expenses";
-import Cashbook from "@/pages/admin/Cashbook";
-import Orders from "@/pages/admin/Orders";
-import OrderDetail from "@/pages/admin/OrderDetail";
-import Invoices from "@/pages/admin/Invoices";
-import InvoicePrint from "@/pages/admin/InvoicePrint";
-import Repairs from "@/pages/admin/Repairs";
-import Certificates from "@/pages/admin/Certificates";
-import Leads from "@/pages/admin/Leads";
-import Reports from "@/pages/admin/Reports";
-import Settings from "@/pages/admin/Settings";
+
+// Admin pages are route-based code-split: none of this is needed to render
+// the public site or the login form, so it shouldn't be in the bundle a
+// phone has to parse before /admin becomes interactive.
+const Login = lazy(() => import("@/pages/admin/Login"));
+const Dashboard = lazy(() => import("@/pages/admin/Dashboard"));
+const Handover = lazy(() => import("@/pages/admin/Handover"));
+const RatesAdmin = lazy(() => import("@/pages/admin/Rates"));
+const Products = lazy(() => import("@/pages/admin/Products"));
+const Customers = lazy(() => import("@/pages/admin/Customers"));
+const CustomerDues = lazy(() => import("@/pages/admin/CustomerDues"));
+const CustomerDetail = lazy(() => import("@/pages/admin/CustomerDetail"));
+const Expenses = lazy(() => import("@/pages/admin/Expenses"));
+const Cashbook = lazy(() => import("@/pages/admin/Cashbook"));
+const Orders = lazy(() => import("@/pages/admin/Orders"));
+const OrderDetail = lazy(() => import("@/pages/admin/OrderDetail"));
+const Invoices = lazy(() => import("@/pages/admin/Invoices"));
+const InvoicePrint = lazy(() => import("@/pages/admin/InvoicePrint"));
+const Repairs = lazy(() => import("@/pages/admin/Repairs"));
+const Certificates = lazy(() => import("@/pages/admin/Certificates"));
+const Leads = lazy(() => import("@/pages/admin/Leads"));
+const Reports = lazy(() => import("@/pages/admin/Reports"));
+const Settings = lazy(() => import("@/pages/admin/Settings"));
+
+const AdminPageFallback = () => <div className="p-6 text-sm text-slate-400">Loading…</div>;
 
 function App() {
   return (
@@ -57,26 +64,28 @@ function App() {
                 <Route path="/verify/certificate/:id" element={<VerifyCertificate />} />
               </Route>
               <Route path="/Emergent/*" element={<Navigate to="/admin" replace />} />
-              <Route path="/admin/login" element={<Login />} />
+              <Route path="/admin/login" element={
+                <Suspense fallback={<AdminPageFallback />}><Login /></Suspense>
+              } />
               <Route path="/admin" element={<AdminLayout />}>
-                <Route index element={<Dashboard />} />
-                <Route path="handover" element={<Handover />} />
-                <Route path="rates" element={<RatesAdmin />} />
-                <Route path="products" element={<Products />} />
-                <Route path="customers" element={<Customers />} />
-                <Route path="customer-dues" element={<CustomerDues />} />
-                <Route path="customers/:id" element={<CustomerDetail />} />
-                <Route path="expenses" element={<Expenses />} />
-                <Route path="cashbook" element={<Cashbook />} />
-                <Route path="orders" element={<Orders />} />
-                <Route path="orders/:id" element={<OrderDetail />} />
-                <Route path="invoices" element={<Invoices />} />
-                <Route path="invoices/:id" element={<InvoicePrint />} />
-                <Route path="repairs" element={<Repairs />} />
-                <Route path="certificates" element={<Certificates />} />
-                <Route path="leads" element={<Leads />} />
-                <Route path="reports" element={<Reports />} />
-                <Route path="settings" element={<Settings />} />
+                <Route index element={<Suspense fallback={<AdminPageFallback />}><Dashboard /></Suspense>} />
+                <Route path="handover" element={<Suspense fallback={<AdminPageFallback />}><Handover /></Suspense>} />
+                <Route path="rates" element={<Suspense fallback={<AdminPageFallback />}><RatesAdmin /></Suspense>} />
+                <Route path="products" element={<Suspense fallback={<AdminPageFallback />}><Products /></Suspense>} />
+                <Route path="customers" element={<Suspense fallback={<AdminPageFallback />}><Customers /></Suspense>} />
+                <Route path="customer-dues" element={<Suspense fallback={<AdminPageFallback />}><CustomerDues /></Suspense>} />
+                <Route path="customers/:id" element={<Suspense fallback={<AdminPageFallback />}><CustomerDetail /></Suspense>} />
+                <Route path="expenses" element={<Suspense fallback={<AdminPageFallback />}><Expenses /></Suspense>} />
+                <Route path="cashbook" element={<Suspense fallback={<AdminPageFallback />}><Cashbook /></Suspense>} />
+                <Route path="orders" element={<Suspense fallback={<AdminPageFallback />}><Orders /></Suspense>} />
+                <Route path="orders/:id" element={<Suspense fallback={<AdminPageFallback />}><OrderDetail /></Suspense>} />
+                <Route path="invoices" element={<Suspense fallback={<AdminPageFallback />}><Invoices /></Suspense>} />
+                <Route path="invoices/:id" element={<Suspense fallback={<AdminPageFallback />}><InvoicePrint /></Suspense>} />
+                <Route path="repairs" element={<Suspense fallback={<AdminPageFallback />}><Repairs /></Suspense>} />
+                <Route path="certificates" element={<Suspense fallback={<AdminPageFallback />}><Certificates /></Suspense>} />
+                <Route path="leads" element={<Suspense fallback={<AdminPageFallback />}><Leads /></Suspense>} />
+                <Route path="reports" element={<Suspense fallback={<AdminPageFallback />}><Reports /></Suspense>} />
+                <Route path="settings" element={<Suspense fallback={<AdminPageFallback />}><Settings /></Suspense>} />
               </Route>
             </Routes>
           </BrowserRouter>
