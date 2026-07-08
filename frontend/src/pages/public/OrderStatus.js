@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Search, MessageCircle } from "lucide-react";
 import { api, apiError } from "@/lib/api";
 import { STATUS_COLORS } from "@/lib/format";
@@ -8,11 +9,16 @@ import { useDocumentMeta } from "@/lib/useDocumentMeta";
 
 export default function OrderStatus() {
   const shop = useSettings();
+  const [params] = useSearchParams();
   useDocumentMeta(
     `Check Order Status – ${shop.shop_name || "Jai Supa Deurali Sun-Chandi Pasal"}`,
     "Check the status of your gold or silver order using your order number and phone number."
   );
-  const [form, setForm] = useState({ order_number: "", phone: "" });
+  // A shop-shared receipt/WhatsApp link can prefill the order number (not
+  // private) -- the customer still has to enter their own phone number, the
+  // /public/order-status lookup still requires both, so this doesn't change
+  // what the endpoint reveals to whom.
+  const [form, setForm] = useState({ order_number: params.get("order_number") || "", phone: "" });
   const [order, setOrder] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);

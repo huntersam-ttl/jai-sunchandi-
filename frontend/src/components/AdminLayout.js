@@ -48,7 +48,7 @@ export default function AdminLayout() {
   const go = (path) => { setResults(null); setQ(""); navigate(path); };
   return (
     <div className="min-h-screen bg-[#F8FAFC] font-admin flex">
-      <aside className={`fixed lg:static inset-y-0 left-0 z-40 w-60 bg-[#0F172A] text-slate-300 flex flex-col transition-transform duration-300 ${open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
+      <aside className={`no-print fixed lg:static inset-y-0 left-0 z-40 w-60 bg-[#0F172A] text-slate-300 flex flex-col transition-transform duration-300 ${open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
         <div className="p-4 border-b border-slate-800">
           {shopSettings.logo ? (
             <img src={shopSettings.logo} alt="logo" className="h-8 mb-1 object-contain" />
@@ -79,7 +79,7 @@ export default function AdminLayout() {
       </aside>
       {open && <div className="fixed inset-0 bg-black/40 z-30 lg:hidden" onClick={() => setOpen(false)} />}
       <div className="flex-1 min-w-0">
-        <header className="sticky top-0 z-20 bg-white border-b border-slate-200 px-4 py-3 flex items-center gap-3">
+        <header className="no-print sticky top-0 z-20 bg-white border-b border-slate-200 px-4 py-3 flex items-center gap-3">
           <button className="lg:hidden" onClick={() => setOpen(true)} data-testid="admin-mobile-menu"><Menu size={20} /></button>
           <form onSubmit={doSearch} className="flex-1 max-w-md relative">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />

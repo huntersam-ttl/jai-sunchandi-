@@ -4,13 +4,16 @@ import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
 import { api, apiError } from "@/lib/api";
 import { rs, STATUS_COLORS } from "@/lib/format";
+import { useSettings } from "@/context/SettingsContext";
+import { orderWhatsappLink, orderStatusLink, buildOrderWhatsappMessage } from "@/lib/receipt";
 import { inp, btnGold, btnGhost, Card, Badge, F } from "@/components/admin/ui";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Printer, MessageCircle, Link2 } from "lucide-react";
 
 const ORDER_STATUSES = ["new", "in_progress", "making", "polishing", "ready", "delivered", "cancelled"];
 
 export default function OrderDetail() {
   const { id } = useParams();
+  const shop = useSettings();
   const [order, setOrder] = useState(null);
   const [error, setError] = useState(null);
   const [pay, setPay] = useState({ amount: "", method: "cash", note: "", payment_date_ad: new Date().toISOString().slice(0, 10) });
@@ -49,6 +52,17 @@ export default function OrderDetail() {
       setPay({ ...pay, amount: "", note: "" });
       load();
     } catch (e) { toast.error(apiError(e)); }
+  };
+
+  const whatsappLink = orderWhatsappLink(order, buildOrderWhatsappMessage(order, shop.shop_name));
+  const statusLink = orderStatusLink(order);
+  const copyStatusLink = async () => {
+    try {
+      await navigator.clipboard.writeText(statusLink);
+      toast.success("Status link copied");
+    } catch {
+      toast.error("Could not copy link");
+    }
   };
 
   return (
@@ -130,8 +144,75 @@ export default function OrderDetail() {
             <div className="flex justify-between text-lg"><span>Remaining</span><b className="text-red-400" data-testid="order-remaining">{rs(order.remaining_balance)}</b></div>
           </div>
 
-          <Card title="Invoice (Coming soon)">
-            <p className="text-xs text-slate-500">Invoice printing/sync with the physical bill book is a Phase 2 feature — not available yet.</p>
+          <Card title="Receipt">
+            <div className="print-area space-y-3 text-sm" data-testid="order-receipt">
+              <div className="text-center border-b border-slate-100 pb-2">
+                <p className="font-serif-display font-bold">{shop.shop_name}</p>
+                {shop.shop_name_np && <p className="text-xs text-slate-500">{shop.shop_name_np}</p>}
+              </div>
+              <div className="flex justify-between"><span className="text-slate-500">Order</span><b>{order.order_number}</b></div>
+              <div className="flex justify-between"><span className="text-slate-500">Customer</span><span>{order.customer_name}</span></div>
+              <div className="flex justify-between"><span className="text-slate-500">Phone</span><span>{order.customer_phone}</span></div>
+              <div className="flex justify-between"><span className="text-slate-500">Type</span><span className="capitalize">{order.order_type.replace("_", " ")}</span></div>
+              <div className="flex justify-between"><span className="text-slate-500">Order Date</span><span>{order.order_date_ad}</span></div>
+              {order.delivery_date_ad && (
+                <div className="flex justify-between"><span className="text-slate-500">Delivery</span><span>{order.delivery_date_ad}{order.delivery_time ? ` ${order.delivery_time}` : ""}</span></div>
+              )}
+              <div className="flex justify-between"><span className="text-slate-500">Status</span><span className="capitalize">{order.status.replace("_", " ")}</span></div>
+
+              {order.items.length > 0 && (
+                <div className="border-t border-slate-100 pt-2 space-y-2">
+                  {order.items.map((it) => (
+                    <div key={it.id}>
+                      <div className="flex justify-between font-medium"><span>{it.name}</span><span>{rs(it.total_price)}</span></div>
+                      <p className="text-xs text-slate-500">
+                        {it.metal} · {it.purity} · {it.weight_tola} tola ({it.weight_grams} g)
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        Jarti {it.jarti_percent}% ({rs(it.jarti_amount)}) · Jyala {rs(it.jyala_amount)}
+                        {it.stone_cost > 0 && ` · Stone ${rs(it.stone_cost)}`}
+                        {it.polishing_cost > 0 && ` · Polish ${rs(it.polishing_cost)}`}
+                        {it.cutting_cost > 0 && ` · Cutting ${rs(it.cutting_cost)}`}
+                        {it.worker_charge > 0 && ` · Worker ${rs(it.worker_charge)}`}
+                        {it.other_cost > 0 && ` · Other ${rs(it.other_cost)}`}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {order.custom_description && (
+                <p className="text-xs text-slate-500 border-t border-slate-100 pt-2">{order.custom_description}</p>
+              )}
+
+              <div className="border-t border-slate-100 pt-2 space-y-1">
+                <div className="flex justify-between"><span className="text-slate-500">Total</span><b>{rs(order.net_payable)}</b></div>
+                <div className="flex justify-between"><span className="text-slate-500">Advance Paid</span><span>{rs(order.advance_total)}</span></div>
+                <div className="flex justify-between"><span className="text-slate-500">Remaining Balance</span><b className="text-[#991B1B]">{rs(order.remaining_balance)}</b></div>
+              </div>
+
+              {order.notes && (
+                <p className="text-xs text-slate-500 border-t border-slate-100 pt-2">Notes: {order.notes}</p>
+              )}
+            </div>
+
+            <div className="no-print mt-4 flex flex-wrap gap-2">
+              <button className={btnGhost} onClick={() => window.print()} data-testid="print-receipt-btn">
+                <Printer size={14} /> Print Receipt
+              </button>
+              {whatsappLink ? (
+                <a href={whatsappLink} target="_blank" rel="noreferrer" data-testid="receipt-whatsapp-btn"
+                  className="inline-flex items-center gap-2 bg-[#25D366] text-white px-3 py-2 rounded-md text-sm hover:bg-[#1fb457] transition-colors">
+                  <MessageCircle size={14} /> Send on WhatsApp
+                </a>
+              ) : (
+                <button className={btnGhost} disabled title="No valid phone number on this order" data-testid="receipt-whatsapp-disabled">
+                  <MessageCircle size={14} /> Send on WhatsApp
+                </button>
+              )}
+              <button className={btnGhost} onClick={copyStatusLink} data-testid="copy-status-link-btn">
+                <Link2 size={14} /> Copy Status Link
+              </button>
+            </div>
           </Card>
 
           <Card title="Order QR">
