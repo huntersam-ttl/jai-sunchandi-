@@ -551,7 +551,8 @@ class TestAdminListPaginationAndSearch:
         for fn in (admin_routes.dashboard, admin_routes.list_tasks,
                    admin_routes.list_products, admin_routes.list_orders,
                    admin_routes.list_customers, admin_routes.list_expenses,
-                   admin_routes.list_leads, admin_routes.list_repairs):
+                   admin_routes.list_leads, admin_routes.list_repairs,
+                   admin_routes.cashbook):
             src = inspect.getsource(fn)
             assert "_timed(" in src, fn.__name__
 

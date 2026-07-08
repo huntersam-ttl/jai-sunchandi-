@@ -856,10 +856,12 @@ async def patch_expense(eid: str, body: ExpenseBody, session: AsyncSession = Dep
 @router.get("/cashbook")
 async def cashbook(start_date: Optional[str] = None, end_date: Optional[str] = None,
                    session: AsyncSession = Depends(db.get_session)):
-    try:
-        data = await ExpensesRepository(session).cashbook(start_date=start_date, end_date=end_date)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+    with _timed("cashbook") as counts:
+        try:
+            data = await ExpensesRepository(session).cashbook(start_date=start_date, end_date=end_date)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+        counts["rows"] = len(data["entries"])
     return {**data, "entries": [_cashbook_entry(e) for e in data["entries"]]}
 
 
