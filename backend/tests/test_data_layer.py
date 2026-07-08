@@ -95,18 +95,51 @@ class TestSupabaseAppAndAuth:
         assert hasattr(supabase_auth, "get_current_admin")
         assert hasattr(supabase_auth, "verify_supabase_jwt")
 
+    @staticmethod
+    def _es256_admin_token(email: str, monkeypatch):
+        """Mint a real ES256 token and monkeypatch supabase_auth's JWKS client
+        to resolve it via the matching public key -- exercises the actual
+        JWKS/ES256 decode path without needing network access to a real
+        Supabase project."""
+        import jwt as pyjwt
+        from cryptography.hazmat.primitives.asymmetric import ec
+        import supabase_auth
+
+        private_key = ec.generate_private_key(ec.SECP256R1())
+        token = pyjwt.encode(
+            {"sub": "u1", "email": email, "aud": "authenticated"},
+            private_key, algorithm="ES256", headers={"kid": "test-key-1"})
+
+        class FakeSigningKey:
+            key = private_key.public_key()
+
+        class FakeJWKClient:
+            def get_signing_key_from_jwt(self, token):
+                return FakeSigningKey()
+
+        monkeypatch.setattr(config, "SUPABASE_URL", "https://example.supabase.co")
+        monkeypatch.setattr(supabase_auth, "_get_jwks_client", lambda: FakeJWKClient())
+        return token
+
+    def test_jwks_url_derived_from_supabase_url(self, monkeypatch):
+        import supabase_auth
+        monkeypatch.setattr(config, "SUPABASE_URL", "https://abcxyz.supabase.co")
+        assert supabase_auth._jwks_url() == "https://abcxyz.supabase.co/auth/v1/.well-known/jwks.json"
+
+    def test_valid_es256_token_verifies_via_jwks(self, monkeypatch):
+        import supabase_auth
+        token = self._es256_admin_token("admin@example.com", monkeypatch)
+        claims = supabase_auth.verify_supabase_jwt(token)
+        assert claims["email"] == "admin@example.com"
+
     def test_admin_email_mismatch_returns_403_not_401(self, monkeypatch):
         import asyncio
 
-        import jwt as pyjwt
         from fastapi import HTTPException
         import supabase_auth
 
-        monkeypatch.setattr(config, "SUPABASE_JWT_SECRET", "unit-test-secret-not-real-and-long-enough-for-hs256")
         monkeypatch.setattr(config, "ADMIN_EMAIL", "admin@example.com")
-        token = pyjwt.encode(
-            {"sub": "u1", "email": "someone-else@example.com", "aud": "authenticated"},
-            "unit-test-secret-not-real-and-long-enough-for-hs256", algorithm="HS256")
+        token = self._es256_admin_token("someone-else@example.com", monkeypatch)
 
         class FakeRequest:
             headers = {"Authorization": f"Bearer {token}"}
@@ -119,21 +152,52 @@ class TestSupabaseAppAndAuth:
     def test_valid_admin_token_returns_claims(self, monkeypatch):
         import asyncio
 
-        import jwt as pyjwt
-        from fastapi import HTTPException
         import supabase_auth
 
-        monkeypatch.setattr(config, "SUPABASE_JWT_SECRET", "unit-test-secret-not-real-and-long-enough-for-hs256")
         monkeypatch.setattr(config, "ADMIN_EMAIL", "admin@example.com")
-        token = pyjwt.encode(
-            {"sub": "u1", "email": "admin@example.com", "aud": "authenticated"},
-            "unit-test-secret-not-real-and-long-enough-for-hs256", algorithm="HS256")
+        token = self._es256_admin_token("admin@example.com", monkeypatch)
 
         class FakeRequest:
             headers = {"Authorization": f"Bearer {token}"}
 
         result = asyncio.run(supabase_auth.get_current_admin(FakeRequest()))
         assert result["email"] == "admin@example.com"
+
+    def test_missing_token_returns_401(self):
+        import asyncio
+
+        from fastapi import HTTPException
+        import supabase_auth
+
+        class FakeRequest:
+            headers = {}
+
+        with pytest.raises(HTTPException) as exc_info:
+            asyncio.run(supabase_auth.get_current_admin(FakeRequest()))
+        assert exc_info.value.status_code == 401
+        assert exc_info.value.detail == "Not authenticated"
+
+    def test_invalid_token_returns_401(self, monkeypatch):
+        import asyncio
+
+        from fastapi import HTTPException
+        import supabase_auth
+
+        monkeypatch.setattr(config, "SUPABASE_URL", "https://example.supabase.co")
+
+        class FakeJWKClient:
+            def get_signing_key_from_jwt(self, token):
+                raise Exception("signing key not found")
+
+        monkeypatch.setattr(supabase_auth, "_get_jwks_client", lambda: FakeJWKClient())
+
+        class FakeRequest:
+            headers = {"Authorization": "Bearer not-a-real-jwt"}
+
+        with pytest.raises(HTTPException) as exc_info:
+            asyncio.run(supabase_auth.get_current_admin(FakeRequest()))
+        assert exc_info.value.status_code == 401
+        assert exc_info.value.detail == "Invalid token"
 
     def test_app_health_and_protected_routes_registered(self):
         import app

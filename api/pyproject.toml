@@ -1,5 +1,5 @@
 [project]
 name = "app"
 version = "0.1.0"
-dependencies = [ "fastapi==0.110.1", "starlette==0.37.2", "pydantic==2.13.4", "sqlalchemy==2.0.36", "asyncpg==0.30.0", "greenlet==3.1.1", "pyjwt==2.13.0", "httpx==0.28.1", "nepali-datetime==1.0.8.5", "python-dotenv==1.2.2" ]
+dependencies = [ "fastapi==0.110.1", "starlette==0.37.2", "pydantic==2.13.4", "sqlalchemy==2.0.36", "asyncpg==0.30.0", "greenlet==3.1.1", "pyjwt==2.13.0", "cryptography==49.0.0", "httpx==0.28.1", "nepali-datetime==1.0.8.5", "python-dotenv==1.2.2" ]
 requires-python = "~=3.12.0"

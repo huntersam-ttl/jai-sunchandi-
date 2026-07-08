@@ -18,6 +18,10 @@ IS_PRODUCTION = ENVIRONMENT == "production"
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").strip()
 SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "").strip()
 SUPABASE_DB_URL = os.environ.get("SUPABASE_DB_URL", "").strip()
+# No longer used for admin JWT verification (Supabase signs with an
+# asymmetric key -- verified via JWKS, see supabase_auth.py). Kept here only
+# in case something else in the environment still references it; not
+# required for the app to run.
 SUPABASE_JWT_SECRET = os.environ.get("SUPABASE_JWT_SECRET", "").strip()
 
 # --- Admin ---
@@ -28,7 +32,6 @@ REQUIRED_BACKEND_SETTINGS = (
     "SUPABASE_URL",
     "SUPABASE_SERVICE_ROLE_KEY",
     "SUPABASE_DB_URL",
-    "SUPABASE_JWT_SECRET",
 )
 
 
@@ -38,7 +41,6 @@ def missing_backend_settings() -> list:
         "SUPABASE_URL": SUPABASE_URL,
         "SUPABASE_SERVICE_ROLE_KEY": SUPABASE_SERVICE_ROLE_KEY,
         "SUPABASE_DB_URL": SUPABASE_DB_URL,
-        "SUPABASE_JWT_SECRET": SUPABASE_JWT_SECRET,
     }
     return [name for name, value in values.items() if not value]
 
