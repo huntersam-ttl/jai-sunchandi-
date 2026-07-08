@@ -1124,6 +1124,45 @@ def _order_summary(o) -> dict:
     }
 
 
+# ---------- Quick search (one box across customers/orders/repairs/products) ----------
+_SEARCH_GROUP_LIMIT = 5
+
+
+def _search_customer(c) -> dict:
+    """Minimal customer fields for the search dropdown -- name/phone only,
+    no address/notes."""
+    return {"id": str(c.id), "name": c.name, "phone": c.phone}
+
+
+def _search_product(p) -> dict:
+    """Minimal product fields for the search dropdown -- never cost_price."""
+    return {"id": str(p.id), "product_code": p.product_code, "name": p.name, "status": p.status}
+
+
+@router.get("/search")
+async def admin_search(q: str = "", session: AsyncSession = Depends(db.get_session)):
+    q = q.strip()
+    if not q:
+        return {"customers": [], "orders": [], "repairs": [], "products": []}
+
+    with _timed("search") as counts:
+        customers = await CustomersRepository(session).search(q, limit=_SEARCH_GROUP_LIMIT)
+        orders = await OrdersRepository(session).list(q=q, limit=_SEARCH_GROUP_LIMIT)
+        repairs = await RepairsRepository(session).list(q=q, limit=_SEARCH_GROUP_LIMIT)
+        products = await ProductsRepository(session).list(q=q, limit=_SEARCH_GROUP_LIMIT)
+        counts["customers"] = len(customers)
+        counts["orders"] = len(orders)
+        counts["repairs"] = len(repairs)
+        counts["products"] = len(products)
+
+    return {
+        "customers": [_search_customer(c) for c in customers],
+        "orders": [_order_list_row(o) for o in orders],
+        "repairs": [_repair_summary(r) for r in repairs],
+        "products": [_search_product(p) for p in products],
+    }
+
+
 # Dashboard preview list caps -- small, fixed-size previews only. The shop is
 # small enough that these limits rarely truncate real data; the "(count)"
 # labels in the UI reflect the capped list length, not a separate exact

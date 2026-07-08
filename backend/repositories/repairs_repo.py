@@ -3,13 +3,22 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 
 from models import RepairJob
 from utils import ad_to_bs
 from .base import BaseRepository
 
 _FINISHED_STATUSES = ("delivered", "cancelled")
+
+
+def _search_filter(q: str):
+    like = f"%{q}%"
+    return or_(
+        RepairJob.repair_number.ilike(like),
+        RepairJob.customer_name.ilike(like),
+        RepairJob.customer_phone.ilike(like),
+    )
 
 
 class RepairsRepository(BaseRepository):
@@ -27,20 +36,24 @@ class RepairsRepository(BaseRepository):
             return datetime.fromisoformat(value.replace("Z", "+00:00")).date() if "T" in value else date.fromisoformat(value)
         raise ValueError("Invalid promised date")
 
-    async def list(self, *, status=None, limit: int | None = 50, offset: int = 0):
+    async def list(self, *, status=None, q=None, limit: int | None = 50, offset: int = 0):
         stmt = select(RepairJob).where(RepairJob.is_deleted.is_(False))
         if status:
             stmt = stmt.where(RepairJob.status == status)
+        if q:
+            stmt = stmt.where(_search_filter(q))
         stmt = stmt.order_by(RepairJob.created_at.desc())
         if limit:
             stmt = stmt.limit(limit).offset(offset)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
-    async def count(self, *, status=None) -> int:
+    async def count(self, *, status=None, q=None) -> int:
         stmt = select(func.count()).select_from(RepairJob).where(RepairJob.is_deleted.is_(False))
         if status:
             stmt = stmt.where(RepairJob.status == status)
+        if q:
+            stmt = stmt.where(_search_filter(q))
         result = await self.session.execute(stmt)
         return result.scalar_one()
 

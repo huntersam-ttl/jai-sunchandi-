@@ -635,3 +635,72 @@ class TestServerlessSafeConnectionPool:
         import app as app_module
         src = inspect.getsource(app_module.health_supabase)
         assert "duration_ms" in src
+
+
+class TestAdminQuickSearch:
+    def test_search_route_registered_and_protected(self):
+        import app
+        routes = [(r.path, tuple(sorted(getattr(r, "methods", []) or [])))
+                  for r in app.app.routes]
+        assert any(p == "/api/admin/search" and "GET" in m for p, m in routes)
+        # The whole admin_routes router requires get_current_admin -- confirm
+        # this route wasn't registered on some other, unprotected router.
+        import admin_routes
+        assert admin_routes.router.dependencies, "admin router must stay auth-protected"
+
+    def test_search_repos_accept_q_and_are_capped(self):
+        import inspect
+
+        from repositories.customers_repo import CustomersRepository
+        from repositories.orders_repo import OrdersRepository
+        from repositories.products_repo import ProductsRepository
+        from repositories.repairs_repo import RepairsRepository
+
+        for repo, method in (
+            (CustomersRepository, "search"), (OrdersRepository, "list"),
+            (RepairsRepository, "list"), (ProductsRepository, "list"),
+        ):
+            sig = inspect.signature(getattr(repo, method))
+            assert "q" in sig.parameters, f"{repo.__name__}.{method}"
+            assert "limit" in sig.parameters, f"{repo.__name__}.{method}"
+
+    def test_repairs_search_pushes_to_sql_not_python(self):
+        import inspect
+
+        from repositories.repairs_repo import RepairsRepository
+        src = inspect.getsource(RepairsRepository.list)
+        assert "_search_filter(q)" in src
+
+    def test_search_route_returns_all_four_groups(self):
+        import inspect
+
+        import admin_routes
+        src = inspect.getsource(admin_routes.admin_search)
+        for group in ("customers", "orders", "repairs", "products"):
+            assert f'"{group}"' in src
+
+    def test_search_serializers_never_expose_cost_price_or_notes(self):
+        import inspect
+
+        import admin_routes
+        for fn in (admin_routes._search_customer, admin_routes._search_product):
+            src = inspect.getsource(fn)
+            return_line = src[src.index("return"):]
+            assert "cost_price" not in return_line
+            assert "notes" not in return_line
+            assert "address" not in return_line
+
+    def test_search_route_is_timed(self):
+        import inspect
+
+        import admin_routes
+        src = inspect.getsource(admin_routes.admin_search)
+        assert "_timed(" in src
+
+    def test_blank_query_short_circuits_without_hitting_the_db(self):
+        import inspect
+
+        import admin_routes
+        src = inspect.getsource(admin_routes.admin_search)
+        # An empty/blank q should return empty groups before any repo call.
+        assert 'if not q:' in src.replace("  ", " ") or "if not q:" in src

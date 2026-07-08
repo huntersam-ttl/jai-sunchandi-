@@ -1,9 +1,9 @@
-import { NavLink, Outlet, Navigate, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, Navigate } from "react-router-dom";
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useSettings } from "@/context/SettingsContext";
-import { api } from "@/lib/api";
-import { LayoutDashboard, Gem, Users, ClipboardList, Receipt, Wrench, Award, Inbox, TrendingUp, BarChart3, LogOut, Search, Menu, X, Settings, ClipboardCheck, Wallet, Banknote, BookOpen } from "lucide-react";
+import AdminQuickSearch from "@/components/admin/AdminQuickSearch";
+import { LayoutDashboard, Gem, Users, ClipboardList, Receipt, Wrench, Award, Inbox, TrendingUp, BarChart3, LogOut, Menu, X, Settings, ClipboardCheck, Wallet, Banknote, BookOpen } from "lucide-react";
 const nav = [
   { to: "/admin", label: "Today", icon: LayoutDashboard, end: true },
   { to: "/admin/handover", label: "Handover", icon: ClipboardCheck },
@@ -29,23 +29,8 @@ export default function AdminLayout() {
   const { user, logout } = useAuth();
   const shopSettings = useSettings();
   const [open, setOpen] = useState(false);
-  const [q, setQ] = useState("");
-  const [results, setResults] = useState(null);
-  const navigate = useNavigate();
   if (user === null) return <div className="min-h-screen flex items-center justify-center font-admin">Loading…</div>;
   if (user === false) return <Navigate to="/admin/login" replace />;
-  const doSearch = async (e) => {
-    e.preventDefault();
-    if (!q.trim()) return;
-    try {
-      const { data } = await api.get("/admin/search", { params: { q } });
-      setResults(data);
-    } catch (err) {
-      console.error("Search failed:", err);
-      setResults({});
-    }
-  };
-  const go = (path) => { setResults(null); setQ(""); navigate(path); };
   return (
     <div className="min-h-screen bg-[#F8FAFC] font-admin flex">
       <aside className={`no-print fixed lg:static inset-y-0 left-0 z-40 w-60 bg-[#0F172A] text-slate-300 flex flex-col transition-transform duration-300 ${open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
@@ -81,30 +66,8 @@ export default function AdminLayout() {
       <div className="flex-1 min-w-0">
         <header className="no-print sticky top-0 z-20 bg-white border-b border-slate-200 px-4 py-3 flex items-center gap-3">
           <button className="lg:hidden" onClick={() => setOpen(true)} data-testid="admin-mobile-menu"><Menu size={20} /></button>
-          <form onSubmit={doSearch} className="flex-1 max-w-md relative">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input value={q} onChange={(e) => setQ(e.target.value)} data-testid="global-search-input"
-              placeholder="Search phone, name, order, bill, product…"
-              className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#D4AF37]" />
-          </form>
+          <AdminQuickSearch />
         </header>
-        {results && (
-          <div className="mx-4 mt-3 bg-white border border-slate-200 rounded-md p-4 text-sm space-y-3" data-testid="search-results">
-            <div className="flex justify-between"><b>Search results</b><button onClick={() => setResults(null)}><X size={16} /></button></div>
-            {["customers", "products", "orders", "invoices"].map((k) => results[k]?.length > 0 && (
-              <div key={k}>
-                <p className="font-semibold capitalize text-slate-500 text-xs mb-1">{k}</p>
-                {results[k].map((r) => (
-                  <button key={r.id} onClick={() => go(k === "customers" ? `/admin/customers/${r.id}` : k === "products" ? "/admin/products" : k === "orders" ? `/admin/orders/${r.id}` : `/admin/invoices/${r.id}`)}
-                    className="block w-full text-left px-2 py-1 hover:bg-slate-50 rounded">
-                    {r.name || r.customer_name || r.customer?.name} {r.phone || r.product_code || r.order_number || r.bill_number}
-                  </button>
-                ))}
-              </div>
-            ))}
-            {!Object.values(results).some((a) => a.length) && <p className="text-slate-500">No results found.</p>}
-          </div>
-        )}
         <main className="p-4 sm:p-6"><Outlet /></main>
       </div>
     </div>
