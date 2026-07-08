@@ -9,12 +9,14 @@ is left untouched during the migration.
 from __future__ import annotations
 
 import jwt
+import logging
 from fastapi import HTTPException, Request
 
 import config
 
 # Supabase access tokens are issued with this audience.
 SUPABASE_AUDIENCE = "authenticated"
+logger = logging.getLogger(__name__)
 
 
 def _bearer_token(request: Request):
@@ -37,7 +39,8 @@ def verify_supabase_jwt(token: str) -> dict:
         )
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
-    except jwt.InvalidTokenError:
+    except jwt.InvalidTokenError as exc:
+        logger.warning("Supabase JWT validation failed: %s", exc.__class__.__name__)
         raise HTTPException(status_code=401, detail="Invalid token")
 
 

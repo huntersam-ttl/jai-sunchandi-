@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { ADMIN_SESSION_EXPIRED_EVENT } from "@/lib/api";
 
 const AuthContext = createContext(null);
 
@@ -19,7 +20,12 @@ export function AuthProvider({ children }) {
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? false);
     });
-    return () => listener?.subscription?.unsubscribe();
+    const expireSession = () => setUser(false);
+    window.addEventListener(ADMIN_SESSION_EXPIRED_EVENT, expireSession);
+    return () => {
+      listener?.subscription?.unsubscribe();
+      window.removeEventListener(ADMIN_SESSION_EXPIRED_EVENT, expireSession);
+    };
   }, []);
 
   const login = async (email, password) => {
