@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { api, apiError } from "@/lib/api";
+import { useSettings } from "@/context/SettingsContext";
+import { useDocumentMeta } from "@/lib/useDocumentMeta";
 
 export const Field = ({ label, children }) => (
   <label className="block">
@@ -12,6 +14,11 @@ export const Field = ({ label, children }) => (
 export const inputCls = "w-full border border-slate-300 rounded-md px-3 py-3 text-base focus:outline-none focus:ring-1 focus:ring-[#D4AF37] bg-white";
 
 export default function CustomOrder() {
+  const shop = useSettings();
+  useDocumentMeta(
+    `Custom Gold Order – ${shop.shop_name || "Jai Supa Deurali Sun-Chandi Pasal"}`,
+    "Request a custom gold or silver ornament made to your design — share your requirement and we'll get in touch."
+  );
   const [form, setForm] = useState({ name: "", phone: "", item_type: "", metal: "gold", approx_weight: "", budget: "", deadline: "", notes: "" });
   const [sent, setSent] = useState(false);
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });

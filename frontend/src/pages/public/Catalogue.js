@@ -2,10 +2,17 @@ import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { rs } from "@/lib/format";
+import { useSettings } from "@/context/SettingsContext";
+import { useDocumentMeta } from "@/lib/useDocumentMeta";
 
 const FALLBACK = "https://images.unsplash.com/photo-1721034917345-d17c5405ead0?crop=entropy&cs=srgb&fm=jpg&q=85&w=600";
 
 export default function Catalogue() {
+  const shop = useSettings();
+  useDocumentMeta(
+    `Catalogue – ${shop.shop_name || "Jai Supa Deurali Sun-Chandi Pasal"}`,
+    "Browse our gold and silver jewellery catalogue — bridal sets, daily wear, festival jewellery, and more."
+  );
   const [params, setParams] = useSearchParams();
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);

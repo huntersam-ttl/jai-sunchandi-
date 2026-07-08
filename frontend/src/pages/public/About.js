@@ -1,7 +1,12 @@
 import { useSettings } from "@/context/SettingsContext";
+import { useDocumentMeta } from "@/lib/useDocumentMeta";
 const IMG = "https://images.unsplash.com/photo-1613966561243-c6959a886009?crop=entropy&cs=srgb&fm=jpg&q=85&w=900";
 export default function About() {
   const shop = useSettings();
+  useDocumentMeta(
+    `About Us – ${shop.shop_name || "Jai Supa Deurali Sun-Chandi Pasal"}`,
+    "A family-run gold and silver jewellery shop in Nepal, trusted for generations for honest weight, transparent jarti and jyala, and fair old gold exchange."
+  );
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-12">
       <h1 className="font-serif-display text-4xl sm:text-5xl font-bold tracking-tighter">Decades of <span className="gold-gradient-text">Trust</span></h1>
@@ -21,6 +26,17 @@ export default function About() {
             ))}
           </div>
         </div>
+      </div>
+      <div className="mt-12 grid sm:grid-cols-2 gap-4 text-sm text-slate-600">
+        <p>
+          As a trusted <b>gold jewellery shop</b> and <b>silver jewellery shop</b>, we handcraft everything from
+          daily-wear rings to full bridal sets, and we're always happy to take on <b>custom gold ornaments</b>
+          built to your own design.
+        </p>
+        <p>
+          Bring in your <b>old gold exchange</b> or a piece that needs <b>jewellery repair</b> — resizing, a broken
+          clasp, or a polish — and we'll take a look while you wait, right at the counter.
+        </p>
       </div>
     </div>
   );

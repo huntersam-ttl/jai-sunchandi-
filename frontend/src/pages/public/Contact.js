@@ -1,8 +1,13 @@
 import { useSettings, waLinkFromSettings } from "@/context/SettingsContext";
+import { useDocumentMeta } from "@/lib/useDocumentMeta";
 import { Phone, MapPin, MessageCircle, Clock, Map, Navigation } from "lucide-react";
 export default function Contact() {
   const shop = useSettings();
   const waLink = (msg) => waLinkFromSettings(shop, msg);
+  useDocumentMeta(
+    `Contact Us – ${shop.shop_name || "Jai Supa Deurali Sun-Chandi Pasal"}`,
+    "Visit or contact our gold and silver jewellery shop in Nepal — address, phone, WhatsApp, and opening hours."
+  );
   const hasWhatsapp = Boolean(shop.whatsapp);
   const hasAddress = Boolean(shop.address);
   const hasPhone = Boolean(shop.phone);

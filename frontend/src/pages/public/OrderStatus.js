@@ -4,9 +4,14 @@ import { api, apiError } from "@/lib/api";
 import { STATUS_COLORS } from "@/lib/format";
 import { inputCls } from "./CustomOrder";
 import { useSettings, waLinkFromSettings } from "@/context/SettingsContext";
+import { useDocumentMeta } from "@/lib/useDocumentMeta";
 
 export default function OrderStatus() {
   const shop = useSettings();
+  useDocumentMeta(
+    `Check Order Status – ${shop.shop_name || "Jai Supa Deurali Sun-Chandi Pasal"}`,
+    "Check the status of your gold or silver order using your order number and phone number."
+  );
   const [form, setForm] = useState({ order_number: "", phone: "" });
   const [order, setOrder] = useState(null);
   const [error, setError] = useState("");

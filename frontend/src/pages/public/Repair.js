@@ -2,9 +2,16 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { api, apiError } from "@/lib/api";
 import { uploadImage } from "@/lib/storage";
+import { useSettings } from "@/context/SettingsContext";
+import { useDocumentMeta } from "@/lib/useDocumentMeta";
 import { Field, inputCls } from "./CustomOrder";
 
 export default function Repair() {
+  const shop = useSettings();
+  useDocumentMeta(
+    `Jewellery Repair – ${shop.shop_name || "Jai Supa Deurali Sun-Chandi Pasal"}`,
+    "Request a jewellery repair — resizing, broken clasps, polishing, and more — from our experienced karigars."
+  );
   const [form, setForm] = useState({ name: "", phone: "", service_type: "repair", notes: "" });
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState("");

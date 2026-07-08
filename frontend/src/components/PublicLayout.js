@@ -1,7 +1,8 @@
-import { Link, NavLink, Outlet } from "react-router-dom";
-import { MessageCircle, Menu, X } from "lucide-react";
+import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
+import { MessageCircle, Menu, X, Gem, TrendingUp, PackageSearch } from "lucide-react";
 import { useState } from "react";
 import { useSettings, waLinkFromSettings } from "@/context/SettingsContext";
+import { useJsonLd } from "@/lib/useDocumentMeta";
 const links = [
   { to: "/", label: "Home" },
   { to: "/rates", label: "Today's Rate" },
@@ -12,14 +13,59 @@ const links = [
   { to: "/about", label: "About" },
   { to: "/contact", label: "Contact" },
 ];
+
+// Route-aware WhatsApp intro so the message already reflects what the
+// visitor was looking at, instead of one generic line everywhere.
+function contextualWhatsappMessage(pathname, shop) {
+  if (pathname.startsWith("/custom-order")) {
+    return `Namaste ${shop.shop_name}, I'd like to enquire about a custom gold/silver order.`;
+  }
+  if (pathname.startsWith("/repair")) {
+    return `Namaste ${shop.shop_name}, I have a jewellery repair enquiry.`;
+  }
+  if (pathname.startsWith("/catalogue") || pathname.startsWith("/product")) {
+    return `Namaste ${shop.shop_name}, I have an enquiry about gold/silver jewellery.`;
+  }
+  if (pathname.startsWith("/rates")) {
+    return `Namaste ${shop.shop_name}, could you share today's confirmed gold/silver rate?`;
+  }
+  return shop.default_whatsapp_message || `Namaste ${shop.shop_name}, I have an enquiry about gold/silver jewellery.`;
+}
+
+const mobileQuickActions = [
+  { to: "/catalogue", label: "Catalogue", icon: Gem },
+  { to: "/rates", label: "Today's Rate", icon: TrendingUp },
+  { to: "/order-status", label: "Order Status", icon: PackageSearch },
+];
+
 export default function PublicLayout() {
   const [open, setOpen] = useState(false);
   const shop = useSettings();
+  const location = useLocation();
   const waLink = (msg) => waLinkFromSettings(shop, msg);
+  const contextualMsg = contextualWhatsappMessage(location.pathname, shop);
   const hasWhatsapp = Boolean(shop.whatsapp);
   const hasAddress = Boolean(shop.address);
   const hasPhone = Boolean(shop.phone);
   const hasVisitDetails = hasAddress || hasPhone || shop.opening_hours;
+
+  // JewelryStore structured data -- only include fields that are actually
+  // configured; never fabricate an address, phone, or review to satisfy
+  // schema.org's expected shape.
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "JewelryStore",
+    name: shop.shop_name,
+    ...(shop.tagline && { description: shop.tagline }),
+    ...(shop.phone && { telephone: shop.phone }),
+    ...(shop.address && { address: { "@type": "PostalAddress", streetAddress: shop.address, addressCountry: "NP" } }),
+    ...(shop.opening_hours && { openingHours: shop.opening_hours }),
+    ...(shop.maps_link && { hasMap: shop.maps_link }),
+    ...(shop.logo && { image: shop.logo }),
+    priceRange: "$$",
+  };
+  useJsonLd("jewelry-store-schema", shop.shop_name ? jsonLd : null);
+
   return (
     <div className="min-h-screen bg-[#FDFCF8] text-slate-900">
       <header className="sticky top-0 z-40 backdrop-blur-xl bg-white/70 border-b border-slate-200/60">
@@ -39,7 +85,7 @@ export default function PublicLayout() {
               </NavLink>
             ))}
             {hasWhatsapp && (
-              <a href={waLink(shop.default_whatsapp_message || `Namaste! I have an enquiry for ${shop.shop_name}.`)} target="_blank" rel="noreferrer"
+              <a href={waLink(contextualMsg)} target="_blank" rel="noreferrer"
                 data-testid="header-whatsapp-btn"
                 className="inline-flex items-center gap-2 bg-[#0F172A] text-white px-4 py-2 rounded-md text-sm hover:bg-[#25D366] transition-colors duration-300">
                 <MessageCircle size={16} /> WhatsApp
@@ -58,12 +104,28 @@ export default function PublicLayout() {
             ))}
           </nav>
         )}
+        {/* Always-visible mobile quick actions -- the golden-path CTAs
+            shouldn't require opening the hamburger menu first. */}
+        <div className="lg:hidden flex items-stretch gap-2 px-3 pb-2 overflow-x-auto">
+          {mobileQuickActions.map((a) => (
+            <Link key={a.to} to={a.to} data-testid={`mobile-quick-${a.label.toLowerCase().replace(/[^a-z]+/g, "-")}`}
+              className="flex items-center gap-1.5 whitespace-nowrap text-xs font-medium text-slate-700 bg-slate-100 px-3 py-2 rounded-full hover:bg-slate-200 transition-colors">
+              <a.icon size={14} /> {a.label}
+            </Link>
+          ))}
+          {hasWhatsapp && (
+            <a href={waLink(contextualMsg)} target="_blank" rel="noreferrer" data-testid="mobile-quick-whatsapp"
+              className="flex items-center gap-1.5 whitespace-nowrap text-xs font-medium text-white bg-[#25D366] px-3 py-2 rounded-full">
+              <MessageCircle size={14} /> WhatsApp
+            </a>
+          )}
+        </div>
       </header>
       <main className="pb-20 sm:pb-0">
         <Outlet />
       </main>
       {hasWhatsapp && (
-        <a href={waLink(shop.default_whatsapp_message || `Namaste! I have an enquiry for ${shop.shop_name}.`)} target="_blank" rel="noreferrer"
+        <a href={waLink(contextualMsg)} target="_blank" rel="noreferrer"
           data-testid="floating-whatsapp-btn"
           className="fixed bottom-5 right-5 z-50 bg-[#25D366] text-white p-4 rounded-full shadow-lg hover:-translate-y-1 transition-transform duration-300">
           <MessageCircle size={24} />
@@ -100,7 +162,7 @@ export default function PublicLayout() {
             <Link to="/order-status" className="block hover:text-[#D4AF37]">Check Order Status</Link>
             <Link to="/contact" className="block hover:text-[#D4AF37]">Contact Us</Link>
             {hasWhatsapp && (
-              <a href={waLink(shop.default_whatsapp_message || `Namaste! I have an enquiry for ${shop.shop_name}.`)} target="_blank" rel="noreferrer"
+              <a href={waLink(contextualMsg)} target="_blank" rel="noreferrer"
                 className="block hover:text-[#D4AF37]">
                 Message on WhatsApp
               </a>
