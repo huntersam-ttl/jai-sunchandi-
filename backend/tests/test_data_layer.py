@@ -470,3 +470,113 @@ class TestExistingMongoBackendStillCompiles:
     def test_mongo_modules_parse(self):
         for name in ("server.py", "auth.py", "utils.py"):
             py_compile.compile(str(BACKEND / name), doraise=True)
+
+
+class TestAdminListPaginationAndSearch:
+    """S6 perf pass: admin list endpoints must be bounded (limit/offset) and
+    push q= search into SQL instead of fetching every row and filtering in
+    Python."""
+
+    def test_list_repos_accept_limit_offset(self):
+        import inspect
+
+        from repositories.customers_repo import CustomersRepository
+        from repositories.leads_repo import LeadsRepository
+        from repositories.orders_repo import OrdersRepository
+        from repositories.products_repo import ProductsRepository
+        from repositories.repairs_repo import RepairsRepository
+
+        for repo, method in (
+            (ProductsRepository, "list"), (OrdersRepository, "list"),
+            (CustomersRepository, "search"), (LeadsRepository, "list"),
+            (RepairsRepository, "list"),
+        ):
+            sig = inspect.signature(getattr(repo, method))
+            assert "limit" in sig.parameters, f"{repo.__name__}.{method}"
+            assert "offset" in sig.parameters, f"{repo.__name__}.{method}"
+
+    def test_list_repos_have_sql_count(self):
+        from repositories.customers_repo import CustomersRepository
+        from repositories.leads_repo import LeadsRepository
+        from repositories.orders_repo import OrdersRepository
+        from repositories.products_repo import ProductsRepository
+        from repositories.repairs_repo import RepairsRepository
+
+        for repo in (ProductsRepository, OrdersRepository, CustomersRepository,
+                     LeadsRepository, RepairsRepository):
+            assert hasattr(repo, "count"), repo.__name__
+
+    def test_orders_list_query_pushes_search_to_sql_and_noloads_relations(self):
+        import inspect
+
+        from repositories.orders_repo import OrdersRepository
+        src = inspect.getsource(OrdersRepository.list)
+        assert "ilike" in src
+        assert "noload(Order.items)" in src
+        assert "noload(Order.payments)" in src
+
+    def test_products_list_query_pushes_search_to_sql(self):
+        import inspect
+
+        import repositories.products_repo as products_repo
+        # The ilike filter lives in a shared module-level helper, reused by
+        # both list() and count() so search/pagination totals never drift.
+        src = inspect.getsource(products_repo)
+        assert "ilike" in src
+        assert "_search_filter(q)" in inspect.getsource(products_repo.ProductsRepository.list)
+
+    def test_admin_list_routes_return_items_and_total(self):
+        import inspect
+
+        import admin_routes
+        for fn in (admin_routes.list_products, admin_routes.list_orders,
+                   admin_routes.list_customers):
+            src = inspect.getsource(fn)
+            assert '"items"' in src and '"total"' in src, fn.__name__
+
+    def test_admin_list_routes_no_longer_filter_in_python(self):
+        import inspect
+
+        import admin_routes
+        for fn in (admin_routes.list_products, admin_routes.list_orders):
+            src = inspect.getsource(fn)
+            # Previously these fetched everything then did `[.. for .. in rows if ..]`
+            # in Python -- that pattern must be gone now that q is a SQL filter.
+            assert " if ql in " not in src, fn.__name__
+
+    def test_dashboard_and_list_routes_have_timing_logs(self):
+        import inspect
+
+        import admin_routes
+        for fn in (admin_routes.dashboard, admin_routes.list_tasks,
+                   admin_routes.list_products, admin_routes.list_orders,
+                   admin_routes.list_customers, admin_routes.list_expenses,
+                   admin_routes.list_leads, admin_routes.list_repairs):
+            src = inspect.getsource(fn)
+            assert "_timed(" in src, fn.__name__
+
+    def test_timing_helper_never_logs_request_or_secret_fields(self):
+        import inspect
+
+        import admin_routes
+        src = inspect.getsource(admin_routes._timed)
+        # The docstring explains what NOT to log (mentions "tokens" etc in
+        # prose) -- check the actual logger.info call args, not the whole
+        # function source, so this test can't be fooled by comments either
+        # way.
+        log_call = src[src.index("logger.info("):]
+        for banned in ("token", "secret", "password", "jwt", "cookie"):
+            assert banned not in log_call.lower()
+
+
+class TestVercelFunctionRegion:
+    def test_functions_run_near_the_database(self):
+        import json
+
+        config_path = BACKEND.parent / "vercel.json"
+        data = json.loads(config_path.read_text())
+        # Supabase project is ap-south-1 (Mumbai); bom1 is Vercel's matching
+        # region. Running the API far from its own database (previously the
+        # implicit default, iad1/US-East) was the single biggest latency
+        # source measured in the admin performance audit.
+        assert data.get("regions") == ["bom1"]

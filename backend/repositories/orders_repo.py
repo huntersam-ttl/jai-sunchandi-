@@ -20,13 +20,43 @@ class OrdersRepository(BaseRepository):
     async def get(self, order_id) -> Order | None:
         return await self.session.get(Order, order_id)
 
-    async def list(self, *, status=None):
-        stmt = select(Order).where(Order.is_deleted.is_(False))
+    async def list(self, *, status=None, q=None, limit: int | None = 50, offset: int = 0):
+        # List views never need the item/payment lines -- noload() skips the
+        # selectin fan-out that OrderDetail relies on, avoiding an N+1 on
+        # every row for a page that only ever shows summary fields.
+        stmt = (
+            select(Order)
+            .options(noload(Order.items), noload(Order.payments))
+            .where(Order.is_deleted.is_(False))
+        )
         if status:
             stmt = stmt.where(Order.status == status)
+        if q:
+            like = f"%{q}%"
+            stmt = stmt.where(
+                Order.order_number.ilike(like)
+                | Order.customer_name.ilike(like)
+                | Order.customer_phone.ilike(like)
+            )
         stmt = stmt.order_by(Order.created_at.desc())
+        if limit:
+            stmt = stmt.limit(limit).offset(offset)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
+
+    async def count(self, *, status=None, q=None) -> int:
+        stmt = select(func.count()).select_from(Order).where(Order.is_deleted.is_(False))
+        if status:
+            stmt = stmt.where(Order.status == status)
+        if q:
+            like = f"%{q}%"
+            stmt = stmt.where(
+                Order.order_number.ilike(like)
+                | Order.customer_name.ilike(like)
+                | Order.customer_phone.ilike(like)
+            )
+        result = await self.session.execute(stmt)
+        return result.scalar_one()
 
     @staticmethod
     def _date_or_none(value) -> date | None:

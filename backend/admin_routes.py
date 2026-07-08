@@ -5,6 +5,9 @@ the router level). Reads/writes go through the existing SQLAlchemy repos. Only
 rates, categories, and collections are wired here; other admin domains follow in
 later S5C slices.
 """
+import logging
+import time
+from contextlib import contextmanager
 from datetime import date, datetime
 from typing import Optional
 
@@ -27,6 +30,24 @@ from supabase_auth import get_current_admin
 from utils import grams_to_tola, tola_lal_aana_to_grams
 
 router = APIRouter(prefix="/api/admin", dependencies=[Depends(get_current_admin)])
+
+logger = logging.getLogger(__name__)
+
+
+@contextmanager
+def _timed(route: str):
+    """Log total duration + row counts for an admin endpoint. Never logs
+    request/response bodies, tokens, or any customer-identifying data --
+    only the route name, elapsed ms, and integer counts the caller adds to
+    the yielded dict (e.g. counts["rows"] = len(rows))."""
+    t0 = time.perf_counter()
+    counts: dict = {}
+    try:
+        yield counts
+    finally:
+        elapsed_ms = round((time.perf_counter() - t0) * 1000, 1)
+        extra = " ".join(f"{k}={v}" for k, v in counts.items())
+        logger.info("admin_timing route=%s duration_ms=%s %s", route, elapsed_ms, extra)
 
 
 # ---------- Models ----------
@@ -266,13 +287,20 @@ def _apply_product_fields(p, body: ProductBody, grams: float):
 
 @router.get("/products")
 async def list_products(status: Optional[str] = None, metal: Optional[str] = None,
-                        q: Optional[str] = None, session: AsyncSession = Depends(db.get_session)):
-    rows = await ProductsRepository(session).list(status=status, metal=metal)
-    if q:
-        ql = q.lower()
-        rows = [r for r in rows if ql in r.name.lower() or ql in (r.product_code or "").lower()]
-    rate = await RatesRepository(session).latest()
-    return [_product(p, rate) for p in rows]
+                        q: Optional[str] = None, limit: int = 50, offset: int = 0,
+                        session: AsyncSession = Depends(db.get_session)):
+    # Capped higher than the other list endpoints: the order-creation form
+    # also uses this route to populate its product picker and needs the
+    # full available set, not just one page.
+    limit = max(1, min(limit, 1000))
+    with _timed("products") as counts:
+        repo = ProductsRepository(session)
+        rows = await repo.list(status=status, metal=metal, q=q, limit=limit, offset=offset)
+        total = await repo.count(status=status, metal=metal, q=q)
+        rate = await RatesRepository(session).latest()
+        counts["rows"] = len(rows)
+        counts["total"] = total
+    return {"items": [_product(p, rate) for p in rows], "total": total}
 
 
 @router.post("/products")
@@ -382,9 +410,18 @@ def _customer_due(row: dict) -> dict:
 
 
 @router.get("/customers")
-async def list_customers(q: Optional[str] = None, session: AsyncSession = Depends(db.get_session)):
-    rows = await CustomersRepository(session).search(q)
-    return [_customer(c) for c in rows]
+async def list_customers(q: Optional[str] = None, limit: int = 50, offset: int = 0,
+                         session: AsyncSession = Depends(db.get_session)):
+    # Capped higher than other list endpoints: the order-creation form also
+    # uses this route for its customer picker and needs the full set.
+    limit = max(1, min(limit, 1000))
+    with _timed("customers") as counts:
+        repo = CustomersRepository(session)
+        rows = await repo.search(q, limit=limit, offset=offset)
+        total = await repo.count(q)
+        counts["rows"] = len(rows)
+        counts["total"] = total
+    return {"items": [_customer(c) for c in rows], "total": total}
 
 
 @router.post("/customers")
@@ -565,6 +602,20 @@ def _order(o) -> dict:
     }
 
 
+def _order_list_row(o) -> dict:
+    """Row shape for the orders list table only -- never touches items/payments
+    (the list query uses noload() on both, so accessing them here would be a
+    wasted extra query per row)."""
+    return {
+        "id": str(o.id), "order_number": o.order_number,
+        "customer_name": o.customer_name, "customer_phone": o.customer_phone,
+        "order_type": o.order_type,
+        "delivery_date_ad": _iso(o.delivery_date_ad), "delivery_date_bs_np": o.delivery_date_bs_np,
+        "status": o.status, "net_payable": float(o.net_payable),
+        "remaining_balance": float(o.remaining_balance),
+    }
+
+
 async def _customer_for_order(body: OrderBody, session: AsyncSession):
     repo = CustomersRepository(session)
     if body.customer_id:
@@ -619,13 +670,16 @@ def _apply_order_update(order, body: OrderUpdateBody):
 
 @router.get("/orders")
 async def list_orders(status: Optional[str] = None, q: Optional[str] = None,
+                      limit: int = 50, offset: int = 0,
                       session: AsyncSession = Depends(db.get_session)):
-    rows = await OrdersRepository(session).list(status=status)
-    if q:
-        ql = q.lower()
-        rows = [o for o in rows if ql in (o.order_number or "").lower()
-                or ql in o.customer_name.lower() or ql in o.customer_phone.lower()]
-    return [_order(o) for o in rows]
+    limit = max(1, min(limit, 200))
+    with _timed("orders") as counts:
+        repo = OrdersRepository(session)
+        rows = await repo.list(status=status, q=q, limit=limit, offset=offset)
+        total = await repo.count(status=status, q=q)
+        counts["rows"] = len(rows)
+        counts["total"] = total
+    return {"items": [_order_list_row(o) for o in rows], "total": total}
 
 
 async def _snapshot_item_cost_prices(items: list[dict], session: AsyncSession) -> list[dict]:
@@ -748,10 +802,12 @@ async def add_order_payment(oid: str, body: PaymentBody, session: AsyncSession =
 @router.get("/expenses")
 async def list_expenses(start_date: Optional[str] = None, end_date: Optional[str] = None,
                         session: AsyncSession = Depends(db.get_session)):
-    try:
-        rows = await ExpensesRepository(session).list(start_date=start_date, end_date=end_date)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+    with _timed("expenses") as counts:
+        try:
+            rows = await ExpensesRepository(session).list(start_date=start_date, end_date=end_date)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+        counts["rows"] = len(rows)
     return [_expense(e) for e in rows]
 
 
@@ -854,8 +910,11 @@ def _apply_lead_update(lead, body: LeadUpdateBody):
 
 @router.get("/leads")
 async def list_leads(status: Optional[str] = None, session: AsyncSession = Depends(db.get_session)):
-    rows = await LeadsRepository(session).list(status=status)
-    return await _lead_list(rows)
+    with _timed("leads") as counts:
+        rows = await LeadsRepository(session).list(status=status)
+        result = await _lead_list(rows)
+        counts["rows"] = len(rows)
+    return result
 
 
 @router.get("/leads/{lid}")
@@ -974,8 +1033,11 @@ def _apply_repair_update(repair, body: RepairUpdateBody):
 
 @router.get("/repairs")
 async def list_repairs(status: Optional[str] = None, session: AsyncSession = Depends(db.get_session)):
-    rows = await RepairsRepository(session).list(status=status)
-    return await _repair_list(rows)
+    with _timed("repairs") as counts:
+        rows = await RepairsRepository(session).list(status=status)
+        result = await _repair_list(rows)
+        counts["rows"] = len(rows)
+    return result
 
 
 @router.post("/repairs")
@@ -1071,21 +1133,28 @@ _DASHBOARD_LEADS_LIMIT = 5
 
 @router.get("/dashboard")
 async def dashboard(session: AsyncSession = Depends(db.get_session)):
-    orders_repo = OrdersRepository(session)
-    rate = await RatesRepository(session).latest()
-    due_today = await orders_repo.due_today(limit=_DASHBOARD_LIST_LIMIT)
-    due_week = await orders_repo.due_this_week(limit=_DASHBOARD_LIST_LIMIT)
-    ready = await orders_repo.ready_for_collection(limit=_DASHBOARD_LIST_LIMIT)
-    pending_pay = await orders_repo.pending_payments(limit=_DASHBOARD_LIST_LIMIT)
-    todays_sales = await PaymentsRepository(session).todays_total()
-    pending_orders_count = await orders_repo.active_count()
-    new_leads = await LeadsRepository(session).count_new()
+    with _timed("dashboard") as counts:
+        orders_repo = OrdersRepository(session)
+        rate = await RatesRepository(session).latest()
+        due_today = await orders_repo.due_today(limit=_DASHBOARD_LIST_LIMIT)
+        due_week = await orders_repo.due_this_week(limit=_DASHBOARD_LIST_LIMIT)
+        ready = await orders_repo.ready_for_collection(limit=_DASHBOARD_LIST_LIMIT)
+        pending_pay = await orders_repo.pending_payments(limit=_DASHBOARD_LIST_LIMIT)
+        todays_sales = await PaymentsRepository(session).todays_total()
+        pending_orders_count = await orders_repo.active_count()
+        new_leads = await LeadsRepository(session).count_new()
 
-    repairs_repo = RepairsRepository(session)
-    pending_repairs_count = await repairs_repo.count_pending()
-    pending_repairs = await repairs_repo.list_pending(limit=_DASHBOARD_REPAIRS_LIMIT)
+        repairs_repo = RepairsRepository(session)
+        pending_repairs_count = await repairs_repo.count_pending()
+        pending_repairs = await repairs_repo.list_pending(limit=_DASHBOARD_REPAIRS_LIMIT)
 
-    recent_leads = await LeadsRepository(session).list(limit=_DASHBOARD_LEADS_LIMIT)
+        recent_leads = await LeadsRepository(session).list(limit=_DASHBOARD_LEADS_LIMIT)
+        counts["due_today"] = len(due_today)
+        counts["due_week"] = len(due_week)
+        counts["ready"] = len(ready)
+        counts["pending_pay"] = len(pending_pay)
+        counts["pending_repairs"] = len(pending_repairs)
+        counts["recent_leads"] = len(recent_leads)
 
     return {
         "rate": _rate(rate) if rate else None,
@@ -1150,8 +1219,11 @@ def _task(t) -> dict:
 
 @router.get("/tasks")
 async def list_tasks(status: Optional[str] = None, session: AsyncSession = Depends(db.get_session)):
-    rows = await AdminTasksRepository(session).list(status=status)
-    return [_task(t) for t in rows]
+    with _timed("tasks") as counts:
+        rows = await AdminTasksRepository(session).list(status=status)
+        result = [_task(t) for t in rows]
+        counts["rows"] = len(result)
+    return result
 
 
 @router.post("/tasks")

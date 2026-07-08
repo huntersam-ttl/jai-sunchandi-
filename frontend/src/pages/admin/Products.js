@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
 import { api, apiError } from "@/lib/api";
@@ -15,23 +15,54 @@ const EMPTY = {
   show_on_website: true, show_price_on_website: true, photos: [],
 };
 
+const PAGE_SIZE = 50;
+
 export default function Products() {
   const [products, setProducts] = useState([]);
+  const [total, setTotal] = useState(0);
   const [cats, setCats] = useState([]);
   const [cols, setCols] = useState([]);
   const [rate, setRate] = useState(null);
   const [editing, setEditing] = useState(null);
   const [qrProduct, setQrProduct] = useState(null);
   const [q, setQ] = useState("");
+  const [qInput, setQInput] = useState("");
+  const [loadingMore, setLoadingMore] = useState(false);
 
-  const load = () => api.get("/admin/products").then((r) => setProducts(r.data))
-    .catch((err) => { console.error("Products load failed:", err); toast.error(apiError(err)); });
+  const load = (query = q) =>
+    api.get("/admin/products", { params: { limit: PAGE_SIZE, q: query || undefined } })
+      .then((r) => { setProducts(r.data.items); setTotal(r.data.total); })
+      .catch((err) => { console.error("Products load failed:", err); toast.error(apiError(err)); });
+
+  const firstRun = useRef(true);
+  // Debounce search-driven reloads only -- the very first mount loads
+  // immediately so opening the page doesn't wait 350ms for nothing.
   useEffect(() => {
-    load();
+    if (firstRun.current) {
+      firstRun.current = false;
+      load("");
+      return;
+    }
+    const t = setTimeout(() => { setQ(qInput); load(qInput); }, 350);
+    return () => clearTimeout(t);
+  }, [qInput]); // eslint-disable-line
+
+  useEffect(() => {
     api.get("/categories").then((r) => setCats(r.data)).catch((err) => console.error("Categories load failed:", err));
     api.get("/collections").then((r) => setCols(r.data)).catch((err) => console.error("Collections load failed:", err));
     api.get("/rates/today").then((r) => setRate(r.data)).catch((err) => console.error("Rate load failed:", err));
-  }, []);
+  }, []); // eslint-disable-line
+
+  const loadMore = async () => {
+    setLoadingMore(true);
+    try {
+      const { data } = await api.get("/admin/products", {
+        params: { limit: PAGE_SIZE, offset: products.length, q: q || undefined },
+      });
+      setProducts((prev) => [...prev, ...data.items]);
+      setTotal(data.total);
+    } catch (err) { toast.error(apiError(err)); } finally { setLoadingMore(false); }
+  };
 
   const del = async (p) => {
     if (!window.confirm(`Soft-delete ${p.name}?`)) return;
@@ -42,12 +73,7 @@ export default function Products() {
     } catch (err) { toast.error(apiError(err)); }
   };
 
-  const filtered = products.filter((p) => {
-    const query = q.toLowerCase();
-    return !q || p.name.toLowerCase().includes(query)
-      || (p.product_code || "").toLowerCase().includes(query)
-      || (p.category || "").toLowerCase().includes(query);
-  });
+  const filtered = products;
 
   const copyCode = async (code) => {
     try {
@@ -63,7 +89,7 @@ export default function Products() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">Products</h1>
         <div className="flex gap-2">
-          <input className={inp} style={{ width: 220 }} placeholder="Search code, name, category…" value={q} onChange={(e) => setQ(e.target.value)} data-testid="products-search-input" />
+          <input className={inp} style={{ width: 220 }} placeholder="Search code or name…" value={qInput} onChange={(e) => setQInput(e.target.value)} data-testid="products-search-input" />
           <button className={btnGold} onClick={() => setEditing({ ...EMPTY })} data-testid="add-product-btn"><Plus size={16} /> Add Product</button>
         </div>
       </div>
@@ -105,6 +131,14 @@ export default function Products() {
           </tbody>
         </table>
       </div>
+
+      {products.length < total && (
+        <div className="flex justify-center">
+          <button className={btnGhost} onClick={loadMore} disabled={loadingMore} data-testid="products-load-more">
+            {loadingMore ? "Loading…" : `Load more (${products.length} of ${total})`}
+          </button>
+        </div>
+      )}
 
       {editing && <ProductForm form={editing} setForm={setEditing} cats={cats} cols={cols} rate={rate} onSaved={(saved) => { setEditing(null); load(); if (saved) setQrProduct(saved); }} />}
       {qrProduct && <QrModal product={qrProduct} onClose={() => setQrProduct(null)} />}

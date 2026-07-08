@@ -1,18 +1,42 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { api, apiError } from "@/lib/api";
 import { inp, btnGold, btnGhost, F } from "@/components/admin/ui";
 import { Plus, X } from "lucide-react";
 
+const PAGE_SIZE = 50;
+
 export default function Customers() {
   const [customers, setCustomers] = useState([]);
+  const [total, setTotal] = useState(0);
   const [q, setQ] = useState("");
+  const [qInput, setQInput] = useState("");
   const [form, setForm] = useState(null);
+  const [loadingMore, setLoadingMore] = useState(false);
 
-  const load = (query = "") => api.get("/admin/customers", { params: query ? { q: query } : {} }).then((r) => setCustomers(r.data))
-    .catch((err) => { console.error("Customers load failed:", err); toast.error(apiError(err)); });
-  useEffect(() => { load(); }, []);
+  const load = (query = "") =>
+    api.get("/admin/customers", { params: { limit: PAGE_SIZE, q: query || undefined } })
+      .then((r) => { setCustomers(r.data.items); setTotal(r.data.total); })
+      .catch((err) => { console.error("Customers load failed:", err); toast.error(apiError(err)); });
+
+  const firstRun = useRef(true);
+  useEffect(() => {
+    if (firstRun.current) { firstRun.current = false; load(""); return; }
+    const t = setTimeout(() => { setQ(qInput); load(qInput); }, 350);
+    return () => clearTimeout(t);
+  }, [qInput]); // eslint-disable-line
+
+  const loadMore = async () => {
+    setLoadingMore(true);
+    try {
+      const { data } = await api.get("/admin/customers", {
+        params: { limit: PAGE_SIZE, offset: customers.length, q: q || undefined },
+      });
+      setCustomers((prev) => [...prev, ...data.items]);
+      setTotal(data.total);
+    } catch (err) { toast.error(apiError(err)); } finally { setLoadingMore(false); }
+  };
 
   const save = async () => {
     if (!form.name || !form.phone) return toast.error("Name and phone required");
@@ -29,8 +53,8 @@ export default function Customers() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">Customers</h1>
         <div className="flex gap-2">
-          <input className={inp} style={{ width: 220 }} placeholder="Search name/phone…" value={q}
-            onChange={(e) => { setQ(e.target.value); load(e.target.value); }} data-testid="customers-search-input" />
+          <input className={inp} style={{ width: 220 }} placeholder="Search name/phone…" value={qInput}
+            onChange={(e) => setQInput(e.target.value)} data-testid="customers-search-input" />
           <button className={btnGold} onClick={() => setForm({ name: "", phone: "", address: "", notes: "" })} data-testid="add-customer-btn"><Plus size={16} /> Add Customer</button>
         </div>
       </div>
@@ -48,6 +72,14 @@ export default function Customers() {
           </tbody>
         </table>
       </div>
+
+      {customers.length < total && (
+        <div className="flex justify-center">
+          <button className={btnGhost} onClick={loadMore} disabled={loadingMore} data-testid="customers-load-more">
+            {loadingMore ? "Loading…" : `Load more (${customers.length} of ${total})`}
+          </button>
+        </div>
+      )}
 
       {form && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">

@@ -18,7 +18,7 @@ export default function Repairs() {
     .catch((err) => { console.error("Repairs load failed:", err); toast.error(apiError(err)); });
   useEffect(() => {
     load();
-    api.get("/admin/customers").then((r) => setCustomers(r.data)).catch((err) => console.error("Customers load failed:", err));
+    api.get("/admin/customers", { params: { limit: 1000 } }).then((r) => setCustomers(r.data.items)).catch((err) => console.error("Customers load failed:", err));
   }, []);
 
   const save = async () => {

@@ -1,6 +1,7 @@
 {
   "buildCommand": "cd frontend && yarn install --frozen-lockfile && yarn build",
   "outputDirectory": "frontend/build",
+  "regions": ["bom1"],
   "functions": {
     "api/index.py": {
       "includeFiles": "backend/{*.py,repositories/*.py}"

@@ -34,7 +34,8 @@ class ExpensesRepository(BaseRepository):
             return None
         return ExpensesRepository._date_or_today(value)
 
-    async def list(self, *, start_date=None, end_date=None) -> list[Expense]:
+    async def list(self, *, start_date=None, end_date=None,
+                   limit: int | None = 100, offset: int = 0) -> list[Expense]:
         start = self._date_or_none(start_date)
         end = self._date_or_none(end_date)
         stmt = select(Expense)
@@ -43,6 +44,8 @@ class ExpensesRepository(BaseRepository):
         if end:
             stmt = stmt.where(Expense.date_ad <= end)
         stmt = stmt.order_by(Expense.date_ad.desc(), Expense.created_at.desc())
+        if limit:
+            stmt = stmt.limit(limit).offset(offset)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 

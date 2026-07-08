@@ -1,7 +1,7 @@
 """Customers repository, including the khata (outstanding) aggregation."""
 from __future__ import annotations
 
-from sqlalchemy import desc, or_, select
+from sqlalchemy import desc, func, or_, select
 
 from models import Customer, Order, Payment, RepairJob
 from .base import BaseRepository
@@ -10,14 +10,24 @@ from .base import BaseRepository
 class CustomersRepository(BaseRepository):
     model = Customer
 
-    async def search(self, q: str | None = None):
+    async def search(self, q: str | None = None, *, limit: int | None = 50, offset: int = 0):
         stmt = select(Customer).where(Customer.is_deleted.is_(False))
         if q:
             like = f"%{q}%"
             stmt = stmt.where(or_(Customer.name.ilike(like), Customer.phone.ilike(like)))
         stmt = stmt.order_by(Customer.created_at.desc())
+        if limit:
+            stmt = stmt.limit(limit).offset(offset)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
+
+    async def count(self, q: str | None = None) -> int:
+        stmt = select(func.count()).select_from(Customer).where(Customer.is_deleted.is_(False))
+        if q:
+            like = f"%{q}%"
+            stmt = stmt.where(or_(Customer.name.ilike(like), Customer.phone.ilike(like)))
+        result = await self.session.execute(stmt)
+        return result.scalar_one()
 
     async def profile(self, customer_id):
         """Customer + their orders, payments, repairs, and total outstanding."""

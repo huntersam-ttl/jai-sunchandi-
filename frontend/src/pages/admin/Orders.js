@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { api, apiError } from "@/lib/api";
@@ -7,21 +7,49 @@ import { inp, btnGold, btnGhost, Badge, F } from "@/components/admin/ui";
 import { Plus, X, Trash2 } from "lucide-react";
 
 const ORDER_STATUSES = ["new", "in_progress", "making", "polishing", "ready", "delivered", "cancelled"];
+const PAGE_SIZE = 50;
 
 export default function Orders() {
   const [orders, setOrders] = useState([]);
+  const [total, setTotal] = useState(0);
   const [status, setStatus] = useState("");
+  const [q, setQ] = useState("");
+  const [qInput, setQInput] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
-  const load = () => api.get("/admin/orders", { params: status ? { status } : {} }).then((r) => setOrders(r.data))
-    .catch((err) => { console.error("Orders load failed:", err); toast.error(apiError(err)); });
-  useEffect(() => { load(); }, [status]); // eslint-disable-line
+  const load = (query = q) =>
+    api.get("/admin/orders", { params: { limit: PAGE_SIZE, status: status || undefined, q: query || undefined } })
+      .then((r) => { setOrders(r.data.items); setTotal(r.data.total); })
+      .catch((err) => { console.error("Orders load failed:", err); toast.error(apiError(err)); });
+
+  useEffect(() => { load(q); }, [status]); // eslint-disable-line
+
+  const firstRun = useRef(true);
+  useEffect(() => {
+    if (firstRun.current) { firstRun.current = false; return; }
+    const t = setTimeout(() => { setQ(qInput); load(qInput); }, 350);
+    return () => clearTimeout(t);
+  }, [qInput]); // eslint-disable-line
+
+  const loadMore = async () => {
+    setLoadingMore(true);
+    try {
+      const { data } = await api.get("/admin/orders", {
+        params: { limit: PAGE_SIZE, offset: orders.length, status: status || undefined, q: q || undefined },
+      });
+      setOrders((prev) => [...prev, ...data.items]);
+      setTotal(data.total);
+    } catch (err) { toast.error(apiError(err)); } finally { setLoadingMore(false); }
+  };
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">Orders</h1>
         <div className="flex gap-2">
+          <input className={inp} style={{ width: 200 }} placeholder="Search order, customer, phone…"
+            value={qInput} onChange={(e) => setQInput(e.target.value)} data-testid="orders-search-input" />
           <select className={inp} style={{ width: 160 }} value={status} onChange={(e) => setStatus(e.target.value)} data-testid="orders-status-filter">
             <option value="">All statuses</option>
             {ORDER_STATUSES.map((s) => <option key={s} value={s}>{s.replace("_", " ")}</option>)}
@@ -49,6 +77,13 @@ export default function Orders() {
           </tbody>
         </table>
       </div>
+      {orders.length < total && (
+        <div className="flex justify-center">
+          <button className={btnGhost} onClick={loadMore} disabled={loadingMore} data-testid="orders-load-more">
+            {loadingMore ? "Loading…" : `Load more (${orders.length} of ${total})`}
+          </button>
+        </div>
+      )}
       {showForm && <OrderForm onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load(); }} />}
     </div>
   );
@@ -65,8 +100,12 @@ function OrderForm({ onClose, onSaved }) {
   const [oldGold, setOldGold] = useState({ enabled: false, old_item_description: "", old_weight_tola: "", old_valuation_rate_per_tola: "", old_deduction_percent: "" });
 
   useEffect(() => {
-    api.get("/admin/customers").then((r) => setCustomers(r.data)).catch((err) => console.error("Customers load failed:", err));
-    api.get("/admin/products", { params: { status: "available" } }).then((r) => setProducts(r.data)).catch((err) => console.error("Products load failed:", err));
+    // These populate dropdowns for the order form -- they need the full
+    // available set, not a paginated page, so ask for a high limit.
+    api.get("/admin/customers", { params: { limit: 1000 } }).then((r) => setCustomers(r.data.items))
+      .catch((err) => console.error("Customers load failed:", err));
+    api.get("/admin/products", { params: { status: "available", limit: 1000 } }).then((r) => setProducts(r.data.items))
+      .catch((err) => console.error("Products load failed:", err));
     api.get("/rates/today").then((r) => setRate(r.data)).catch((err) => console.error("Rate load failed:", err));
   }, []);
 

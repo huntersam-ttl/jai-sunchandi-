@@ -8,10 +8,16 @@ from utils import compute_price, grams_to_tola
 from .base import BaseRepository
 
 
+def _search_filter(q: str):
+    like = f"%{q}%"
+    return or_(Product.name.ilike(like), Product.product_code.ilike(like))
+
+
 class ProductsRepository(BaseRepository):
     model = Product
 
-    async def list(self, *, status=None, metal=None, include_deleted=False):
+    async def list(self, *, status=None, metal=None, q=None, include_deleted=False,
+                   limit: int | None = 50, offset: int = 0):
         stmt = select(Product)
         if not include_deleted:
             stmt = stmt.where(Product.is_deleted.is_(False))
@@ -19,9 +25,26 @@ class ProductsRepository(BaseRepository):
             stmt = stmt.where(Product.status == status)
         if metal:
             stmt = stmt.where(Product.metal == metal)
+        if q:
+            stmt = stmt.where(_search_filter(q))
         stmt = stmt.order_by(Product.created_at.desc())
+        if limit:
+            stmt = stmt.limit(limit).offset(offset)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
+
+    async def count(self, *, status=None, metal=None, q=None, include_deleted=False) -> int:
+        stmt = select(func.count()).select_from(Product)
+        if not include_deleted:
+            stmt = stmt.where(Product.is_deleted.is_(False))
+        if status:
+            stmt = stmt.where(Product.status == status)
+        if metal:
+            stmt = stmt.where(Product.metal == metal)
+        if q:
+            stmt = stmt.where(_search_filter(q))
+        result = await self.session.execute(stmt)
+        return result.scalar_one()
 
     async def count_by_status(self, status: str) -> int:
         result = await self.session.execute(

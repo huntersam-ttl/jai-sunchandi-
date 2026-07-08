@@ -27,13 +27,22 @@ class RepairsRepository(BaseRepository):
             return datetime.fromisoformat(value.replace("Z", "+00:00")).date() if "T" in value else date.fromisoformat(value)
         raise ValueError("Invalid promised date")
 
-    async def list(self, *, status=None):
+    async def list(self, *, status=None, limit: int | None = 50, offset: int = 0):
         stmt = select(RepairJob).where(RepairJob.is_deleted.is_(False))
         if status:
             stmt = stmt.where(RepairJob.status == status)
         stmt = stmt.order_by(RepairJob.created_at.desc())
+        if limit:
+            stmt = stmt.limit(limit).offset(offset)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
+
+    async def count(self, *, status=None) -> int:
+        stmt = select(func.count()).select_from(RepairJob).where(RepairJob.is_deleted.is_(False))
+        if status:
+            stmt = stmt.where(RepairJob.status == status)
+        result = await self.session.execute(stmt)
+        return result.scalar_one()
 
     async def list_pending(self, *, limit: int | None = None) -> list[RepairJob]:
         """Not-yet-finished repair jobs, filtered and capped at the DB level
