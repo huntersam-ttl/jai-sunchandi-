@@ -10,7 +10,7 @@ from __future__ import annotations
 from sqlalchemy import func, or_, select
 
 from models import BillArchive, Order, RepairJob
-from .base import BaseRepository
+from .base import BaseRepository, archived_clause
 
 
 def _search_filter(q: str):
@@ -27,17 +27,20 @@ def _search_filter(q: str):
 class BillArchivesRepository(BaseRepository):
     model = BillArchive
 
-    def _base_query(self):
-        return (
+    def _base_query(self, archived: str = "active"):
+        stmt = (
             select(BillArchive)
             .outerjoin(Order, BillArchive.related_order_id == Order.id)
             .outerjoin(RepairJob, BillArchive.related_repair_id == RepairJob.id)
-            .where(BillArchive.is_deleted.is_(False))
         )
+        clause = archived_clause(BillArchive.is_deleted, archived)
+        if clause is not None:
+            stmt = stmt.where(clause)
+        return stmt
 
     async def list(self, *, q=None, payment_status=None, start_date=None, end_date=None,
-                   limit: int | None = 50, offset: int = 0):
-        stmt = self._base_query()
+                   archived: str = "active", limit: int | None = 50, offset: int = 0):
+        stmt = self._base_query(archived)
         if q:
             stmt = stmt.where(_search_filter(q))
         if payment_status:
@@ -52,14 +55,17 @@ class BillArchivesRepository(BaseRepository):
         result = await self.session.execute(stmt)
         return list(result.scalars().unique().all())
 
-    async def count(self, *, q=None, payment_status=None, start_date=None, end_date=None) -> int:
+    async def count(self, *, q=None, payment_status=None, start_date=None, end_date=None,
+                    archived: str = "active") -> int:
         stmt = (
             select(func.count(func.distinct(BillArchive.id)))
             .select_from(BillArchive)
             .outerjoin(Order, BillArchive.related_order_id == Order.id)
             .outerjoin(RepairJob, BillArchive.related_repair_id == RepairJob.id)
-            .where(BillArchive.is_deleted.is_(False))
         )
+        clause = archived_clause(BillArchive.is_deleted, archived)
+        if clause is not None:
+            stmt = stmt.where(clause)
         if q:
             stmt = stmt.where(_search_filter(q))
         if payment_status:
@@ -85,3 +91,28 @@ class BillArchivesRepository(BaseRepository):
                 setattr(bill, key, value)
         await self.session.flush()
         return bill
+
+    async def archive(self, bill_id) -> BillArchive | None:
+        bill = await self.get(bill_id)
+        if bill is not None:
+            bill.is_deleted = True
+            await self.session.flush()
+        return bill
+
+    async def restore(self, bill_id) -> BillArchive | None:
+        bill = await self.get(bill_id)
+        if bill is not None:
+            bill.is_deleted = False
+            await self.session.flush()
+        return bill
+
+    async def hard_delete(self, bill_id) -> bool:
+        """Permanently remove a bill row. Callers must only reach this after
+        the bill is already archived and an explicit typed confirmation --
+        this repo method itself doesn't re-check that, the route does."""
+        bill = await self.get(bill_id)
+        if bill is None:
+            return False
+        await self.session.delete(bill)
+        await self.session.flush()
+        return True

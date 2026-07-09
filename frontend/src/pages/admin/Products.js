@@ -5,8 +5,8 @@ import { api, apiError } from "@/lib/api";
 import { rs, STATUS_COLORS, gramsToTola, tolaToGrams } from "@/lib/format";
 import { computeQuote, resolveRatePerTola } from "@/lib/calculator";
 import { uploadImage } from "@/lib/storage";
-import { inp, btnGold, btnGhost, Badge, F } from "@/components/admin/ui";
-import { Plus, Pencil, Trash2, QrCode, X, Printer, Copy } from "lucide-react";
+import { inp, btnGold, btnGhost, Badge, F, ConfirmModal } from "@/components/admin/ui";
+import { Plus, Pencil, Archive, RotateCcw, QrCode, X, Printer, Copy } from "lucide-react";
 
 const EMPTY = {
   name: "", name_np: "", description: "", category: "", collection: "", metal: "gold", purity: "24K",
@@ -28,10 +28,12 @@ export default function Products() {
   const [qrProduct, setQrProduct] = useState(null);
   const [q, setQ] = useState("");
   const [qInput, setQInput] = useState("");
+  const [archivedFilter, setArchivedFilter] = useState("active");
   const [loadingMore, setLoadingMore] = useState(false);
+  const [confirmAction, setConfirmAction] = useState(null); // { product, mode: "archive" | "restore" }
 
-  const load = (query = q) =>
-    api.get("/admin/products", { params: { limit: PAGE_SIZE, q: query || undefined } })
+  const load = (query = q, archived = archivedFilter) =>
+    api.get("/admin/products", { params: { limit: PAGE_SIZE, q: query || undefined, archived } })
       .then((r) => { setProducts(r.data.items); setTotal(r.data.total); })
       .catch((err) => { console.error("Products load failed:", err); toast.error(apiError(err)); });
 
@@ -49,6 +51,11 @@ export default function Products() {
   }, [qInput]); // eslint-disable-line
 
   useEffect(() => {
+    if (firstRun.current) return;
+    load(q, archivedFilter);
+  }, [archivedFilter]); // eslint-disable-line
+
+  useEffect(() => {
     api.get("/categories").then((r) => setCats(r.data)).catch((err) => console.error("Categories load failed:", err));
     api.get("/collections").then((r) => setCols(r.data)).catch((err) => console.error("Collections load failed:", err));
     api.get("/rates/today").then((r) => setRate(r.data)).catch((err) => console.error("Rate load failed:", err));
@@ -58,18 +65,20 @@ export default function Products() {
     setLoadingMore(true);
     try {
       const { data } = await api.get("/admin/products", {
-        params: { limit: PAGE_SIZE, offset: products.length, q: q || undefined },
+        params: { limit: PAGE_SIZE, offset: products.length, q: q || undefined, archived: archivedFilter },
       });
       setProducts((prev) => [...prev, ...data.items]);
       setTotal(data.total);
     } catch (err) { toast.error(apiError(err)); } finally { setLoadingMore(false); }
   };
 
-  const del = async (p) => {
-    if (!window.confirm(`Soft-delete ${p.name}?`)) return;
+  const runConfirmedAction = async () => {
+    const { product, mode } = confirmAction;
     try {
-      await api.delete(`/admin/products/${p.id}`);
-      toast.success("Product removed");
+      if (mode === "archive") await api.delete(`/admin/products/${product.id}`);
+      else await api.post(`/admin/products/${product.id}/restore`);
+      toast.success(mode === "archive" ? "Product archived" : "Product restored");
+      setConfirmAction(null);
       load();
     } catch (err) { toast.error(apiError(err)); }
   };
@@ -91,6 +100,11 @@ export default function Products() {
         <h1 className="text-2xl font-bold">Products</h1>
         <div className="flex gap-2">
           <input className={inp} style={{ width: 220 }} placeholder="Search code or name…" value={qInput} onChange={(e) => setQInput(e.target.value)} data-testid="products-search-input" />
+          <select className={inp} style={{ width: 130 }} value={archivedFilter} onChange={(e) => setArchivedFilter(e.target.value)} data-testid="products-archived-filter">
+            <option value="active">Active</option>
+            <option value="archived">Archived</option>
+            <option value="all">All</option>
+          </select>
           <button className={btnGold} onClick={() => setEditing({ ...EMPTY })} data-testid="add-product-btn"><Plus size={16} /> Add Product</button>
         </div>
       </div>
@@ -117,13 +131,20 @@ export default function Products() {
                 <td>{p.category || "—"}</td>
                 <td>{p.weight_tola} tola<br /><span className="text-xs text-slate-400">{p.weight_grams} g</span></td>
                 <td className="font-semibold">{p.live_price ? rs(p.live_price.total_price) : "—"}</td>
-                <td><Badge status={p.status} colors={STATUS_COLORS} /></td>
+                <td>
+                  <Badge status={p.status} colors={STATUS_COLORS} />
+                  {p.is_deleted && <span className="ml-1 inline-block text-[11px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">Archived</span>}
+                </td>
                 <td className="text-xs">{p.show_on_website ? "✓ shown" : "hidden"}</td>
                 <td className="p-2">
                   <div className="flex gap-1">
                     <button className="p-2 hover:bg-slate-100 rounded" onClick={() => setQrProduct(p)} data-testid={`qr-product-${p.product_code}`}><QrCode size={16} /></button>
                     <button className="p-2 hover:bg-slate-100 rounded" onClick={() => setEditing(toForm(p))} data-testid={`edit-product-${p.product_code}`}><Pencil size={16} /></button>
-                    <button className="p-2 hover:bg-red-50 text-red-600 rounded" onClick={() => del(p)} data-testid={`delete-product-${p.product_code}`}><Trash2 size={16} /></button>
+                    {p.is_deleted ? (
+                      <button className="p-2 hover:bg-slate-100 rounded" onClick={() => setConfirmAction({ product: p, mode: "restore" })} data-testid={`restore-product-${p.product_code}`}><RotateCcw size={16} /></button>
+                    ) : (
+                      <button className="p-2 hover:bg-amber-50 text-amber-700 rounded" onClick={() => setConfirmAction({ product: p, mode: "archive" })} data-testid={`archive-product-${p.product_code}`}><Archive size={16} /></button>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -143,6 +164,18 @@ export default function Products() {
 
       {editing && <ProductForm form={editing} setForm={setEditing} cats={cats} cols={cols} rate={rate} onSaved={(saved) => { setEditing(null); load(); if (saved) setQrProduct(saved); }} />}
       {qrProduct && <QrModal product={qrProduct} onClose={() => setQrProduct(null)} />}
+      {confirmAction && (
+        <ConfirmModal
+          title={confirmAction.mode === "archive" ? "Archive this product?" : "Restore this product?"}
+          recordLabel={`${confirmAction.product.name} (${confirmAction.product.product_code})`}
+          message={confirmAction.mode === "archive"
+            ? "It will be hidden from the active list and the public catalogue. You can restore it any time."
+            : "It will reappear in the active product list."}
+          confirmLabel={confirmAction.mode === "archive" ? "Archive" : "Restore"}
+          onConfirm={runConfirmedAction}
+          onCancel={() => setConfirmAction(null)}
+        />
+      )}
     </div>
   );
 }

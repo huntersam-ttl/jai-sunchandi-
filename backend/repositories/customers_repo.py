@@ -4,14 +4,18 @@ from __future__ import annotations
 from sqlalchemy import desc, func, or_, select
 
 from models import Customer, Order, Payment, RepairJob
-from .base import BaseRepository
+from .base import BaseRepository, archived_clause
 
 
 class CustomersRepository(BaseRepository):
     model = Customer
 
-    async def search(self, q: str | None = None, *, limit: int | None = 50, offset: int = 0):
-        stmt = select(Customer).where(Customer.is_deleted.is_(False))
+    async def search(self, q: str | None = None, *, archived: str = "active",
+                      limit: int | None = 50, offset: int = 0):
+        stmt = select(Customer)
+        clause = archived_clause(Customer.is_deleted, archived)
+        if clause is not None:
+            stmt = stmt.where(clause)
         if q:
             like = f"%{q}%"
             stmt = stmt.where(or_(Customer.name.ilike(like), Customer.phone.ilike(like)))
@@ -21,13 +25,30 @@ class CustomersRepository(BaseRepository):
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
-    async def count(self, q: str | None = None) -> int:
-        stmt = select(func.count()).select_from(Customer).where(Customer.is_deleted.is_(False))
+    async def count(self, q: str | None = None, *, archived: str = "active") -> int:
+        stmt = select(func.count()).select_from(Customer)
+        clause = archived_clause(Customer.is_deleted, archived)
+        if clause is not None:
+            stmt = stmt.where(clause)
         if q:
             like = f"%{q}%"
             stmt = stmt.where(or_(Customer.name.ilike(like), Customer.phone.ilike(like)))
         result = await self.session.execute(stmt)
         return result.scalar_one()
+
+    async def archive(self, customer_id) -> Customer | None:
+        customer = await self.get(customer_id)
+        if customer is not None:
+            customer.is_deleted = True
+            await self.session.flush()
+        return customer
+
+    async def restore(self, customer_id) -> Customer | None:
+        customer = await self.get(customer_id)
+        if customer is not None:
+            customer.is_deleted = False
+            await self.session.flush()
+        return customer
 
     async def profile(self, customer_id):
         """Customer + their orders, payments, repairs, and total outstanding."""

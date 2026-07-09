@@ -5,7 +5,7 @@ from sqlalchemy import String, cast, func, or_, select
 
 from models import Product
 from utils import compute_price, grams_to_tola
-from .base import BaseRepository
+from .base import BaseRepository, archived_clause
 
 
 def _search_filter(q: str):
@@ -16,11 +16,12 @@ def _search_filter(q: str):
 class ProductsRepository(BaseRepository):
     model = Product
 
-    async def list(self, *, status=None, metal=None, q=None, include_deleted=False,
+    async def list(self, *, status=None, metal=None, q=None, archived: str = "active",
                    limit: int | None = 50, offset: int = 0):
         stmt = select(Product)
-        if not include_deleted:
-            stmt = stmt.where(Product.is_deleted.is_(False))
+        clause = archived_clause(Product.is_deleted, archived)
+        if clause is not None:
+            stmt = stmt.where(clause)
         if status:
             stmt = stmt.where(Product.status == status)
         if metal:
@@ -33,10 +34,11 @@ class ProductsRepository(BaseRepository):
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
-    async def count(self, *, status=None, metal=None, q=None, include_deleted=False) -> int:
+    async def count(self, *, status=None, metal=None, q=None, archived: str = "active") -> int:
         stmt = select(func.count()).select_from(Product)
-        if not include_deleted:
-            stmt = stmt.where(Product.is_deleted.is_(False))
+        clause = archived_clause(Product.is_deleted, archived)
+        if clause is not None:
+            stmt = stmt.where(clause)
         if status:
             stmt = stmt.where(Product.status == status)
         if metal:
@@ -84,6 +86,13 @@ class ProductsRepository(BaseRepository):
             product.is_deleted = True
             product.status = "inactive"
             await self.session.flush()
+
+    async def restore(self, product_id) -> Product | None:
+        product = await self.get(product_id)
+        if product is not None:
+            product.is_deleted = False
+            await self.session.flush()
+        return product
 
     @staticmethod
     def live_price(product: Product, rate: dict | None) -> dict | None:

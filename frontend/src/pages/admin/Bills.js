@@ -5,9 +5,9 @@ import { api, apiError } from "@/lib/api";
 import { rs } from "@/lib/format";
 import { uploadImage } from "@/lib/storage";
 import { isAcceptedBillImageType } from "@/lib/billArchive";
-import { inp, btnGold, btnGhost, F } from "@/components/admin/ui";
+import { inp, btnGold, btnGhost, F, ConfirmModal } from "@/components/admin/ui";
 import AdminPhoto from "@/components/admin/AdminPhoto";
-import { Plus, X, Loader2 } from "lucide-react";
+import { Plus, X, Loader2, Archive, RotateCcw } from "lucide-react";
 
 const PAGE_SIZE = 24;
 const PAYMENT_STATUSES = ["unknown", "unpaid", "partial", "paid"];
@@ -29,9 +29,11 @@ export default function Bills() {
   const [paymentStatus, setPaymentStatus] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [archivedFilter, setArchivedFilter] = useState("active");
   const [loadingMore, setLoadingMore] = useState(false);
   const [form, setForm] = useState(null);
   const [photoUploading, setPhotoUploading] = useState(false);
+  const [confirmAction, setConfirmAction] = useState(null); // { bill, mode: "archive" | "restore" }
 
   const load = (query = q) =>
     api.get("/admin/bills", {
@@ -39,6 +41,7 @@ export default function Bills() {
         limit: PAGE_SIZE, q: query || undefined,
         payment_status: paymentStatus || undefined,
         start_date: startDate || undefined, end_date: endDate || undefined,
+        archived: archivedFilter,
       },
     })
       .then((r) => { setBills(r.data.items); setTotal(r.data.total); })
@@ -63,7 +66,7 @@ export default function Bills() {
   useEffect(() => {
     if (firstRun.current) return;
     load(q);
-  }, [paymentStatus, startDate, endDate]); // eslint-disable-line
+  }, [paymentStatus, startDate, endDate, archivedFilter]); // eslint-disable-line
 
   const loadMore = async () => {
     setLoadingMore(true);
@@ -72,11 +75,22 @@ export default function Bills() {
         params: {
           limit: PAGE_SIZE, offset: bills.length, q: q || undefined,
           payment_status: paymentStatus || undefined, start_date: startDate || undefined, end_date: endDate || undefined,
+          archived: archivedFilter,
         },
       });
       setBills((prev) => [...prev, ...data.items]);
       setTotal(data.total);
     } catch (err) { toast.error(apiError(err)); } finally { setLoadingMore(false); }
+  };
+
+  const runConfirmedAction = async () => {
+    const { bill, mode } = confirmAction;
+    try {
+      await api.post(`/admin/bills/${bill.id}/${mode}`);
+      toast.success(mode === "archive" ? "Bill archived" : "Bill restored");
+      setConfirmAction(null);
+      load();
+    } catch (err) { toast.error(apiError(err)); }
   };
 
   const onPhoto = async (e) => {
@@ -138,22 +152,38 @@ export default function Bills() {
         </select>
         <input type="date" className={inp} style={{ width: 150 }} value={startDate} onChange={(e) => setStartDate(e.target.value)} data-testid="bills-start-date" />
         <input type="date" className={inp} style={{ width: 150 }} value={endDate} onChange={(e) => setEndDate(e.target.value)} data-testid="bills-end-date" />
+        <select className={inp} style={{ width: 130 }} value={archivedFilter} onChange={(e) => setArchivedFilter(e.target.value)} data-testid="bills-archived-filter">
+          <option value="active">Active</option>
+          <option value="archived">Archived</option>
+          <option value="all">All</option>
+        </select>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3" data-testid="bills-grid">
         {bills.map((b) => (
-          <Link key={b.id} to={`/admin/bills/${b.id}`} data-testid={`bill-card-${b.id}`}
-            className="bg-white border border-slate-200 rounded-md overflow-hidden hover:-translate-y-0.5 hover:shadow-sm transition-all">
-            <AdminPhoto src={b.photo_url} alt="Bill" className="h-28 w-full" testId={`bill-thumb-${b.id}`} />
-            <div className="p-2 text-xs space-y-0.5">
-              <p className="font-semibold truncate">{b.bill_number || "No bill #"}</p>
-              <p className="text-slate-500 truncate">{b.customer_name || "—"} {b.customer_phone && `· ${b.customer_phone}`}</p>
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400">{b.bill_date || "—"}</span>
-                {b.total_amount != null && <span className="font-semibold">{rs(b.total_amount)}</span>}
+          <div key={b.id} className="bg-white border border-slate-200 rounded-md overflow-hidden hover:-translate-y-0.5 hover:shadow-sm transition-all">
+            <Link to={`/admin/bills/${b.id}`} data-testid={`bill-card-${b.id}`}>
+              <AdminPhoto src={b.photo_url} alt="Bill" className="h-28 w-full" testId={`bill-thumb-${b.id}`} />
+              <div className="p-2 text-xs space-y-0.5">
+                <p className="font-semibold truncate">
+                  {b.bill_number || "No bill #"}
+                  {b.is_deleted && <span className="ml-1 inline-block text-[11px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800">Archived</span>}
+                </p>
+                <p className="text-slate-500 truncate">{b.customer_name || "—"} {b.customer_phone && `· ${b.customer_phone}`}</p>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-400">{b.bill_date || "—"}</span>
+                  {b.total_amount != null && <span className="font-semibold">{rs(b.total_amount)}</span>}
+                </div>
               </div>
+            </Link>
+            <div className="px-2 pb-2">
+              {b.is_deleted ? (
+                <button className="w-full flex items-center justify-center gap-1 text-xs p-1.5 hover:bg-slate-100 rounded" onClick={() => setConfirmAction({ bill: b, mode: "restore" })} data-testid={`restore-bill-${b.id}`}><RotateCcw size={13} /> Restore</button>
+              ) : (
+                <button className="w-full flex items-center justify-center gap-1 text-xs p-1.5 hover:bg-amber-50 text-amber-700 rounded" onClick={() => setConfirmAction({ bill: b, mode: "archive" })} data-testid={`archive-bill-${b.id}`}><Archive size={13} /> Archive</button>
+              )}
             </div>
-          </Link>
+          </div>
         ))}
         {bills.length === 0 && (
           <p className="col-span-full text-center text-slate-400 py-10" data-testid="bills-empty">
@@ -223,6 +253,19 @@ export default function Bills() {
             </div>
           </div>
         </div>
+      )}
+
+      {confirmAction && (
+        <ConfirmModal
+          title={confirmAction.mode === "archive" ? "Archive this bill?" : "Restore this bill?"}
+          recordLabel={confirmAction.bill.bill_number || "Bill (no number)"}
+          message={confirmAction.mode === "archive"
+            ? "The photo stays private and safe -- it will just be hidden from the default list. You can restore it any time."
+            : "It will reappear in the default bill list, and its photo stays accessible."}
+          confirmLabel={confirmAction.mode === "archive" ? "Archive" : "Restore"}
+          onConfirm={runConfirmedAction}
+          onCancel={() => setConfirmAction(null)}
+        />
       )}
     </div>
   );

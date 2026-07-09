@@ -1,12 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { api, apiError } from "@/lib/api";
 import { rs, STATUS_COLORS } from "@/lib/format";
 import { uploadImage } from "@/lib/storage";
-import { inp, btnGold, btnGhost, Badge, F } from "@/components/admin/ui";
+import { inp, btnGold, btnGhost, Badge, F, ConfirmModal } from "@/components/admin/ui";
 import AdminPhoto from "@/components/admin/AdminPhoto";
-import { Plus, X, Pencil } from "lucide-react";
+import { Plus, X, Pencil, Archive, RotateCcw } from "lucide-react";
 
 const REPAIR_STATUSES = ["received", "working", "ready", "delivered", "cancelled"];
 const EMPTY = { customer_id: "", service_type: "repair", description: "", intake_photo: "", damage_photo: "", after_photo: "", promised_date_ad: "", charge: 0, status: "received" };
@@ -17,14 +17,22 @@ export default function Repairs() {
   const [params] = useSearchParams();
   const [repairs, setRepairs] = useState([]);
   const [customers, setCustomers] = useState([]);
+  const [archivedFilter, setArchivedFilter] = useState("active");
   const [form, setForm] = useState(() => (params.get("new") === "1" ? { ...EMPTY } : null));
+  const [confirmAction, setConfirmAction] = useState(null); // { repair, mode: "archive" | "restore" }
 
-  const load = () => api.get("/admin/repairs").then((r) => setRepairs(r.data))
+  const firstRun = useRef(true);
+  const load = (archived = archivedFilter) => api.get("/admin/repairs", { params: { archived } }).then((r) => setRepairs(r.data))
     .catch((err) => { console.error("Repairs load failed:", err); toast.error(apiError(err)); });
   useEffect(() => {
     load();
     api.get("/admin/customers", { params: { limit: 1000 } }).then((r) => setCustomers(r.data.items)).catch((err) => console.error("Customers load failed:", err));
-  }, []);
+  }, []); // eslint-disable-line
+
+  useEffect(() => {
+    if (firstRun.current) { firstRun.current = false; return; }
+    load(archivedFilter);
+  }, [archivedFilter]); // eslint-disable-line
 
   const save = async () => {
     if (!form.customer_id) return toast.error("Select a customer");
@@ -35,6 +43,16 @@ export default function Repairs() {
       toast.success("Repair job saved");
       setForm(null); load();
     } catch (e) { toast.error(apiError(e)); }
+  };
+
+  const runConfirmedAction = async () => {
+    const { repair, mode } = confirmAction;
+    try {
+      await api.post(`/admin/repairs/${repair.id}/${mode}`);
+      toast.success(mode === "archive" ? "Repair archived" : "Repair restored");
+      setConfirmAction(null);
+      load();
+    } catch (err) { toast.error(apiError(err)); }
   };
 
   const photoInput = (key, label) => (
@@ -62,9 +80,16 @@ export default function Repairs() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <h1 className="text-2xl font-bold">Repair Jobs</h1>
-        <button className={btnGold} onClick={() => setForm({ ...EMPTY })} data-testid="add-repair-btn"><Plus size={16} /> New Repair Job</button>
+        <div className="flex gap-2">
+          <select className={inp} style={{ width: 130 }} value={archivedFilter} onChange={(e) => setArchivedFilter(e.target.value)} data-testid="repairs-archived-filter">
+            <option value="active">Active</option>
+            <option value="archived">Archived</option>
+            <option value="all">All</option>
+          </select>
+          <button className={btnGold} onClick={() => setForm({ ...EMPTY })} data-testid="add-repair-btn"><Plus size={16} /> New Repair Job</button>
+        </div>
       </div>
       <div className="bg-white border border-slate-200 rounded-md overflow-x-auto">
         <table className="w-full text-sm">
@@ -73,13 +98,23 @@ export default function Repairs() {
           <tbody data-testid="repairs-table">
             {repairs.map((r) => (
               <tr key={r.id} className="border-b border-slate-50 hover:bg-slate-50">
-                <td className="p-3 font-semibold">{r.repair_number}</td>
+                <td className="p-3 font-semibold">
+                  {r.repair_number}
+                  {r.is_deleted && <span className="ml-1 inline-block text-[11px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">Archived</span>}
+                </td>
                 <td>{r.customer_name}<br /><span className="text-xs text-slate-400">{r.customer_phone}</span></td>
                 <td className="capitalize">{r.service_type}</td>
                 <td>{r.promised_date_bs_np || "—"}</td>
                 <td>{rs(r.charge)}</td>
                 <td><Badge status={r.status} colors={STATUS_COLORS} /></td>
-                <td><button className="p-2 hover:bg-slate-100 rounded" onClick={() => setForm({ ...EMPTY, ...r })} data-testid={`edit-repair-${r.repair_number}`}><Pencil size={15} /></button></td>
+                <td className="flex gap-1">
+                  <button className="p-2 hover:bg-slate-100 rounded" onClick={() => setForm({ ...EMPTY, ...r })} data-testid={`edit-repair-${r.repair_number}`}><Pencil size={15} /></button>
+                  {r.is_deleted ? (
+                    <button className="p-2 hover:bg-slate-100 rounded" onClick={() => setConfirmAction({ repair: r, mode: "restore" })} data-testid={`restore-repair-${r.repair_number}`}><RotateCcw size={15} /></button>
+                  ) : (
+                    <button className="p-2 hover:bg-amber-50 text-amber-700 rounded" onClick={() => setConfirmAction({ repair: r, mode: "archive" })} data-testid={`archive-repair-${r.repair_number}`}><Archive size={15} /></button>
+                  )}
+                </td>
               </tr>
             ))}
             {repairs.length === 0 && <tr><td colSpan={7} className="p-6 text-center text-slate-400">No repair jobs.</td></tr>}
@@ -117,6 +152,19 @@ export default function Repairs() {
             </div>
           </div>
         </div>
+      )}
+
+      {confirmAction && (
+        <ConfirmModal
+          title={confirmAction.mode === "archive" ? "Archive this repair job?" : "Restore this repair job?"}
+          recordLabel={`${confirmAction.repair.repair_number} — ${confirmAction.repair.customer_name}`}
+          message={confirmAction.mode === "archive"
+            ? "Photos and history are kept -- it will just be hidden from the active repair list. You can restore it any time."
+            : "It will reappear in the active repair list."}
+          confirmLabel={confirmAction.mode === "archive" ? "Archive" : "Restore"}
+          onConfirm={runConfirmedAction}
+          onCancel={() => setConfirmAction(null)}
+        />
       )}
     </div>
   );

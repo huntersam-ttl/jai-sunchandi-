@@ -49,6 +49,16 @@ class ExpensesRepository(BaseRepository):
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
+    async def delete(self, expense_id) -> bool:
+        """Expenses have no soft-delete column -- a mistaken entry is a
+        genuine mistake to remove outright, not shop history to preserve."""
+        expense = await self.get(expense_id)
+        if expense is None:
+            return False
+        await self.session.delete(expense)
+        await self.session.flush()
+        return True
+
     def create(self, *, date_ad=None, category="other", description="",
                amount=0, payment_method="cash") -> Expense:
         expense = Expense(

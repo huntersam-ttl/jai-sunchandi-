@@ -4,8 +4,8 @@ import { toast } from "sonner";
 import { api, apiError } from "@/lib/api";
 import { rs, STATUS_COLORS } from "@/lib/format";
 import { computeQuote, resolveRatePerTola } from "@/lib/calculator";
-import { inp, btnGold, btnGhost, Badge, F } from "@/components/admin/ui";
-import { Plus, X, Trash2 } from "lucide-react";
+import { inp, btnGold, btnGhost, Badge, F, ConfirmModal } from "@/components/admin/ui";
+import { Plus, X, Trash2, Archive, RotateCcw } from "lucide-react";
 
 const ORDER_STATUSES = ["new", "in_progress", "making", "polishing", "ready", "delivered", "cancelled"];
 const PAGE_SIZE = 50;
@@ -19,15 +19,17 @@ export default function Orders() {
   const [status, setStatus] = useState(() => params.get("status") || "");
   const [q, setQ] = useState("");
   const [qInput, setQInput] = useState("");
+  const [archivedFilter, setArchivedFilter] = useState("active");
   const [showForm, setShowForm] = useState(() => params.get("new") === "1");
   const [loadingMore, setLoadingMore] = useState(false);
+  const [confirmAction, setConfirmAction] = useState(null); // { order, mode: "archive" | "restore" }
 
   const load = (query = q) =>
-    api.get("/admin/orders", { params: { limit: PAGE_SIZE, status: status || undefined, q: query || undefined } })
+    api.get("/admin/orders", { params: { limit: PAGE_SIZE, status: status || undefined, q: query || undefined, archived: archivedFilter } })
       .then((r) => { setOrders(r.data.items); setTotal(r.data.total); })
       .catch((err) => { console.error("Orders load failed:", err); toast.error(apiError(err)); });
 
-  useEffect(() => { load(q); }, [status]); // eslint-disable-line
+  useEffect(() => { load(q); }, [status, archivedFilter]); // eslint-disable-line
 
   const firstRun = useRef(true);
   useEffect(() => {
@@ -40,11 +42,21 @@ export default function Orders() {
     setLoadingMore(true);
     try {
       const { data } = await api.get("/admin/orders", {
-        params: { limit: PAGE_SIZE, offset: orders.length, status: status || undefined, q: q || undefined },
+        params: { limit: PAGE_SIZE, offset: orders.length, status: status || undefined, q: q || undefined, archived: archivedFilter },
       });
       setOrders((prev) => [...prev, ...data.items]);
       setTotal(data.total);
     } catch (err) { toast.error(apiError(err)); } finally { setLoadingMore(false); }
+  };
+
+  const runConfirmedAction = async () => {
+    const { order, mode } = confirmAction;
+    try {
+      await api.post(`/admin/orders/${order.id}/${mode}`);
+      toast.success(mode === "archive" ? "Order archived" : "Order restored");
+      setConfirmAction(null);
+      load(q);
+    } catch (err) { toast.error(apiError(err)); }
   };
 
   return (
@@ -58,26 +70,41 @@ export default function Orders() {
             <option value="">All statuses</option>
             {ORDER_STATUSES.map((s) => <option key={s} value={s}>{s.replace("_", " ")}</option>)}
           </select>
+          <select className={inp} style={{ width: 130 }} value={archivedFilter} onChange={(e) => setArchivedFilter(e.target.value)} data-testid="orders-archived-filter">
+            <option value="active">Active</option>
+            <option value="archived">Archived</option>
+            <option value="all">All</option>
+          </select>
           <button className={btnGold} onClick={() => setShowForm(true)} data-testid="add-order-btn"><Plus size={16} /> New Order</button>
         </div>
       </div>
       <div className="bg-white border border-slate-200 rounded-md overflow-x-auto">
         <table className="w-full text-sm">
           <thead><tr className="text-left text-xs text-slate-500 border-b">
-            <th className="p-3">Order</th><th>Customer</th><th>Type</th><th>Delivery</th><th>Net Payable</th><th>Remaining</th><th>Status</th></tr></thead>
+            <th className="p-3">Order</th><th>Customer</th><th>Type</th><th>Delivery</th><th>Net Payable</th><th>Remaining</th><th>Status</th><th></th></tr></thead>
           <tbody data-testid="orders-table">
             {orders.map((o) => (
               <tr key={o.id} className="border-b border-slate-50 hover:bg-slate-50">
-                <td className="p-3"><Link to={`/admin/orders/${o.id}`} className="font-semibold hover:text-[#D4AF37]" data-testid={`order-link-${o.order_number}`}>{o.order_number}</Link></td>
+                <td className="p-3">
+                  <Link to={`/admin/orders/${o.id}`} className="font-semibold hover:text-[#D4AF37]" data-testid={`order-link-${o.order_number}`}>{o.order_number}</Link>
+                  {o.is_deleted && <span className="ml-1 inline-block text-[11px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">Archived</span>}
+                </td>
                 <td>{o.customer_name}<br /><span className="text-xs text-slate-400">{o.customer_phone}</span></td>
                 <td className="capitalize">{o.order_type.replace("_", " ")}</td>
                 <td>{o.delivery_date_ad || "—"}{o.delivery_date_bs_np && <><br /><span className="text-xs text-slate-400">BS {o.delivery_date_bs_np}</span></>}</td>
                 <td className="font-semibold">{rs(o.net_payable)}</td>
                 <td className="text-[#991B1B] font-semibold">{rs(o.remaining_balance)}</td>
                 <td><Badge status={o.status} colors={STATUS_COLORS} /></td>
+                <td className="p-2">
+                  {o.is_deleted ? (
+                    <button className="p-2 hover:bg-slate-100 rounded" onClick={() => setConfirmAction({ order: o, mode: "restore" })} data-testid={`restore-order-${o.order_number}`}><RotateCcw size={16} /></button>
+                  ) : (
+                    <button className="p-2 hover:bg-amber-50 text-amber-700 rounded" onClick={() => setConfirmAction({ order: o, mode: "archive" })} data-testid={`archive-order-${o.order_number}`}><Archive size={16} /></button>
+                  )}
+                </td>
               </tr>
             ))}
-            {orders.length === 0 && <tr><td colSpan={7} className="p-6 text-center text-slate-400">No orders yet.</td></tr>}
+            {orders.length === 0 && <tr><td colSpan={8} className="p-6 text-center text-slate-400">No orders yet.</td></tr>}
           </tbody>
         </table>
       </div>
@@ -89,6 +116,18 @@ export default function Orders() {
         </div>
       )}
       {showForm && <OrderForm onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load(); }} />}
+      {confirmAction && (
+        <ConfirmModal
+          title={confirmAction.mode === "archive" ? "Archive this order?" : "Restore this order?"}
+          recordLabel={`${confirmAction.order.order_number} — ${confirmAction.order.customer_name}`}
+          message={confirmAction.mode === "archive"
+            ? "The receipt and payment history are kept -- it will just be hidden from the active order list. You can restore it any time."
+            : "It will reappear in the active order list."}
+          confirmLabel={confirmAction.mode === "archive" ? "Archive" : "Restore"}
+          onConfirm={runConfirmedAction}
+          onCancel={() => setConfirmAction(null)}
+        />
+      )}
     </div>
   );
 }

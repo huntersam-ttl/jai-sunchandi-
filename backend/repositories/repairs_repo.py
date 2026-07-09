@@ -7,7 +7,7 @@ from sqlalchemy import func, or_, select
 
 from models import RepairJob
 from utils import ad_to_bs
-from .base import BaseRepository
+from .base import BaseRepository, archived_clause
 
 _FINISHED_STATUSES = ("delivered", "cancelled")
 
@@ -36,8 +36,12 @@ class RepairsRepository(BaseRepository):
             return datetime.fromisoformat(value.replace("Z", "+00:00")).date() if "T" in value else date.fromisoformat(value)
         raise ValueError("Invalid promised date")
 
-    async def list(self, *, status=None, q=None, limit: int | None = 50, offset: int = 0):
-        stmt = select(RepairJob).where(RepairJob.is_deleted.is_(False))
+    async def list(self, *, status=None, q=None, archived: str = "active",
+                   limit: int | None = 50, offset: int = 0):
+        stmt = select(RepairJob)
+        clause = archived_clause(RepairJob.is_deleted, archived)
+        if clause is not None:
+            stmt = stmt.where(clause)
         if status:
             stmt = stmt.where(RepairJob.status == status)
         if q:
@@ -48,14 +52,31 @@ class RepairsRepository(BaseRepository):
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
-    async def count(self, *, status=None, q=None) -> int:
-        stmt = select(func.count()).select_from(RepairJob).where(RepairJob.is_deleted.is_(False))
+    async def count(self, *, status=None, q=None, archived: str = "active") -> int:
+        stmt = select(func.count()).select_from(RepairJob)
+        clause = archived_clause(RepairJob.is_deleted, archived)
+        if clause is not None:
+            stmt = stmt.where(clause)
         if status:
             stmt = stmt.where(RepairJob.status == status)
         if q:
             stmt = stmt.where(_search_filter(q))
         result = await self.session.execute(stmt)
         return result.scalar_one()
+
+    async def archive(self, repair_id) -> RepairJob | None:
+        repair = await self.get(repair_id)
+        if repair is not None:
+            repair.is_deleted = True
+            await self.session.flush()
+        return repair
+
+    async def restore(self, repair_id) -> RepairJob | None:
+        repair = await self.get(repair_id)
+        if repair is not None:
+            repair.is_deleted = False
+            await self.session.flush()
+        return repair
 
     async def list_pending(self, *, limit: int | None = None) -> list[RepairJob]:
         """Not-yet-finished repair jobs, filtered and capped at the DB level

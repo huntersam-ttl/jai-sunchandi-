@@ -1,20 +1,22 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { api, apiError } from "@/lib/api";
 import { rs } from "@/lib/format";
 import { useSettings } from "@/context/SettingsContext";
 import { billWhatsappLink, buildBillWhatsappMessage, buildBillReferenceText } from "@/lib/billArchive";
-import { btnGhost, Card } from "@/components/admin/ui";
+import { btnGhost, Card, ConfirmModal } from "@/components/admin/ui";
 import AdminPhoto from "@/components/admin/AdminPhoto";
-import { Printer, MessageCircle, Copy, Download, RefreshCw } from "lucide-react";
+import { Printer, MessageCircle, Copy, Download, RefreshCw, Archive, RotateCcw, Trash2 } from "lucide-react";
 
 export default function BillDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const shop = useSettings();
   const [bill, setBill] = useState(null);
   const [error, setError] = useState(null);
   const [photoBlobUrl, setPhotoBlobUrl] = useState(null);
+  const [confirmMode, setConfirmMode] = useState(null); // "archive" | "restore" | "delete"
 
   const load = () => {
     setError(null);
@@ -47,16 +49,49 @@ export default function BillDetail() {
     }
   };
 
+  const runConfirmedAction = async () => {
+    try {
+      if (confirmMode === "archive") {
+        await api.post(`/admin/bills/${id}/archive`);
+        toast.success("Bill archived");
+        setConfirmMode(null);
+        load();
+      } else if (confirmMode === "restore") {
+        await api.post(`/admin/bills/${id}/restore`);
+        toast.success("Bill restored");
+        setConfirmMode(null);
+        load();
+      } else if (confirmMode === "delete") {
+        await api.delete(`/admin/bills/${id}`, { data: { confirm: "DELETE BILL" } });
+        toast.success("Bill permanently deleted");
+        navigate("/admin/bills");
+      }
+    } catch (err) { toast.error(apiError(err)); }
+  };
+
   return (
     <div className="space-y-4 max-w-3xl">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-bold" data-testid="bill-number-heading">{bill.bill_number || "Bill (no number)"}</h1>
+          <h1 className="text-2xl font-bold" data-testid="bill-number-heading">
+            {bill.bill_number || "Bill (no number)"}
+            {bill.is_deleted && <span className="ml-2 align-middle inline-block text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">Archived</span>}
+          </h1>
           <p className="text-sm text-slate-500">
             {bill.customer_name || "—"} {bill.customer_phone && `· ${bill.customer_phone}`} {bill.bill_date && `· ${bill.bill_date}`}
           </p>
         </div>
-        {bill.total_amount != null && <p className="text-xl font-bold text-[#991B1B]">{rs(bill.total_amount)}</p>}
+        <div className="flex items-center gap-3">
+          {bill.total_amount != null && <p className="text-xl font-bold text-[#991B1B]">{rs(bill.total_amount)}</p>}
+          {bill.is_deleted ? (
+            <>
+              <button className={btnGhost} onClick={() => setConfirmMode("restore")} data-testid="bill-restore-btn"><RotateCcw size={14} /> Restore</button>
+              <button className="inline-flex items-center gap-2 border border-red-300 text-red-600 px-3 py-2 rounded-md text-sm hover:bg-red-50 transition-colors" onClick={() => setConfirmMode("delete")} data-testid="bill-delete-btn"><Trash2 size={14} /> Delete Permanently</button>
+            </>
+          ) : (
+            <button className="inline-flex items-center gap-2 border border-amber-400 text-amber-700 bg-amber-50 px-3 py-2 rounded-md text-sm hover:bg-amber-100 transition-colors" onClick={() => setConfirmMode("archive")} data-testid="bill-archive-btn"><Archive size={14} /> Archive</button>
+          )}
+        </div>
       </div>
 
       <div className="grid lg:grid-cols-2 gap-4">
@@ -116,6 +151,32 @@ export default function BillDetail() {
           </div>
         </div>
       </div>
+
+      {confirmMode && confirmMode !== "delete" && (
+        <ConfirmModal
+          title={confirmMode === "archive" ? "Archive this bill?" : "Restore this bill?"}
+          recordLabel={bill.bill_number || "Bill (no number)"}
+          message={confirmMode === "archive"
+            ? "The photo stays private and safe -- it will just be hidden from the default list. You can restore it any time."
+            : "It will reappear in the default bill list, and its photo stays accessible."}
+          confirmLabel={confirmMode === "archive" ? "Archive" : "Restore"}
+          onConfirm={runConfirmedAction}
+          onCancel={() => setConfirmMode(null)}
+        />
+      )}
+
+      {confirmMode === "delete" && (
+        <ConfirmModal
+          title="Permanently delete this bill?"
+          recordLabel={bill.bill_number || "Bill (no number)"}
+          message="This cannot be undone. The bill record and its reference will be gone for good."
+          confirmLabel="Delete Permanently"
+          danger
+          requireTypedConfirm="DELETE BILL"
+          onConfirm={runConfirmedAction}
+          onCancel={() => setConfirmMode(null)}
+        />
+      )}
     </div>
   );
 }

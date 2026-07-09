@@ -317,18 +317,25 @@ def _apply_product_fields(p, body: ProductBody, grams: float):
     p.photos = body.photos
 
 
+def _validate_archived_filter(archived: str):
+    if archived not in ("active", "archived", "all"):
+        raise HTTPException(status_code=400, detail="archived must be one of: active, archived, all")
+
+
 @router.get("/products")
 async def list_products(status: Optional[str] = None, metal: Optional[str] = None,
-                        q: Optional[str] = None, limit: int = 50, offset: int = 0,
+                        q: Optional[str] = None, archived: str = "active",
+                        limit: int = 50, offset: int = 0,
                         session: AsyncSession = Depends(db.get_session)):
+    _validate_archived_filter(archived)
     # Capped higher than the other list endpoints: the order-creation form
     # also uses this route to populate its product picker and needs the
     # full available set, not just one page.
     limit = max(1, min(limit, 1000))
     with _timed("products") as counts:
         repo = ProductsRepository(session)
-        rows = await repo.list(status=status, metal=metal, q=q, limit=limit, offset=offset)
-        total = await repo.count(status=status, metal=metal, q=q)
+        rows = await repo.list(status=status, metal=metal, q=q, archived=archived, limit=limit, offset=offset)
+        total = await repo.count(status=status, metal=metal, q=q, archived=archived)
         rate = await RatesRepository(session).latest()
         counts["rows"] = len(rows)
         counts["total"] = total
@@ -376,6 +383,8 @@ async def update_product(pid: str, body: ProductBody, session: AsyncSession = De
 
 @router.delete("/products/{pid}")
 async def delete_product(pid: str, session: AsyncSession = Depends(db.get_session)):
+    """Archives, never hard-deletes -- product history (linked orders, past
+    sales) must survive removal from the active catalogue/list."""
     repo = ProductsRepository(session)
     p = await repo.get(pid)
     if not p:
@@ -383,6 +392,18 @@ async def delete_product(pid: str, session: AsyncSession = Depends(db.get_sessio
     await repo.soft_delete(pid)
     await session.commit()
     return {"ok": True}
+
+
+@router.post("/products/{pid}/restore")
+async def restore_product(pid: str, session: AsyncSession = Depends(db.get_session)):
+    repo = ProductsRepository(session)
+    p = await repo.restore(pid)
+    if not p:
+        raise HTTPException(status_code=404, detail="Product not found")
+    await session.commit()
+    await session.refresh(p)
+    rate = await RatesRepository(session).latest()
+    return _product(p, rate)
 
 
 # ---------- Customers ----------
@@ -442,15 +463,17 @@ def _customer_due(row: dict) -> dict:
 
 
 @router.get("/customers")
-async def list_customers(q: Optional[str] = None, limit: int = 50, offset: int = 0,
+async def list_customers(q: Optional[str] = None, archived: str = "active",
+                         limit: int = 50, offset: int = 0,
                          session: AsyncSession = Depends(db.get_session)):
+    _validate_archived_filter(archived)
     # Capped higher than other list endpoints: the order-creation form also
     # uses this route for its customer picker and needs the full set.
     limit = max(1, min(limit, 1000))
     with _timed("customers") as counts:
         repo = CustomersRepository(session)
-        rows = await repo.search(q, limit=limit, offset=offset)
-        total = await repo.count(q)
+        rows = await repo.search(q, archived=archived, limit=limit, offset=offset)
+        total = await repo.count(q, archived=archived)
         counts["rows"] = len(rows)
         counts["total"] = total
     return {"items": [_customer(c) for c in rows], "total": total}
@@ -494,6 +517,29 @@ async def update_customer(cid: str, body: CustomerBody, session: AsyncSession = 
     c.phone = body.phone
     c.address = body.address
     c.notes = body.notes
+    await session.commit()
+    await session.refresh(c)
+    return _customer(c)
+
+
+@router.post("/customers/{cid}/archive")
+async def archive_customer(cid: str, session: AsyncSession = Depends(db.get_session)):
+    """Archives only -- customer's orders/repairs/bills are never touched, so
+    their history stays intact and reachable even while the customer record
+    itself is hidden from the default active list."""
+    c = await CustomersRepository(session).archive(cid)
+    if not c:
+        raise HTTPException(status_code=404, detail="Customer not found")
+    await session.commit()
+    await session.refresh(c)
+    return _customer(c)
+
+
+@router.post("/customers/{cid}/restore")
+async def restore_customer(cid: str, session: AsyncSession = Depends(db.get_session)):
+    c = await CustomersRepository(session).restore(cid)
+    if not c:
+        raise HTTPException(status_code=404, detail="Customer not found")
     await session.commit()
     await session.refresh(c)
     return _customer(c)
@@ -630,6 +676,7 @@ def _order(o) -> dict:
         "advance_total": float(o.advance_total), "remaining_balance": float(o.remaining_balance),
         "payment_status": o.payment_status, "items": [_order_item(i) for i in o.items],
         "payments": [_payment(p) for p in o.payments],
+        "is_deleted": o.is_deleted,
         "created_at": o.created_at.isoformat() if o.created_at else None,
     }
 
@@ -644,7 +691,7 @@ def _order_list_row(o) -> dict:
         "order_type": o.order_type,
         "delivery_date_ad": _iso(o.delivery_date_ad), "delivery_date_bs_np": o.delivery_date_bs_np,
         "status": o.status, "net_payable": float(o.net_payable),
-        "remaining_balance": float(o.remaining_balance),
+        "remaining_balance": float(o.remaining_balance), "is_deleted": o.is_deleted,
     }
 
 
@@ -702,13 +749,14 @@ def _apply_order_update(order, body: OrderUpdateBody):
 
 @router.get("/orders")
 async def list_orders(status: Optional[str] = None, q: Optional[str] = None,
-                      limit: int = 50, offset: int = 0,
+                      archived: str = "active", limit: int = 50, offset: int = 0,
                       session: AsyncSession = Depends(db.get_session)):
+    _validate_archived_filter(archived)
     limit = max(1, min(limit, 200))
     with _timed("orders") as counts:
         repo = OrdersRepository(session)
-        rows = await repo.list(status=status, q=q, limit=limit, offset=offset)
-        total = await repo.count(status=status, q=q)
+        rows = await repo.list(status=status, q=q, archived=archived, limit=limit, offset=offset)
+        total = await repo.count(status=status, q=q, archived=archived)
         counts["rows"] = len(rows)
         counts["total"] = total
     return {"items": [_order_list_row(o) for o in rows], "total": total}
@@ -787,6 +835,29 @@ async def update_order_status(oid: str, body: StatusBody, session: AsyncSession 
         raise HTTPException(status_code=400, detail="Invalid order status")
     order = await OrdersRepository(session).update_status(oid, body.status)
     if not order or order.is_deleted:
+        raise HTTPException(status_code=404, detail="Order not found")
+    await session.commit()
+    await session.refresh(order)
+    return _order(order)
+
+
+@router.post("/orders/{oid}/archive")
+async def archive_order(oid: str, session: AsyncSession = Depends(db.get_session)):
+    """Archives only -- never deletes. Receipt/payment/item history is
+    untouched; the order is just hidden from the default active list and
+    remains reachable via ?archived=archived|all or search."""
+    order = await OrdersRepository(session).archive(oid)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    await session.commit()
+    await session.refresh(order)
+    return _order(order)
+
+
+@router.post("/orders/{oid}/restore")
+async def restore_order(oid: str, session: AsyncSession = Depends(db.get_session)):
+    order = await OrdersRepository(session).restore(oid)
+    if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     await session.commit()
     await session.refresh(order)
@@ -885,6 +956,19 @@ async def patch_expense(eid: str, body: ExpenseBody, session: AsyncSession = Dep
     return _expense(expense)
 
 
+@router.delete("/expenses/{eid}")
+async def delete_expense(eid: str, session: AsyncSession = Depends(db.get_session)):
+    """Expenses have no soft-delete column -- unlike every other domain here,
+    a hard delete is the intended, accepted behavior for a mistaken entry.
+    The confirmation modal lives in the frontend; this route just executes
+    once the admin has confirmed."""
+    deleted = await ExpensesRepository(session).delete(eid)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Expense not found")
+    await session.commit()
+    return {"ok": True}
+
+
 @router.get("/cashbook")
 async def cashbook(start_date: Optional[str] = None, end_date: Optional[str] = None,
                    session: AsyncSession = Depends(db.get_session)):
@@ -925,7 +1009,8 @@ async def _lead(l) -> dict:
         "item_type": l.item_type, "metal": l.metal, "service_type": l.service_type,
         "approx_weight": l.approx_weight, "budget": l.budget, "deadline": l.deadline,
         "notes": l.notes, "photo_url": l.photo_url, "photo": photo,
-        "status": l.status, "created_at": l.created_at.isoformat() if l.created_at else None,
+        "status": l.status, "is_deleted": l.is_deleted,
+        "created_at": l.created_at.isoformat() if l.created_at else None,
         "updated_at": l.updated_at.isoformat() if l.updated_at else None,
     }
 
@@ -945,9 +1030,11 @@ def _apply_lead_update(lead, body: LeadUpdateBody):
 
 
 @router.get("/leads")
-async def list_leads(status: Optional[str] = None, session: AsyncSession = Depends(db.get_session)):
+async def list_leads(status: Optional[str] = None, archived: str = "active",
+                     session: AsyncSession = Depends(db.get_session)):
+    _validate_archived_filter(archived)
     with _timed("leads") as counts:
-        rows = await LeadsRepository(session).list(status=status)
+        rows = await LeadsRepository(session).list(status=status, archived=archived)
         result = await _lead_list(rows)
         counts["rows"] = len(rows)
     return result
@@ -984,6 +1071,26 @@ async def patch_lead(lid: str, body: LeadUpdateBody, session: AsyncSession = Dep
 @router.patch("/leads/{lid}/status")
 async def update_lead_status(lid: str, body: StatusBody, session: AsyncSession = Depends(db.get_session)):
     return await patch_lead(lid, LeadUpdateBody(status=body.status), session)
+
+
+@router.post("/leads/{lid}/archive")
+async def archive_lead(lid: str, session: AsyncSession = Depends(db.get_session)):
+    lead = await LeadsRepository(session).archive(lid)
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    await session.commit()
+    await session.refresh(lead)
+    return await _lead(lead)
+
+
+@router.post("/leads/{lid}/restore")
+async def restore_lead(lid: str, session: AsyncSession = Depends(db.get_session)):
+    lead = await LeadsRepository(session).restore(lid)
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    await session.commit()
+    await session.refresh(lead)
+    return await _lead(lead)
 
 
 # ---------- Repairs ----------
@@ -1079,9 +1186,11 @@ def _apply_repair_update(repair, body: RepairUpdateBody):
 
 
 @router.get("/repairs")
-async def list_repairs(status: Optional[str] = None, session: AsyncSession = Depends(db.get_session)):
+async def list_repairs(status: Optional[str] = None, archived: str = "active",
+                       session: AsyncSession = Depends(db.get_session)):
+    _validate_archived_filter(archived)
     with _timed("repairs") as counts:
-        rows = await RepairsRepository(session).list(status=status)
+        rows = await RepairsRepository(session).list(status=status, archived=archived)
         result = await _repair_list(rows)
         counts["rows"] = len(rows)
     return result
@@ -1159,6 +1268,27 @@ async def patch_repair(rid: str, body: RepairUpdateBody, session: AsyncSession =
     return await _repair(repair)
 
 
+@router.post("/repairs/{rid}/archive")
+async def archive_repair(rid: str, session: AsyncSession = Depends(db.get_session)):
+    """Archives only -- never deletes. Repair photo history is untouched."""
+    repair = await RepairsRepository(session).archive(rid)
+    if not repair:
+        raise HTTPException(status_code=404, detail="Repair not found")
+    await session.commit()
+    await session.refresh(repair)
+    return await _repair(repair)
+
+
+@router.post("/repairs/{rid}/restore")
+async def restore_repair(rid: str, session: AsyncSession = Depends(db.get_session)):
+    repair = await RepairsRepository(session).restore(rid)
+    if not repair:
+        raise HTTPException(status_code=404, detail="Repair not found")
+    await session.commit()
+    await session.refresh(repair)
+    return await _repair(repair)
+
+
 # ---------- Bill Archive (photo archive of hand-written physical bills) ----------
 BILL_PAYMENT_STATUSES = ("unknown", "unpaid", "partial", "paid")
 
@@ -1212,7 +1342,7 @@ async def _bill(b) -> dict:
         "related_repair_id": str(b.related_repair_id) if b.related_repair_id else None,
         "related_customer_id": str(b.related_customer_id) if b.related_customer_id else None,
         "image_path": b.image_path, "photo_url": photo_url,
-        "notes": b.notes,
+        "notes": b.notes, "is_deleted": b.is_deleted,
         "created_at": b.created_at.isoformat() if b.created_at else None,
         "updated_at": b.updated_at.isoformat() if b.updated_at else None,
     }
@@ -1233,14 +1363,16 @@ def _search_bill(b) -> dict:
 @router.get("/bills")
 async def list_bills(q: Optional[str] = None, payment_status: Optional[str] = None,
                      start_date: Optional[str] = None, end_date: Optional[str] = None,
-                     limit: int = 30, offset: int = 0,
+                     archived: str = "active", limit: int = 30, offset: int = 0,
                      session: AsyncSession = Depends(db.get_session)):
+    _validate_archived_filter(archived)
     limit = max(1, min(limit, 100))
     with _timed("bills") as counts:
         repo = BillArchivesRepository(session)
         rows = await repo.list(q=q, payment_status=payment_status, start_date=start_date,
-                               end_date=end_date, limit=limit, offset=offset)
-        total = await repo.count(q=q, payment_status=payment_status, start_date=start_date, end_date=end_date)
+                               end_date=end_date, archived=archived, limit=limit, offset=offset)
+        total = await repo.count(q=q, payment_status=payment_status, start_date=start_date,
+                                 end_date=end_date, archived=archived)
         items = [await _bill(b) for b in rows]
         counts["rows"] = len(rows)
         counts["total"] = total
@@ -1269,16 +1401,22 @@ async def create_bill(body: BillBody, session: AsyncSession = Depends(db.get_ses
 
 @router.get("/bills/{bill_id}")
 async def get_bill(bill_id: str, session: AsyncSession = Depends(db.get_session)):
+    # Unlike other domains' detail routes, an archived bill must still open
+    # here -- the detail page is where Restore and the (archived-only)
+    # permanent-delete confirmation live.
     bill = await BillArchivesRepository(session).get(bill_id)
-    if not bill or bill.is_deleted:
+    if not bill:
         raise HTTPException(status_code=404, detail="Bill not found")
     return await _bill(bill)
 
 
 @router.get("/bills/{bill_id}/photo")
 async def bill_photo(bill_id: str, session: AsyncSession = Depends(db.get_session)):
+    # Viewable whether archived or not -- archiving hides a bill from the
+    # default list, it doesn't block the admin from viewing their own
+    # record's detail page and photo.
     bill = await BillArchivesRepository(session).get(bill_id)
-    if not bill or bill.is_deleted or not bill.image_path:
+    if not bill or not bill.image_path:
         raise HTTPException(status_code=404, detail="Photo not found")
     result = await _download_storage_object("bill-photos", bill.image_path)
     return _photo_proxy_response(result)
@@ -1296,6 +1434,50 @@ async def update_bill(bill_id: str, body: BillUpdateBody, session: AsyncSession 
     await session.commit()
     await session.refresh(bill)
     return await _bill(bill)
+
+
+@router.post("/bills/{bill_id}/archive")
+async def archive_bill(bill_id: str, session: AsyncSession = Depends(db.get_session)):
+    """Archives only -- the photo stays private and still resolves through
+    the same proxy route once restored; archiving never touches storage."""
+    bill = await BillArchivesRepository(session).archive(bill_id)
+    if not bill:
+        raise HTTPException(status_code=404, detail="Bill not found")
+    await session.commit()
+    await session.refresh(bill)
+    return await _bill(bill)
+
+
+@router.post("/bills/{bill_id}/restore")
+async def restore_bill(bill_id: str, session: AsyncSession = Depends(db.get_session)):
+    bill = await BillArchivesRepository(session).restore(bill_id)
+    if not bill:
+        raise HTTPException(status_code=404, detail="Bill not found")
+    await session.commit()
+    await session.refresh(bill)
+    return await _bill(bill)
+
+
+class BillDeleteBody(BaseModel):
+    confirm: str
+
+
+@router.delete("/bills/{bill_id}")
+async def delete_bill(bill_id: str, body: BillDeleteBody, session: AsyncSession = Depends(db.get_session)):
+    """The one hard-delete in the app, and deliberately hard to reach by
+    accident: only permitted once a bill is already archived, and only with
+    the exact typed confirmation phrase -- no one-click destructive action."""
+    if body.confirm != "DELETE BILL":
+        raise HTTPException(status_code=400, detail='Type "DELETE BILL" to confirm permanent deletion')
+    repo = BillArchivesRepository(session)
+    bill = await repo.get(bill_id)
+    if not bill:
+        raise HTTPException(status_code=404, detail="Bill not found")
+    if not bill.is_deleted:
+        raise HTTPException(status_code=400, detail="Archive this bill before permanently deleting it")
+    await repo.hard_delete(bill_id)
+    await session.commit()
+    return {"ok": True}
 
 
 # ---------- Dashboard ----------

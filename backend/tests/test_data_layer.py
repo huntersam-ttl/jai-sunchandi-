@@ -920,3 +920,148 @@ class TestBillArchivesMigration:
         assert "bill-photos" in sql
         assert "file_size_limit" in sql
         assert "image/jpeg" in sql and "image/png" in sql and "image/webp" in sql
+
+
+class TestArchivedClauseHelper:
+    def test_active_excludes_archived_rows(self):
+        from repositories.base import archived_clause
+        from models import Product
+        clause = archived_clause(Product.is_deleted, "active")
+        assert "false" in str(clause).lower()
+
+    def test_archived_returns_only_archived_rows(self):
+        from repositories.base import archived_clause
+        from models import Product
+        clause = archived_clause(Product.is_deleted, "archived")
+        assert "true" in str(clause).lower()
+
+    def test_all_applies_no_filter(self):
+        from repositories.base import archived_clause
+        from models import Product
+        assert archived_clause(Product.is_deleted, "all") is None
+
+    def test_defaults_to_active(self):
+        from repositories.base import archived_clause
+        from models import Product
+        clause = archived_clause(Product.is_deleted)
+        assert "false" in str(clause).lower()
+
+
+class TestArchiveRestoreEndpoints:
+    """Every historical/customer-related domain (products, customers, orders,
+    repairs, bills, leads) gets archive+restore instead of a hard delete;
+    expenses are the one exception (no soft-delete column, hard delete is
+    accepted). These checks are structural/source-based, matching this
+    file's server-less convention -- no live DB is spun up."""
+
+    def test_all_list_and_count_methods_accept_archived_param(self):
+        import inspect
+
+        import repositories as repos
+        cases = [
+            (repos.ProductsRepository, "list"), (repos.ProductsRepository, "count"),
+            (repos.CustomersRepository, "search"), (repos.CustomersRepository, "count"),
+            (repos.OrdersRepository, "list"), (repos.OrdersRepository, "count"),
+            (repos.RepairsRepository, "list"), (repos.RepairsRepository, "count"),
+            (repos.BillArchivesRepository, "list"), (repos.BillArchivesRepository, "count"),
+            (repos.LeadsRepository, "list"), (repos.LeadsRepository, "count"),
+        ]
+        for cls, method in cases:
+            sig = inspect.signature(getattr(cls, method))
+            assert "archived" in sig.parameters, f"{cls.__name__}.{method} missing archived param"
+
+    def test_all_repos_have_archive_and_restore(self):
+        import repositories as repos
+        for cls in (repos.CustomersRepository, repos.OrdersRepository,
+                    repos.RepairsRepository, repos.BillArchivesRepository, repos.LeadsRepository):
+            assert hasattr(cls, "archive"), f"{cls.__name__} missing archive()"
+            assert hasattr(cls, "restore"), f"{cls.__name__} missing restore()"
+        # Products predates this feature and already had soft_delete(); it
+        # just needed restore() added to match.
+        assert hasattr(repos.ProductsRepository, "soft_delete")
+        assert hasattr(repos.ProductsRepository, "restore")
+
+    def test_archive_and_restore_routes_registered_and_protected(self):
+        import app
+        routes = [(r.path, tuple(sorted(getattr(r, "methods", []) or [])))
+                  for r in app.app.routes]
+        for method, path in (
+            ("POST", "/api/admin/products/{pid}/restore"),
+            ("POST", "/api/admin/customers/{cid}/archive"), ("POST", "/api/admin/customers/{cid}/restore"),
+            ("POST", "/api/admin/orders/{oid}/archive"), ("POST", "/api/admin/orders/{oid}/restore"),
+            ("POST", "/api/admin/repairs/{rid}/archive"), ("POST", "/api/admin/repairs/{rid}/restore"),
+            ("POST", "/api/admin/bills/{bill_id}/archive"), ("POST", "/api/admin/bills/{bill_id}/restore"),
+            ("POST", "/api/admin/leads/{lid}/archive"), ("POST", "/api/admin/leads/{lid}/restore"),
+            ("DELETE", "/api/admin/bills/{bill_id}"),
+            ("DELETE", "/api/admin/expenses/{eid}"),
+        ):
+            assert any(p == path and method in m for p, m in routes), f"{method} {path}"
+        import admin_routes
+        assert admin_routes.router.dependencies, "admin router must stay auth-protected"
+
+    def test_archived_filter_rejects_invalid_value(self):
+        import admin_routes
+        try:
+            admin_routes._validate_archived_filter("bogus")
+            assert False, "expected HTTPException for an invalid archived filter"
+        except Exception as exc:
+            assert getattr(exc, "status_code", None) == 400
+        assert admin_routes._validate_archived_filter("active") is None
+        assert admin_routes._validate_archived_filter("archived") is None
+        assert admin_routes._validate_archived_filter("all") is None
+
+    def test_bill_hard_delete_requires_typed_confirmation_and_prior_archive(self):
+        import inspect
+
+        import admin_routes
+        src = inspect.getsource(admin_routes.delete_bill)
+        assert '"DELETE BILL"' in src
+        assert "bill.is_deleted" in src
+        assert "400" in src
+
+    def test_bill_hard_delete_route_has_no_soft_delete_shortcut(self):
+        # The repo's hard_delete really deletes the row -- it must not be
+        # confused with archive() (is_deleted=True). Distinguishing them by
+        # name/behavior here guards against ever wiring the wrong one in.
+        import inspect
+
+        import repositories as repos
+        src = inspect.getsource(repos.BillArchivesRepository.hard_delete)
+        assert "session.delete" in src
+
+    def test_expense_delete_is_hard_delete_no_soft_delete_column(self):
+        import models
+        assert not hasattr(models.Expense, "is_deleted")
+        import repositories as repos
+        import inspect
+        src = inspect.getsource(repos.ExpensesRepository.delete)
+        assert "session.delete" in src
+
+    def test_public_product_listing_always_excludes_archived(self):
+        import inspect
+
+        import repositories as repos
+        for method in ("list_public", "get_public_detail"):
+            src = inspect.getsource(getattr(repos.ProductsRepository, method))
+            assert "is_deleted.is_(False)" in src
+
+    def test_admin_search_defaults_to_active_only(self):
+        # admin_search() calls each repo's search()/list() without an
+        # `archived=` kwarg, so every group defaults to "active" -- archived
+        # records are excluded from quick search unless a caller explicitly
+        # asks otherwise.
+        import inspect
+
+        import admin_routes
+        src = inspect.getsource(admin_routes.admin_search)
+        assert "archived=" not in src
+
+
+class TestLeadsSoftDeleteMigration:
+    def test_migration_file_exists(self):
+        migrations_dir = BACKEND.parent / "supabase" / "migrations"
+        matches = list(migrations_dir.glob("*leads_soft_delete*.sql"))
+        assert matches, "expected a leads soft-delete migration file"
+        sql = matches[0].read_text()
+        assert "is_deleted" in sql
+        assert "leads" in sql

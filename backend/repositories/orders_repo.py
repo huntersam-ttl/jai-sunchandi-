@@ -11,7 +11,7 @@ from sqlalchemy.orm import noload
 
 from models import Order, OrderItem, Product
 from utils import ad_to_bs, compute_price, GRAMS_PER_TOLA
-from .base import BaseRepository, derive_payment_status
+from .base import BaseRepository, archived_clause, derive_payment_status
 
 
 class OrdersRepository(BaseRepository):
@@ -20,15 +20,15 @@ class OrdersRepository(BaseRepository):
     async def get(self, order_id) -> Order | None:
         return await self.session.get(Order, order_id)
 
-    async def list(self, *, status=None, q=None, limit: int | None = 50, offset: int = 0):
+    async def list(self, *, status=None, q=None, archived: str = "active",
+                   limit: int | None = 50, offset: int = 0):
         # List views never need the item/payment lines -- noload() skips the
         # selectin fan-out that OrderDetail relies on, avoiding an N+1 on
         # every row for a page that only ever shows summary fields.
-        stmt = (
-            select(Order)
-            .options(noload(Order.items), noload(Order.payments))
-            .where(Order.is_deleted.is_(False))
-        )
+        stmt = select(Order).options(noload(Order.items), noload(Order.payments))
+        clause = archived_clause(Order.is_deleted, archived)
+        if clause is not None:
+            stmt = stmt.where(clause)
         if status:
             stmt = stmt.where(Order.status == status)
         if q:
@@ -44,8 +44,11 @@ class OrdersRepository(BaseRepository):
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
-    async def count(self, *, status=None, q=None) -> int:
-        stmt = select(func.count()).select_from(Order).where(Order.is_deleted.is_(False))
+    async def count(self, *, status=None, q=None, archived: str = "active") -> int:
+        stmt = select(func.count()).select_from(Order)
+        clause = archived_clause(Order.is_deleted, archived)
+        if clause is not None:
+            stmt = stmt.where(clause)
         if status:
             stmt = stmt.where(Order.status == status)
         if q:
@@ -57,6 +60,20 @@ class OrdersRepository(BaseRepository):
             )
         result = await self.session.execute(stmt)
         return result.scalar_one()
+
+    async def archive(self, order_id) -> Order | None:
+        order = await self.get(order_id)
+        if order is not None:
+            order.is_deleted = True
+            await self.session.flush()
+        return order
+
+    async def restore(self, order_id) -> Order | None:
+        order = await self.get(order_id)
+        if order is not None:
+            order.is_deleted = False
+            await self.session.flush()
+        return order
 
     @staticmethod
     def _date_or_none(value) -> date | None:

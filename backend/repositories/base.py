@@ -46,3 +46,15 @@ def derive_payment_status(net_payable, advance_total) -> str:
     if advance >= net:
         return "paid"
     return "partial"
+
+
+def archived_clause(is_deleted_column, archived: str = "active"):
+    """Standard archive filter shared by every list/count/search method that
+    supports it: "active" (default) excludes archived rows, "archived"
+    returns only archived rows, "all" applies no filter. Returns None for
+    "all" so the caller can skip adding a .where() clause entirely."""
+    if archived == "archived":
+        return is_deleted_column.is_(True)
+    if archived == "all":
+        return None
+    return is_deleted_column.is_(False)

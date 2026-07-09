@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { api, apiError } from "@/lib/api";
 import { rs } from "@/lib/format";
-import { btnGold, btnGhost, inp, F } from "@/components/admin/ui";
-import { Pencil, Plus, RefreshCw, X } from "lucide-react";
+import { btnGold, btnGhost, inp, F, ConfirmModal } from "@/components/admin/ui";
+import { Pencil, Plus, RefreshCw, X, Trash2 } from "lucide-react";
 
 const today = () => new Date().toISOString().slice(0, 10);
 const EMPTY = { date_ad: today(), category: "other", description: "", amount: "", payment_method: "cash" };
@@ -15,6 +15,7 @@ export default function Expenses() {
   const [form, setForm] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [deleting, setDeleting] = useState(null); // the expense pending delete confirmation
 
   const load = () => {
     setLoading(true);
@@ -42,6 +43,15 @@ export default function Expenses() {
     } catch (err) {
       toast.error(apiError(err));
     }
+  };
+
+  const confirmDelete = async () => {
+    try {
+      await api.delete(`/admin/expenses/${deleting.id}`);
+      toast.success("Expense deleted");
+      setDeleting(null);
+      load();
+    } catch (err) { toast.error(apiError(err)); }
   };
 
   if (loading && expenses.length === 0) return <p className="text-sm text-slate-500">Loading expenses…</p>;
@@ -88,6 +98,9 @@ export default function Expenses() {
                   <button className="p-2 rounded hover:bg-slate-100" onClick={() => setForm({ ...e })} data-testid={`edit-expense-${e.id}`}>
                     <Pencil size={16} />
                   </button>
+                  <button className="p-2 rounded hover:bg-red-50 text-red-600" onClick={() => setDeleting(e)} data-testid={`delete-expense-${e.id}`}>
+                    <Trash2 size={16} />
+                  </button>
                 </td>
               </tr>
             ))}
@@ -128,6 +141,18 @@ export default function Expenses() {
             </div>
           </div>
         </div>
+      )}
+
+      {deleting && (
+        <ConfirmModal
+          title="Delete this expense?"
+          recordLabel={`${deleting.description || deleting.category} — ${rs(deleting.amount)}`}
+          message="This cannot be undone."
+          confirmLabel="Delete"
+          danger
+          onConfirm={confirmDelete}
+          onCancel={() => setDeleting(null)}
+        />
       )}
     </div>
   );

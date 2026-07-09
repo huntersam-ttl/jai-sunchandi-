@@ -305,6 +305,7 @@ class Lead(Base):
     notes: Mapped[str] = mapped_column(Text)
     photo_url: Mapped[str] = mapped_column(Text)
     status: Mapped[str] = mapped_column(Text)
+    is_deleted: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
     created_at: Mapped[datetime] = _created_at()
     updated_at: Mapped[datetime] = _updated_at()
 
