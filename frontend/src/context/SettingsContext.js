@@ -63,7 +63,12 @@ export function useSettingsReload() {
   return useContext(SettingsContext).reload;
 }
 
-/** Build a WhatsApp link using the current settings whatsapp number */
+/**
+ * Build a WhatsApp link using the current settings whatsapp number.
+ * Returns null when no number is configured -- callers must not render a
+ * "https://wa.me/?text=..." link with no recipient.
+ */
 export function waLinkFromSettings(settings, message) {
+  if (!settings.whatsapp) return null;
   return `https://wa.me/${settings.whatsapp}?text=${encodeURIComponent(message)}`;
 }

@@ -25,6 +25,7 @@ export default function ProductDetail() {
 
   const photos = p.photos?.length ? p.photos : [FALLBACK];
   const url = `${window.location.origin}/product/${p.id}`;
+  const enquiryWaLink = waLink(`Namaste ${shop.shop_name}! I am interested in "${p.name}" (${p.product_code}). Please share today's price and details.`);
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-12 grid lg:grid-cols-2 gap-10">
@@ -58,11 +59,13 @@ export default function ProductDetail() {
           <Info label="Availability" value={p.status} cap />
         </div>
         {p.description && <p className="mt-5 text-sm text-slate-600">{p.description}</p>}
-        <a href={waLink(`Namaste ${shop.shop_name}! I am interested in "${p.name}" (${p.product_code}). Please share today's price and details.`)}
-          target="_blank" rel="noreferrer" data-testid="whatsapp-enquiry-button"
-          className="mt-8 inline-flex items-center justify-center gap-2 w-full sm:w-auto bg-[#25D366] text-white px-8 py-4 rounded-md min-h-[52px] text-base font-semibold hover:bg-[#1fb457] transition-colors duration-300">
-          <MessageCircle size={20} /> Enquire on WhatsApp
-        </a>
+        {enquiryWaLink && (
+          <a href={enquiryWaLink}
+            target="_blank" rel="noreferrer" data-testid="whatsapp-enquiry-button"
+            className="mt-8 inline-flex items-center justify-center gap-2 w-full sm:w-auto bg-[#25D366] text-white px-8 py-4 rounded-md min-h-[52px] text-base font-semibold hover:bg-[#1fb457] transition-colors duration-300">
+            <MessageCircle size={20} /> Enquire on WhatsApp
+          </a>
+        )}
         <div className="mt-8 bg-white border border-slate-200 rounded-md p-4 inline-flex items-center gap-4">
           <QRCodeSVG value={url} size={88} data-testid="product-qr" />
           <div className="text-xs text-slate-500">

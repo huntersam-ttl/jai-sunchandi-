@@ -40,6 +40,7 @@ const SERVICES = [
 export default function Home() {
   const shop = useSettings();
   const waLink = (msg) => waLinkFromSettings(shop, msg);
+  const heroWaLink = waLink(shop.default_whatsapp_message || `Namaste! I want to enquire about jewellery at ${shop.shop_name}.`);
   const [rate, setRate] = useState(null);
   const [collections, setCollections] = useState([]);
   const [products, setProducts] = useState([]);
@@ -70,11 +71,13 @@ export default function Home() {
                 className="inline-flex items-center gap-2 bg-[#0F172A] text-white px-6 py-3.5 rounded-md min-h-[48px] hover:bg-slate-800 transition-colors duration-300">
                 Browse Catalogue <ArrowRight size={18} />
               </Link>
-              <a href={waLink(shop.default_whatsapp_message || `Namaste! I want to enquire about jewellery at ${shop.shop_name}.`)} target="_blank" rel="noreferrer"
-                data-testid="hero-whatsapp-btn"
-                className="inline-flex items-center gap-2 border border-[#0F172A] px-6 py-3.5 rounded-md min-h-[48px] hover:bg-[#25D366] hover:text-white hover:border-[#25D366] transition-colors duration-300">
-                <MessageCircle size={18} /> WhatsApp Us
-              </a>
+              {heroWaLink && (
+                <a href={heroWaLink} target="_blank" rel="noreferrer"
+                  data-testid="hero-whatsapp-btn"
+                  className="inline-flex items-center gap-2 border border-[#0F172A] px-6 py-3.5 rounded-md min-h-[48px] hover:bg-[#25D366] hover:text-white hover:border-[#25D366] transition-colors duration-300">
+                  <MessageCircle size={18} /> WhatsApp Us
+                </a>
+              )}
             </div>
           </div>
           <div className="lg:col-span-5 fade-up" style={{ animationDelay: "150ms" }}>
