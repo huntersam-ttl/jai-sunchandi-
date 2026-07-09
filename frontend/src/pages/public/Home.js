@@ -6,7 +6,7 @@ import { useSettings, waLinkFromSettings } from "@/context/SettingsContext";
 import { useDocumentMeta } from "@/lib/useDocumentMeta";
 import {
   MessageCircle, ArrowRight, ShieldCheck, Scale, HandCoins, Sparkles,
-  Wrench, Gem, Camera, Star, ImageOff,
+  Wrench, Gem,
 } from "lucide-react";
 
 const HERO_IMG = "https://images.unsplash.com/photo-1721103418312-b0057a8c31c2?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA4Mzl8MHwxfHNlYXJjaHwzfHxnb2xkJTIwamV3ZWxyeSUyMG5lY2tsYWNlJTIwcHJlbWl1bXxlbnwwfHx8fDE3ODMwMzIzMTR8MA&ixlib=rb-4.1.0&q=85";
@@ -37,6 +37,13 @@ const SERVICES = [
   { icon: Gem, t: "Gold & Silver Ornaments", d: "From daily-wear rings to full bridal sets — a wide range of handcrafted gold and silver jewellery." },
 ];
 
+const WHY_US_CARDS = [
+  { icon: Sparkles, t: "Custom Jewellery Orders", d: "Send a design or visit the shop to discuss gold and silver jewellery made to your budget and weight.", to: "/custom-order", linkLabel: "Start a custom order →" },
+  { icon: HandCoins, t: "Old Gold Exchange", d: "Bring old gold or silver for shop-counter checking, weighing, and fair exchange guidance.", to: "/custom-order", linkLabel: "Ask about exchange →" },
+  { icon: Wrench, t: "Repair & Polishing", d: "Chain repair, ring resizing, polishing, and jewellery maintenance handled through the shop.", to: "/repair", linkLabel: "Request a repair →" },
+  { icon: MessageCircle, t: "WhatsApp Enquiries", d: "Customers in Nepal and abroad can message the shop directly for designs, rates, and custom order questions.", to: "/contact", linkLabel: "Contact the shop →" },
+];
+
 export default function Home() {
   const shop = useSettings();
   const waLink = (msg) => waLinkFromSettings(shop, msg);
@@ -45,8 +52,8 @@ export default function Home() {
   const [collections, setCollections] = useState([]);
   const [products, setProducts] = useState([]);
   useDocumentMeta(
-    `${shop.shop_name || "Jai Supa Deurali Sun-Chandi Pasal"} – Gold & Silver Jewellery Shop in Nepal`,
-    "A family-run gold and silver jewellery shop in Nepal offering honest weight, transparent jarti and jyala, old gold exchange, custom gold ornaments, and jewellery repair. Sun-chandi pasal serving generations with trust."
+    `${shop.shop_name || "Jai Supa Deurali Sun-Chandi Pasal"} – Gold & Silver Jewellery Shop in Nepal | Custom Orders, Repair & Old Gold Exchange`,
+    "Gold and silver jewellery shop in Nepal for custom jewellery orders, repair and polishing, and old gold exchange. Honest weight, transparent jarti and jyala, direct shop-counter pricing. WhatsApp enquiries welcome from Nepal and abroad."
   );
   useEffect(() => {
     api.get("/rates/today").then((r) => setRate(r.data)).catch(() => {});
@@ -187,13 +194,35 @@ export default function Home() {
         </section>
       )}
 
-      {/* Trust signals */}
+      {/* Why customers choose this shop -- real, SEO-focused content, no
+          placeholder reviews/photos and no discount claims. */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 mt-16">
-        <h2 className="font-serif-display text-2xl sm:text-3xl font-bold tracking-tight">Trusted by Families Like Yours</h2>
-        <div className="mt-6 grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          <ComingSoonCard icon={Star} title="Customer Reviews" note="Real customer reviews and Google ratings will be added here soon." />
-          <ComingSoonCard icon={Camera} title="Shop Photos" note="Photos of our shop counter and workshop are coming soon." />
-          <ComingSoonCard icon={ImageOff} title="Our Family" note="A photo of the family behind the counter — coming soon." />
+        <h2 className="font-serif-display text-2xl sm:text-3xl font-bold tracking-tight">Gold & Silver Jewellery Shop for Families in Nepal</h2>
+        <p className="mt-4 text-sm sm:text-base text-slate-700 leading-relaxed max-w-3xl">
+          {shop.shop_name} helps families buy, repair, exchange, and customise gold and silver jewellery with
+          honest weight, clear jarti/jyala, and direct shop-counter pricing. Whether you are in Nepal or abroad,
+          you can contact our shop on WhatsApp to ask about jewellery designs, custom orders, old gold exchange,
+          and today's gold/silver rate.
+        </p>
+        <div className="mt-6 grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {WHY_US_CARDS.map((c) => (
+            <div key={c.t} className="bg-white border border-slate-200 rounded-md p-6 flex flex-col">
+              <c.icon className="text-[#D4AF37]" strokeWidth={1.5} size={26} />
+              <p className="font-semibold mt-3">{c.t}</p>
+              <p className="text-sm text-slate-600 mt-1 leading-relaxed flex-1">{c.d}</p>
+              <Link to={c.to} className="text-xs font-medium text-[#991B1B] hover:text-[#D4AF37] mt-4">{c.linkLabel}</Link>
+            </div>
+          ))}
+        </div>
+        <p className="mt-6 text-xs text-slate-500 max-w-3xl">
+          Final price is confirmed only after shop checking, weight, purity, jarti, jyala, and today's rate.
+        </p>
+        <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm">
+          <Link to="/catalogue" className="text-[#991B1B] hover:text-[#D4AF37] font-medium">Browse Catalogue →</Link>
+          <Link to="/custom-order" className="text-[#991B1B] hover:text-[#D4AF37] font-medium">Custom Order →</Link>
+          <Link to="/repair" className="text-[#991B1B] hover:text-[#D4AF37] font-medium">Repair →</Link>
+          <Link to="/rates" className="text-[#991B1B] hover:text-[#D4AF37] font-medium">Today's Rate →</Link>
+          <Link to="/contact" className="text-[#991B1B] hover:text-[#D4AF37] font-medium">Contact →</Link>
         </div>
         {shop.maps_link && (
           <div className="mt-5">
@@ -212,13 +241,5 @@ const RateBox = ({ label, value, np, testId }) => (
     <p className="text-xs text-slate-400">{label}</p>
     <p className="text-xl font-bold text-[#D4AF37]">{value}</p>
     <p className="text-sm text-slate-300">रु. {np}</p>
-  </div>
-);
-
-const ComingSoonCard = ({ icon: Icon, title, note }) => (
-  <div className="bg-slate-50 border border-dashed border-slate-300 rounded-md p-6 text-center flex flex-col items-center">
-    <Icon className="text-slate-400" strokeWidth={1.5} size={28} />
-    <p className="font-medium mt-3 text-slate-700">{title}</p>
-    <p className="text-xs text-slate-500 mt-1">{note}</p>
   </div>
 );
