@@ -25,3 +25,15 @@ export function buildBillReferenceText(bill) {
   const parts = [bill.bill_number, bill.bill_date, bill.customer_name].filter(Boolean);
   return parts.join(" · ");
 }
+
+export const ACCEPTED_BILL_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+
+// Some mobile camera captures report an empty file.type (the browser never
+// filled it in) -- treat that as acceptable rather than blocking a real
+// photo just because MIME sniffing didn't run. Only reject a file whose
+// browser-reported type is definitely something else (e.g. a PDF).
+export function isAcceptedBillImageType(file) {
+  if (!file) return false;
+  if (!file.type) return true;
+  return ACCEPTED_BILL_IMAGE_TYPES.includes(file.type);
+}

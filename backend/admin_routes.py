@@ -98,14 +98,20 @@ async def _signed_storage_url(bucket: str, path: str, expires_in: int = 3600) ->
         "apikey": config.SUPABASE_SERVICE_ROLE_KEY,
         "Authorization": f"Bearer {config.SUPABASE_SERVICE_ROLE_KEY}",
     }
-    try:
-        async with httpx.AsyncClient(timeout=10) as client:
-            response = await client.post(url, json={"expiresIn": expires_in}, headers=headers)
-            response.raise_for_status()
-            signed = response.json().get("signedURL") or response.json().get("signedUrl") or ""
-            return f"{config.SUPABASE_URL}/storage/v1{signed}" if signed.startswith("/") else signed
-    except Exception:
-        return ""
+    # Supabase Storage occasionally returns a transient 400/5xx for a sign
+    # request on an object that demonstrably exists (observed in production
+    # for bill photos) -- one retry clears it without giving up on a photo
+    # that's actually fine.
+    for attempt in (1, 2):
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                response = await client.post(url, json={"expiresIn": expires_in}, headers=headers)
+                response.raise_for_status()
+                signed = response.json().get("signedURL") or response.json().get("signedUrl") or ""
+                return f"{config.SUPABASE_URL}/storage/v1{signed}" if signed.startswith("/") else signed
+        except Exception:
+            if attempt == 2:
+                return ""
 
 
 # ---------- Rates ----------

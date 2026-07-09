@@ -796,6 +796,40 @@ class TestBillArchive:
         except Exception as exc:
             assert getattr(exc, "status_code", None) == 400
 
+    def test_signed_storage_url_retries_once_before_giving_up(self):
+        # Supabase Storage has been observed to return a transient error for a
+        # sign request on an object that demonstrably exists -- the helper
+        # must retry rather than giving up (and returning a broken photo_url)
+        # on the first failure.
+        import inspect
+
+        import admin_routes
+        src = inspect.getsource(admin_routes._signed_storage_url)
+        assert "attempt == 2" in src or "for attempt in" in src
+
+    def test_signed_storage_url_returns_empty_after_repeated_failure(self, monkeypatch):
+        import asyncio
+
+        import admin_routes
+
+        class _FailingResponse:
+            def raise_for_status(self):
+                raise Exception("simulated transient 400")
+
+        class _FailingClient:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *a):
+                return False
+
+            async def post(self, *a, **kw):
+                return _FailingResponse()
+
+        monkeypatch.setattr(admin_routes.httpx, "AsyncClient", lambda **kw: _FailingClient())
+        result = asyncio.run(admin_routes._signed_storage_url("bill-photos", "bills/x.jpg"))
+        assert result == ""
+
 
 class TestBillArchivesMigration:
     def test_migration_file_exists_and_covers_required_columns(self):
@@ -814,3 +848,12 @@ class TestBillArchivesMigration:
             assert index_col in sql, f"missing index on {index_col}"
         assert "bill-photos" in sql
         assert "enable row level security" in sql
+
+    def test_bucket_limits_migration_caps_size_and_type(self):
+        migrations_dir = BACKEND.parent / "supabase" / "migrations"
+        matches = list(migrations_dir.glob("*bill_photos_bucket_limits*.sql"))
+        assert matches, "expected a bill-photos bucket limits migration file"
+        sql = matches[0].read_text()
+        assert "bill-photos" in sql
+        assert "file_size_limit" in sql
+        assert "image/jpeg" in sql and "image/png" in sql and "image/webp" in sql

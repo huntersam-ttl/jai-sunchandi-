@@ -47,9 +47,11 @@ export const STATUS_COLORS = {
 };
 
 export async function compressImage(file, maxDim = 900, quality = 0.72) {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
     img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
       const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
       const canvas = document.createElement("canvas");
       canvas.width = Math.round(img.width * scale);
@@ -57,6 +59,14 @@ export async function compressImage(file, maxDim = 900, quality = 0.72) {
       canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
       resolve(canvas.toDataURL("image/jpeg", quality));
     };
-    img.src = URL.createObjectURL(file);
+    // Without this, an undecodable photo (unsupported format, corrupt
+    // capture) leaves onload never firing and the promise hanging forever --
+    // the caller's await never resolves or rejects, so nothing ever shows an
+    // error. Reject instead so callers can surface a message.
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("Could not read this photo. Please try a different image."));
+    };
+    img.src = objectUrl;
   });
 }

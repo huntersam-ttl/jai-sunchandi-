@@ -1,4 +1,4 @@
-import { billWhatsappLink, buildBillWhatsappMessage, buildBillReferenceText } from "./billArchive";
+import { billWhatsappLink, buildBillWhatsappMessage, buildBillReferenceText, isAcceptedBillImageType } from "./billArchive";
 
 describe("billWhatsappLink", () => {
   test("returns null for a missing/invalid phone (never a broken wa.me link)", () => {
@@ -40,5 +40,23 @@ describe("buildBillReferenceText", () => {
   test("skips missing fields rather than showing empty separators", () => {
     const text = buildBillReferenceText({ bill_number: "BILL-0007" });
     expect(text).toBe("BILL-0007");
+  });
+});
+
+describe("isAcceptedBillImageType", () => {
+  test("accepts jpeg, png, and webp", () => {
+    expect(isAcceptedBillImageType({ type: "image/jpeg" })).toBe(true);
+    expect(isAcceptedBillImageType({ type: "image/png" })).toBe(true);
+    expect(isAcceptedBillImageType({ type: "image/webp" })).toBe(true);
+  });
+  test("rejects a clearly wrong type like a PDF", () => {
+    expect(isAcceptedBillImageType({ type: "application/pdf" })).toBe(false);
+  });
+  test("accepts a missing/empty type -- some mobile camera captures never fill it in", () => {
+    expect(isAcceptedBillImageType({ type: "" })).toBe(true);
+  });
+  test("rejects a missing file", () => {
+    expect(isAcceptedBillImageType(null)).toBe(false);
+    expect(isAcceptedBillImageType(undefined)).toBe(false);
   });
 });

@@ -63,7 +63,12 @@ export default function BillDetail() {
             {bill.photo_url ? (
               <img src={bill.photo_url} alt="Bill" className="w-full rounded border border-slate-200" data-testid="bill-photo-full" />
             ) : (
-              <p className="text-sm text-slate-400 text-center py-10">Photo not available.</p>
+              <div className="text-center py-10 space-y-2" data-testid="bill-photo-unavailable">
+                <p className="text-sm text-slate-400">Photo temporarily unavailable.</p>
+                <button className={btnGhost} onClick={load} data-testid="bill-photo-retry-btn">
+                  <RefreshCw size={14} /> Retry
+                </button>
+              </div>
             )}
           </div>
           <div className="no-print mt-3 flex flex-wrap gap-2">

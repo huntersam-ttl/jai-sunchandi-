@@ -4,8 +4,9 @@ import { toast } from "sonner";
 import { api, apiError } from "@/lib/api";
 import { rs } from "@/lib/format";
 import { uploadImage } from "@/lib/storage";
+import { isAcceptedBillImageType } from "@/lib/billArchive";
 import { inp, btnGold, btnGhost, F } from "@/components/admin/ui";
-import { Plus, X, Image as ImageIcon } from "lucide-react";
+import { Plus, X, Image as ImageIcon, Loader2 } from "lucide-react";
 
 const PAGE_SIZE = 24;
 const PAYMENT_STATUSES = ["unknown", "unpaid", "partial", "paid"];
@@ -29,6 +30,7 @@ export default function Bills() {
   const [endDate, setEndDate] = useState("");
   const [loadingMore, setLoadingMore] = useState(false);
   const [form, setForm] = useState(null);
+  const [photoUploading, setPhotoUploading] = useState(false);
 
   const load = (query = q) =>
     api.get("/admin/bills", {
@@ -78,16 +80,27 @@ export default function Bills() {
 
   const onPhoto = async (e) => {
     const f = e.target.files?.[0];
+    e.target.value = ""; // allow re-selecting the same file after a failed attempt
     if (!f) return;
+    if (!isAcceptedBillImageType(f)) {
+      toast.error("Please choose a JPEG, PNG, or WEBP photo.");
+      return;
+    }
+    setPhotoUploading(true);
+    setForm((prev) => ({ ...prev, image_path: "", preview: "" }));
     try {
       const { path } = await uploadImage(f, "bill");
       setForm((prev) => ({ ...prev, image_path: path, preview: URL.createObjectURL(f) }));
     } catch (err) {
-      toast.error(apiError(err));
+      console.error("Bill photo upload failed:", err);
+      toast.error("Bill photo upload failed. Please try a smaller/clearer image.");
+    } finally {
+      setPhotoUploading(false);
     }
   };
 
   const save = async () => {
+    if (photoUploading) return toast.error("Photo is still uploading -- please wait");
     if (!form.image_path) return toast.error("Upload a photo of the bill first");
     try {
       await api.post("/admin/bills", {
@@ -171,8 +184,13 @@ export default function Bills() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <F label="Bill Photo *" className="sm:col-span-2">
-                <input type="file" accept="image/*" capture="environment" className="text-sm" onChange={onPhoto} data-testid="bill-photo-input" />
-                {form.preview && <img src={form.preview} alt="Bill preview" className="mt-2 h-40 rounded border object-contain" data-testid="bill-photo-preview" />}
+                <input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" className="text-sm" onChange={onPhoto} disabled={photoUploading} data-testid="bill-photo-input" />
+                {photoUploading && (
+                  <p className="mt-2 flex items-center gap-2 text-xs text-slate-500" data-testid="bill-photo-uploading">
+                    <Loader2 size={14} className="animate-spin" /> Uploading photo…
+                  </p>
+                )}
+                {!photoUploading && form.preview && <img src={form.preview} alt="Bill preview" className="mt-2 h-40 rounded border object-contain" data-testid="bill-photo-preview" />}
               </F>
               <F label="Bill Number"><input className={inp} value={form.bill_number} onChange={(e) => setForm({ ...form, bill_number: e.target.value })} data-testid="bill-number-input" /></F>
               <F label="Bill Date"><input type="date" className={inp} value={form.bill_date} onChange={(e) => setForm({ ...form, bill_date: e.target.value })} data-testid="bill-date-input" /></F>
@@ -206,7 +224,7 @@ export default function Bills() {
             </div>
             <div className="mt-4 flex justify-end gap-2">
               <button className={btnGhost} onClick={() => setForm(null)}>Cancel</button>
-              <button className={btnGold} onClick={save} data-testid="bill-save-btn">Save</button>
+              <button className={btnGold} onClick={save} disabled={photoUploading} data-testid="bill-save-btn">Save</button>
             </div>
           </div>
         </div>
