@@ -24,6 +24,19 @@ export const rsNp = (n) => "रु. " + toNp(Number(n || 0).toLocaleString("en-I
 export const waLink = (message) =>
   `https://wa.me/${SHOP.whatsapp}?text=${encodeURIComponent(message)}`;
 
+// One canonical "no photo uploaded yet" placeholder, shared by every public
+// and admin page that renders a product image. Before this, Home.js,
+// Catalogue.js, and ProductDetail.js each hardcoded a different stock photo
+// as their fallback -- so a product with no uploaded photo showed a
+// different placeholder image on every page, looking like an image mix-up
+// even though it was really three separate "no photo" fallbacks.
+export const PRODUCT_PLACEHOLDER_IMG =
+  "https://images.unsplash.com/photo-1721034917345-d17c5405ead0?crop=entropy&cs=srgb&fm=jpg&q=85&w=600";
+
+/** The one image every page must show first for this product -- its own
+ * first uploaded photo, or the shared placeholder if it has none. */
+export const primaryProductPhoto = (product) => product?.photos?.[0] || PRODUCT_PLACEHOLDER_IMG;
+
 export const STATUS_COLORS = {
   new: "bg-blue-100 text-blue-800",
   in_progress: "bg-amber-100 text-amber-800",

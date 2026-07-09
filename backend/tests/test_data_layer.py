@@ -1065,3 +1065,28 @@ class TestLeadsSoftDeleteMigration:
         sql = matches[0].read_text()
         assert "is_deleted" in sql
         assert "leads" in sql
+
+
+class TestPublicProductImageConsistency:
+    """Root cause of the reported card-vs-detail image mismatch was a
+    frontend bug (three different hardcoded fallback images across
+    Home/Catalogue/ProductDetail), not a backend one -- but this locks in
+    the invariant the frontend fix depends on: list and detail must keep
+    returning the exact same photos array for the same product, or the fix
+    breaks again."""
+
+    def test_list_and_detail_routes_use_the_same_serializer(self):
+        import inspect
+
+        import public_routes
+        list_src = inspect.getsource(public_routes.products)
+        detail_src = inspect.getsource(public_routes.product_detail)
+        assert "_product_public(p, rate) for p in rows" in list_src or "_product_public(p, rate)" in list_src
+        assert "_product_public(p, rate)" in detail_src
+
+    def test_serializer_returns_photos_verbatim_not_reordered_or_filtered(self):
+        import inspect
+
+        import public_routes
+        src = inspect.getsource(public_routes._product_public)
+        assert '"photos": p.photos or []' in src

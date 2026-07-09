@@ -2,11 +2,9 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 import { api } from "@/lib/api";
-import { rs } from "@/lib/format";
+import { rs, PRODUCT_PLACEHOLDER_IMG } from "@/lib/format";
 import { useSettings, waLinkFromSettings } from "@/context/SettingsContext";
 import { MessageCircle } from "lucide-react";
-
-const FALLBACK = "https://images.unsplash.com/photo-1722410180687-b05b50922362?crop=entropy&cs=srgb&fm=jpg&q=85&w=800";
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -23,7 +21,7 @@ export default function ProductDetail() {
   if (err) return <div className="max-w-4xl mx-auto px-6 py-20 text-center text-slate-500">Product not found or no longer available.</div>;
   if (!p) return <div className="max-w-4xl mx-auto px-6 py-20 text-center text-slate-500">Loading…</div>;
 
-  const photos = p.photos?.length ? p.photos : [FALLBACK];
+  const photos = p.photos?.length ? p.photos : [PRODUCT_PLACEHOLDER_IMG];
   const url = `${window.location.origin}/product/${p.id}`;
   const enquiryWaLink = waLink(`Namaste ${shop.shop_name}! I am interested in "${p.name}" (${p.product_code}). Please share today's price and details.`);
 

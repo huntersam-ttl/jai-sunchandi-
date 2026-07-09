@@ -1,11 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
-import { rs } from "@/lib/format";
+import { rs, primaryProductPhoto } from "@/lib/format";
 import { useSettings } from "@/context/SettingsContext";
 import { useDocumentMeta } from "@/lib/useDocumentMeta";
-
-const FALLBACK = "https://images.unsplash.com/photo-1721034917345-d17c5405ead0?crop=entropy&cs=srgb&fm=jpg&q=85&w=600";
 
 export default function Catalogue() {
   const shop = useSettings();
@@ -69,7 +67,7 @@ export default function Catalogue() {
             <Link key={p.id} to={`/product/${p.id}`} data-testid={`product-card-${p.product_code}`}
               className="bg-white border border-slate-200 rounded-md overflow-hidden hover:-translate-y-1 hover:border-[#D4AF37] transition-all duration-300 fade-up"
               style={{ animationDelay: `${i * 40}ms` }}>
-              <img src={p.photos?.[0] || FALLBACK} alt={p.name} className="h-44 w-full object-cover" loading="lazy" />
+              <img src={primaryProductPhoto(p)} alt={p.name} className="h-44 w-full object-cover" loading="lazy" />
               <div className="p-3">
                 <p className="text-sm font-semibold truncate">{p.name}</p>
                 <p className="text-[11px] text-slate-400 font-mono mt-0.5">{p.product_code}</p>

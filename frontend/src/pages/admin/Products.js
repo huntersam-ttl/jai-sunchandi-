@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
 import { api, apiError } from "@/lib/api";
-import { rs, STATUS_COLORS, gramsToTola, tolaToGrams } from "@/lib/format";
+import { rs, STATUS_COLORS, gramsToTola, tolaToGrams, primaryProductPhoto } from "@/lib/format";
 import { computeQuote, resolveRatePerTola } from "@/lib/calculator";
 import { uploadImage } from "@/lib/storage";
 import { inp, btnGold, btnGhost, Badge, F, ConfirmModal } from "@/components/admin/ui";
@@ -118,7 +118,7 @@ export default function Products() {
               <tr key={p.id} className="border-b border-slate-50 hover:bg-slate-50">
                 <td className="p-3">
                   <div className="flex items-center gap-3">
-                    <img src={p.photos?.[0] || "https://images.unsplash.com/photo-1721034917345-d17c5405ead0?crop=entropy&cs=srgb&fm=jpg&q=85&w=120"} alt="" className="h-10 w-10 rounded object-cover border border-slate-100" />
+                    <img src={primaryProductPhoto(p)} alt="" className="h-10 w-10 rounded object-cover border border-slate-100" />
                     <div><p className="font-semibold">{p.name}</p><p className="text-xs text-slate-400">{p.name_np || "—"}</p></div>
                   </div>
                 </td>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "@/lib/api";
-import { rs } from "@/lib/format";
+import { rs, primaryProductPhoto } from "@/lib/format";
 import { useSettings, waLinkFromSettings } from "@/context/SettingsContext";
 import { useDocumentMeta } from "@/lib/useDocumentMeta";
 import {
@@ -176,7 +176,7 @@ export default function Home() {
           <div className="mt-6 grid grid-cols-2 lg:grid-cols-4 gap-4">
             {products.map((p) => (
               <Link key={p.id} to={`/product/${p.id}`} className="bg-white border border-slate-200 rounded-md overflow-hidden hover:-translate-y-1 transition-transform duration-300">
-                <img src={p.photos?.[0] || HERO_IMG} alt={p.name} className="h-40 w-full object-cover" />
+                <img src={primaryProductPhoto(p)} alt={p.name} className="h-40 w-full object-cover" />
                 <div className="p-3">
                   <p className="text-sm font-semibold truncate">{p.name}</p>
                   <p className="text-xs text-slate-500">{p.purity} · {p.weight_tola} tola</p>
