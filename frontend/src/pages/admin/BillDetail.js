@@ -6,6 +6,7 @@ import { rs } from "@/lib/format";
 import { useSettings } from "@/context/SettingsContext";
 import { billWhatsappLink, buildBillWhatsappMessage, buildBillReferenceText } from "@/lib/billArchive";
 import { btnGhost, Card } from "@/components/admin/ui";
+import AdminPhoto from "@/components/admin/AdminPhoto";
 import { Printer, MessageCircle, Copy, Download, RefreshCw } from "lucide-react";
 
 export default function BillDetail() {
@@ -13,6 +14,7 @@ export default function BillDetail() {
   const shop = useSettings();
   const [bill, setBill] = useState(null);
   const [error, setError] = useState(null);
+  const [photoBlobUrl, setPhotoBlobUrl] = useState(null);
 
   const load = () => {
     setError(null);
@@ -60,20 +62,12 @@ export default function BillDetail() {
       <div className="grid lg:grid-cols-2 gap-4">
         <Card title="Bill Photo">
           <div className="print-area">
-            {bill.photo_url ? (
-              <img src={bill.photo_url} alt="Bill" className="w-full rounded border border-slate-200" data-testid="bill-photo-full" />
-            ) : (
-              <div className="text-center py-10 space-y-2" data-testid="bill-photo-unavailable">
-                <p className="text-sm text-slate-400">Photo temporarily unavailable.</p>
-                <button className={btnGhost} onClick={load} data-testid="bill-photo-retry-btn">
-                  <RefreshCw size={14} /> Retry
-                </button>
-              </div>
-            )}
+            <AdminPhoto src={bill.photo_url} alt="Bill" className="w-full min-h-[200px] rounded border border-slate-200"
+              testId="bill-photo-full" onReady={setPhotoBlobUrl} />
           </div>
           <div className="no-print mt-3 flex flex-wrap gap-2">
-            {bill.photo_url && (
-              <a href={bill.photo_url} target="_blank" rel="noreferrer" data-testid="bill-view-download-btn"
+            {photoBlobUrl && (
+              <a href={photoBlobUrl} target="_blank" rel="noreferrer" data-testid="bill-view-download-btn"
                 className={btnGhost}>
                 <Download size={14} /> View / Download
               </a>

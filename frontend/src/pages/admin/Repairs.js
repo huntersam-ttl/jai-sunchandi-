@@ -5,6 +5,7 @@ import { api, apiError } from "@/lib/api";
 import { rs, STATUS_COLORS } from "@/lib/format";
 import { uploadImage } from "@/lib/storage";
 import { inp, btnGold, btnGhost, Badge, F } from "@/components/admin/ui";
+import AdminPhoto from "@/components/admin/AdminPhoto";
 import { Plus, X, Pencil } from "lucide-react";
 
 const REPAIR_STATUSES = ["received", "working", "ready", "delivered", "cancelled"];
@@ -49,7 +50,13 @@ export default function Repairs() {
             toast.error(apiError(err));
           }
         }} />
-      {form[key] && <img src={form[key]} alt="" className="h-14 mt-1 rounded border" />}
+      {form[key] && (
+        // A freshly-picked file is a local blob: preview (no auth needed);
+        // an existing repair's photo is our admin-auth-protected proxy path.
+        form[key].startsWith("blob:")
+          ? <img src={form[key]} alt="" className="h-14 mt-1 rounded border" />
+          : <AdminPhoto src={form[key]} alt="" className="h-14 w-14 mt-1 rounded border" testId={`repair-${key}-preview`} />
+      )}
     </F>
   );
 

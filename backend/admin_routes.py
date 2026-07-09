@@ -12,7 +12,7 @@ from datetime import date, datetime
 from typing import Optional
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -88,30 +88,56 @@ def _ref(r) -> dict:
     return {"id": str(r.id), "name": r.name, "is_active": r.is_active, "sort_order": r.sort_order}
 
 
-async def _signed_storage_url(bucket: str, path: str, expires_in: int = 3600) -> str:
+# Buckets this backend is willing to proxy private photos from. Never accept
+# a bucket name from a request -- every caller below passes one of these
+# literals, this set only guards against a future caller passing something
+# else by mistake.
+ALLOWED_PRIVATE_PHOTO_BUCKETS = {"bill-photos", "repair-photos", "lead-photos"}
+ALLOWED_PHOTO_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp"}
+
+
+async def _download_storage_object(bucket: str, path: str) -> Optional[tuple[bytes, str]]:
+    """Fetch a private object's bytes directly (service-role, RLS-bypassing
+    GET), instead of asking Supabase Storage to mint a signed URL.
+
+    Root cause this works around: Supabase's `/object/sign` endpoint has been
+    observed to fail 100% of the time (13/13 in production logs) specifically
+    when the request is geo-routed through Supabase's Mumbai/BOM storage edge
+    -- which is where our Vercel backend (region bom1) always lands. A plain
+    object GET routed through the same BOM edge has not shown this failure,
+    so downloading the bytes ourselves and streaming them through our own API
+    sidesteps the broken endpoint entirely without touching bucket privacy,
+    admin auth, or the Vercel region.
+    """
+    if bucket not in ALLOWED_PRIVATE_PHOTO_BUCKETS:
+        return None
     if not path:
-        return ""
+        return None
     if not config.SUPABASE_URL or not config.SUPABASE_SERVICE_ROLE_KEY:
-        return ""
-    url = f"{config.SUPABASE_URL}/storage/v1/object/sign/{bucket}/{path}"
+        return None
+    url = f"{config.SUPABASE_URL}/storage/v1/object/{bucket}/{path}"
     headers = {
         "apikey": config.SUPABASE_SERVICE_ROLE_KEY,
         "Authorization": f"Bearer {config.SUPABASE_SERVICE_ROLE_KEY}",
     }
-    # Supabase Storage occasionally returns a transient 400/5xx for a sign
-    # request on an object that demonstrably exists (observed in production
-    # for bill photos) -- one retry clears it without giving up on a photo
-    # that's actually fine.
-    for attempt in (1, 2):
-        try:
-            async with httpx.AsyncClient(timeout=10) as client:
-                response = await client.post(url, json={"expiresIn": expires_in}, headers=headers)
-                response.raise_for_status()
-                signed = response.json().get("signedURL") or response.json().get("signedUrl") or ""
-                return f"{config.SUPABASE_URL}/storage/v1{signed}" if signed.startswith("/") else signed
-        except Exception:
-            if attempt == 2:
-                return ""
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            response = await client.get(url, headers=headers)
+            response.raise_for_status()
+            content_type = response.headers.get("content-type", "").split(";")[0].strip()
+            if content_type not in ALLOWED_PHOTO_CONTENT_TYPES:
+                content_type = "image/jpeg"
+            return response.content, content_type
+    except Exception:
+        return None
+
+
+def _photo_proxy_response(result: Optional[tuple[bytes, str]]) -> Response:
+    if not result:
+        raise HTTPException(status_code=502, detail="Photo temporarily unavailable")
+    content, content_type = result
+    return Response(content=content, media_type=content_type,
+                     headers={"Cache-Control": "private, max-age=60"})
 
 
 # ---------- Rates ----------
@@ -891,7 +917,9 @@ class LeadUpdateBody(BaseModel):
 
 
 async def _lead(l) -> dict:
-    photo = await _signed_storage_url("lead-photos", l.photo_url)
+    # Proxy path through our own admin-auth-protected API, not a Supabase
+    # signed URL -- see _download_storage_object() for why.
+    photo = f"/admin/leads/{l.id}/photo" if l.photo_url else ""
     return {
         "id": str(l.id), "lead_type": l.lead_type, "name": l.name, "phone": l.phone,
         "item_type": l.item_type, "metal": l.metal, "service_type": l.service_type,
@@ -931,6 +959,15 @@ async def get_lead(lid: str, session: AsyncSession = Depends(db.get_session)):
     if not lead:
         raise HTTPException(status_code=404, detail="Lead not found")
     return await _lead(lead)
+
+
+@router.get("/leads/{lid}/photo")
+async def lead_photo(lid: str, session: AsyncSession = Depends(db.get_session)):
+    lead = await LeadsRepository(session).get(lid)
+    if not lead or not lead.photo_url:
+        raise HTTPException(status_code=404, detail="Photo not found")
+    result = await _download_storage_object("lead-photos", lead.photo_url)
+    return _photo_proxy_response(result)
 
 
 @router.patch("/leads/{lid}")
@@ -983,9 +1020,11 @@ class RepairUpdateBody(BaseModel):
 
 
 async def _repair(r) -> dict:
-    intake_photo = await _signed_storage_url("repair-photos", r.intake_photo_url)
-    damage_photo = await _signed_storage_url("repair-photos", r.damage_photo_url)
-    after_photo = await _signed_storage_url("repair-photos", r.after_photo_url)
+    # Proxy paths through our own admin-auth-protected API, not Supabase
+    # signed URLs -- see _download_storage_object() for why.
+    intake_photo = f"/admin/repairs/{r.id}/photo?photo_type=intake" if r.intake_photo_url else ""
+    damage_photo = f"/admin/repairs/{r.id}/photo?photo_type=damage" if r.damage_photo_url else ""
+    after_photo = f"/admin/repairs/{r.id}/photo?photo_type=after" if r.after_photo_url else ""
     return {
         "id": str(r.id), "repair_number": r.repair_number, "customer_id": str(r.customer_id),
         "customer_name": r.customer_name, "customer_phone": r.customer_phone,
@@ -1082,6 +1121,24 @@ async def get_repair(rid: str, session: AsyncSession = Depends(db.get_session)):
     return await _repair(repair)
 
 
+REPAIR_PHOTO_SLOTS = {"intake", "damage", "after"}
+
+
+@router.get("/repairs/{rid}/photo")
+async def repair_photo(rid: str, photo_type: str = "intake", session: AsyncSession = Depends(db.get_session)):
+    if photo_type not in REPAIR_PHOTO_SLOTS:
+        raise HTTPException(status_code=400, detail="Invalid photo type")
+    repair = await RepairsRepository(session).get(rid)
+    if not repair or repair.is_deleted:
+        raise HTTPException(status_code=404, detail="Repair not found")
+    path = {"intake": repair.intake_photo_url, "damage": repair.damage_photo_url,
+            "after": repair.after_photo_url}[photo_type]
+    if not path:
+        raise HTTPException(status_code=404, detail="Photo not found")
+    result = await _download_storage_object("repair-photos", path)
+    return _photo_proxy_response(result)
+
+
 @router.put("/repairs/{rid}")
 async def put_repair(rid: str, body: RepairUpdateBody, session: AsyncSession = Depends(db.get_session)):
     return await patch_repair(rid, body, session)
@@ -1140,9 +1197,11 @@ def _validate_bill_payment_status(payment_status: Optional[str]):
 
 
 async def _bill(b) -> dict:
-    """Full bill row, including a freshly-signed (private-bucket) photo URL --
-    used for the list, detail, create, and update responses."""
-    photo_url = await _signed_storage_url("bill-photos", b.image_path)
+    """Full bill row, including a proxy photo URL through our own
+    admin-auth-protected API (never a Supabase signed URL -- see
+    _download_storage_object() for why) -- used for the list, detail,
+    create, and update responses."""
+    photo_url = f"/admin/bills/{b.id}/photo" if b.image_path else ""
     return {
         "id": str(b.id), "bill_number": b.bill_number,
         "customer_name": b.customer_name, "customer_phone": b.customer_phone,
@@ -1214,6 +1273,15 @@ async def get_bill(bill_id: str, session: AsyncSession = Depends(db.get_session)
     if not bill or bill.is_deleted:
         raise HTTPException(status_code=404, detail="Bill not found")
     return await _bill(bill)
+
+
+@router.get("/bills/{bill_id}/photo")
+async def bill_photo(bill_id: str, session: AsyncSession = Depends(db.get_session)):
+    bill = await BillArchivesRepository(session).get(bill_id)
+    if not bill or bill.is_deleted or not bill.image_path:
+        raise HTTPException(status_code=404, detail="Photo not found")
+    result = await _download_storage_object("bill-photos", bill.image_path)
+    return _photo_proxy_response(result)
 
 
 @router.put("/bills/{bill_id}")

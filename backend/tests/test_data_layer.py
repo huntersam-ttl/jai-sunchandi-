@@ -771,12 +771,18 @@ class TestBillArchive:
         assert "notes" not in return_line
         assert "image_path" not in return_line
 
-    def test_full_serializer_resolves_a_signed_url_not_a_public_one(self):
+    def test_full_serializer_uses_the_photo_proxy_not_a_signed_url(self):
+        # Supabase's /object/sign endpoint has been observed to fail 100% of
+        # the time when routed through their Mumbai/BOM storage edge, which
+        # is where this backend (Vercel region bom1) always lands. The photo
+        # URL must be our own admin-auth-protected proxy route, not a
+        # Supabase-minted signed URL.
         import inspect
 
         import admin_routes
         src = inspect.getsource(admin_routes._bill)
-        assert "_signed_storage_url(\"bill-photos\"" in src
+        assert "/admin/bills/" in src and "/photo" in src
+        assert "_signed_storage_url" not in src
 
     def test_create_route_requires_a_photo(self):
         import inspect
@@ -796,39 +802,96 @@ class TestBillArchive:
         except Exception as exc:
             assert getattr(exc, "status_code", None) == 400
 
-    def test_signed_storage_url_retries_once_before_giving_up(self):
-        # Supabase Storage has been observed to return a transient error for a
-        # sign request on an object that demonstrably exists -- the helper
-        # must retry rather than giving up (and returning a broken photo_url)
-        # on the first failure.
-        import inspect
+    def test_photo_proxy_bucket_allowlist_rejects_anything_else(self):
+        import asyncio
 
         import admin_routes
-        src = inspect.getsource(admin_routes._signed_storage_url)
-        assert "attempt == 2" in src or "for attempt in" in src
+        assert admin_routes.ALLOWED_PRIVATE_PHOTO_BUCKETS == {"bill-photos", "repair-photos", "lead-photos"}
+        # A bucket outside the allowlist must be refused before any network
+        # call is made -- not just relying on every caller passing a safe
+        # literal.
+        result = asyncio.run(admin_routes._download_storage_object("some-other-bucket", "x.jpg"))
+        assert result is None
 
-    def test_signed_storage_url_returns_empty_after_repeated_failure(self, monkeypatch):
+    def test_photo_proxy_downloads_the_object_directly_not_via_sign_endpoint(self, monkeypatch):
         import asyncio
 
         import admin_routes
 
-        class _FailingResponse:
-            def raise_for_status(self):
-                raise Exception("simulated transient 400")
+        captured = {}
 
-        class _FailingClient:
+        class _OkResponse:
+            headers = {"content-type": "image/jpeg"}
+            content = b"fake-jpeg-bytes"
+
+            def raise_for_status(self):
+                pass
+
+        class _OkClient:
             async def __aenter__(self):
                 return self
 
             async def __aexit__(self, *a):
                 return False
 
-            async def post(self, *a, **kw):
-                return _FailingResponse()
+            async def get(self, url, headers=None):
+                captured["url"] = url
+                return _OkResponse()
 
-        monkeypatch.setattr(admin_routes.httpx, "AsyncClient", lambda **kw: _FailingClient())
-        result = asyncio.run(admin_routes._signed_storage_url("bill-photos", "bills/x.jpg"))
-        assert result == ""
+        monkeypatch.setattr(admin_routes.config, "SUPABASE_URL", "https://example.supabase.co")
+        monkeypatch.setattr(admin_routes.config, "SUPABASE_SERVICE_ROLE_KEY", "test-key")
+        monkeypatch.setattr(admin_routes.httpx, "AsyncClient", lambda **kw: _OkClient())
+        result = asyncio.run(admin_routes._download_storage_object("bill-photos", "bills/x.jpg"))
+        assert result == (b"fake-jpeg-bytes", "image/jpeg")
+        assert "/object/sign/" not in captured["url"]
+        assert captured["url"].endswith("/object/bill-photos/bills/x.jpg")
+
+    def test_photo_proxy_response_sanitizes_content_type_and_sets_private_cache(self):
+        import admin_routes
+        resp = admin_routes._photo_proxy_response((b"data", "image/png"))
+        assert resp.media_type == "image/png"
+        assert resp.headers["cache-control"] == "private, max-age=60"
+
+    def test_photo_proxy_response_returns_502_when_download_fails(self):
+        import admin_routes
+        try:
+            admin_routes._photo_proxy_response(None)
+            assert False, "expected HTTPException for a failed download"
+        except Exception as exc:
+            assert getattr(exc, "status_code", None) == 502
+
+    def test_photo_routes_registered_and_protected(self):
+        import app
+        routes = [(r.path, tuple(sorted(getattr(r, "methods", []) or [])))
+                  for r in app.app.routes]
+        for method, path in (
+            ("GET", "/api/admin/bills/{bill_id}/photo"),
+            ("GET", "/api/admin/repairs/{rid}/photo"),
+            ("GET", "/api/admin/leads/{lid}/photo"),
+        ):
+            assert any(p == path and method in m for p, m in routes), f"{method} {path}"
+
+    def test_repair_photo_route_validates_photo_type(self):
+        import inspect
+
+        import admin_routes
+        src = inspect.getsource(admin_routes.repair_photo)
+        assert "REPAIR_PHOTO_SLOTS" in src
+        assert "400" in src
+
+    def test_bill_photo_route_only_serves_that_bills_own_photo(self):
+        # The route must look the bill up by the id in the URL and use only
+        # that record's own image_path -- there is no "path" request
+        # parameter a caller could supply to reach a different object.
+        import inspect
+
+        import admin_routes
+        sig = inspect.signature(admin_routes.bill_photo)
+        assert "path" not in sig.parameters
+        assert "bucket" not in sig.parameters
+        src = inspect.getsource(admin_routes.bill_photo)
+        assert "bill.image_path" in src
+        assert "404" in src
 
 
 class TestBillArchivesMigration:

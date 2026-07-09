@@ -6,7 +6,8 @@ import { rs } from "@/lib/format";
 import { uploadImage } from "@/lib/storage";
 import { isAcceptedBillImageType } from "@/lib/billArchive";
 import { inp, btnGold, btnGhost, F } from "@/components/admin/ui";
-import { Plus, X, Image as ImageIcon, Loader2 } from "lucide-react";
+import AdminPhoto from "@/components/admin/AdminPhoto";
+import { Plus, X, Loader2 } from "lucide-react";
 
 const PAGE_SIZE = 24;
 const PAYMENT_STATUSES = ["unknown", "unpaid", "partial", "paid"];
@@ -143,13 +144,7 @@ export default function Bills() {
         {bills.map((b) => (
           <Link key={b.id} to={`/admin/bills/${b.id}`} data-testid={`bill-card-${b.id}`}
             className="bg-white border border-slate-200 rounded-md overflow-hidden hover:-translate-y-0.5 hover:shadow-sm transition-all">
-            <div className="h-28 bg-slate-100 flex items-center justify-center">
-              {b.photo_url ? (
-                <img src={b.photo_url} alt="Bill" className="h-full w-full object-cover" />
-              ) : (
-                <ImageIcon className="text-slate-300" size={28} />
-              )}
-            </div>
+            <AdminPhoto src={b.photo_url} alt="Bill" className="h-28 w-full" testId={`bill-thumb-${b.id}`} />
             <div className="p-2 text-xs space-y-0.5">
               <p className="font-semibold truncate">{b.bill_number || "No bill #"}</p>
               <p className="text-slate-500 truncate">{b.customer_name || "—"} {b.customer_phone && `· ${b.customer_phone}`}</p>

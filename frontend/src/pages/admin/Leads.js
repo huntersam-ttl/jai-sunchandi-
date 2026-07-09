@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { api, apiError } from "@/lib/api";
 import { STATUS_COLORS } from "@/lib/format";
 import { inp, Badge } from "@/components/admin/ui";
+import AdminPhoto from "@/components/admin/AdminPhoto";
 
 export default function Leads() {
   const [leads, setLeads] = useState([]);
@@ -44,7 +45,7 @@ export default function Leads() {
               {l.approx_weight && <p>Weight: {l.approx_weight} tola · Budget: {l.budget || "—"}</p>}
               {l.deadline && <p>Deadline: {l.deadline}</p>}
               {l.notes && <p className="text-xs">Notes: {l.notes}</p>}
-              {l.photo && <img src={l.photo} alt="lead" className="h-20 rounded border mt-1" />}
+              {l.photo && <AdminPhoto src={l.photo} alt="lead" className="h-20 w-20 rounded border mt-1" testId={`lead-photo-${l.phone}`} />}
             </div>
           </div>
         ))}
