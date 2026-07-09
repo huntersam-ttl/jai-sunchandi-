@@ -15,6 +15,28 @@ export function gramsToTola(grams) {
 }
 
 /**
+ * Shared today's-rate lookup so the calculator page, product form, and
+ * order form all pick the same rate for the same metal/purity instead of
+ * three slightly different inline ternaries. `rate` is the /rates/today
+ * shape ({ gold_24k, gold_22k, silver }). Prefers a directly-published rate
+ * (24K, 22K, silver); for anything else (21K, 18K, or 22K on a rate table
+ * that only publishes 24K) derives it from the 24K rate using the same
+ * purity-factor ratio the final price calculation already applies, so it's
+ * consistent rather than a second, independent approximation.
+ * Returns null (not 0) when there's nothing to compute from -- callers
+ * should treat that as "show the missing-rate fallback".
+ */
+export function resolveRatePerTola(rate, metal, purity) {
+  if (!rate) return null;
+  if (metal === "silver" || purity === "silver") return rate.silver ?? null;
+  if (purity === "24K") return rate.gold_24k ?? null;
+  if (purity === "22K" && rate.gold_22k != null) return rate.gold_22k;
+  if (rate.gold_24k == null) return null;
+  const factor = PURITY_FACTORS[purity] ?? 1;
+  return rate.gold_24k * (factor / PURITY_FACTORS["24K"]);
+}
+
+/**
  * Mirrors backend/utils.py's compute_price() exactly, so a counter quote
  * matches what an actual order would calculate: metal value from weight in
  * tola (rate is per-tola) x purity factor, plus jarti %, plus jyala (flat or

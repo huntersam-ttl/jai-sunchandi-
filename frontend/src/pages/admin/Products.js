@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
 import { api, apiError } from "@/lib/api";
-import { rs, STATUS_COLORS, gramsToTola, tolaToGrams, PURITY_FACTORS, GRAMS_PER_TOLA } from "@/lib/format";
+import { rs, STATUS_COLORS, gramsToTola, tolaToGrams } from "@/lib/format";
+import { computeQuote, resolveRatePerTola } from "@/lib/calculator";
 import { uploadImage } from "@/lib/storage";
 import { inp, btnGold, btnGhost, Badge, F } from "@/components/admin/ui";
 import { Plus, Pencil, Trash2, QrCode, X, Printer, Copy } from "lucide-react";
@@ -151,6 +152,7 @@ const toForm = (p) => ({ ...EMPTY, ...p, weight_mode: "grams", grams: p.weight_g
 function ProductForm({ form, setForm, cats, cols, rate, onSaved }) {
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value });
   const isEdit = !!form.id;
+  const [manualRate, setManualRate] = useState("");
   const copyProductCode = async () => {
     try {
       await navigator.clipboard?.writeText(form.product_code);
@@ -164,16 +166,20 @@ function ProductForm({ form, setForm, cats, cols, rate, onSaved }) {
     ? +form.grams || 0
     : tolaToGrams((+form.tola || 0) + (+form.aana || 0) / 16 + (+form.lal || 0) / 100);
 
+  // Same computeQuote() the standalone /admin/calculator page and the order
+  // form use, so a live product preview, a counter estimate, and an order
+  // line all calculate identically -- one formula, not three.
+  const autoRatePerTola = resolveRatePerTola(rate, form.metal, form.purity);
+  const ratePerTola = autoRatePerTola != null ? autoRatePerTola : (+manualRate || 0);
   const preview = useMemo(() => {
-    if (!rate || grams <= 0) return null;
-    const rpt = form.metal === "gold" ? rate.gold_24k : rate.silver;
-    const tola = grams / GRAMS_PER_TOLA;
-    const metal = tola * rpt * (PURITY_FACTORS[form.purity] || 1);
-    const jarti = metal * (+form.jarti_percent || 0) / 100;
-    const jyala = form.jyala_type === "per_tola" ? (+form.jyala_amount || 0) * tola : +form.jyala_amount || 0;
-    const total = metal + jarti + jyala + (+form.stone_cost || 0) + (+form.polishing_cost || 0) + (+form.cutting_cost || 0) + (+form.worker_charge || 0) + (+form.other_cost || 0);
-    return { metal, jarti, jyala, total };
-  }, [form, grams, rate]);
+    if (grams <= 0 || ratePerTola <= 0) return null;
+    return computeQuote({
+      weightGrams: grams, ratePerTola, purity: form.metal === "silver" ? "silver" : form.purity,
+      jartiPercent: form.jarti_percent, jyalaAmount: form.jyala_amount, jyalaType: form.jyala_type,
+      stoneCost: form.stone_cost, polishingCost: form.polishing_cost, cuttingCost: form.cutting_cost,
+      workerCharge: form.worker_charge, otherCost: form.other_cost,
+    });
+  }, [form, grams, ratePerTola]); // eslint-disable-line
 
   const onPhotos = async (e) => {
     const files = Array.from(e.target.files || []);
@@ -259,9 +265,20 @@ function ProductForm({ form, setForm, cats, cols, rate, onSaved }) {
           <div className="sm:col-span-3 text-xs bg-slate-50 rounded p-2" data-testid="pf-weight-preview">
             = <b>{grams.toFixed(3)} g</b> · <b>{gramsToTola(grams)} tola</b>
           </div>
-          <div className="sm:col-span-3 text-xs bg-amber-50 border border-amber-100 rounded p-2 text-slate-600">
-            24K gold rate is used for public rate; final jewellery price depends on weight, jarti/jyala/making charge.
-          </div>
+          {rate ? (
+            <div className="sm:col-span-3 text-xs bg-amber-50 border border-amber-100 rounded p-2 text-slate-600">
+              Using today's published rate. Final jewellery price depends on weight, jarti/jyala/making charge.
+            </div>
+          ) : (
+            <div className="sm:col-span-3 bg-amber-50 border border-amber-200 rounded p-3 text-sm">
+              <p className="text-amber-700">Today's rate not published yet. Enter one below to preview the price, or publish it on Daily Rates.</p>
+              <div className="mt-2 max-w-xs">
+                <F label={`Manual rate (per tola, ${form.metal === "silver" ? "Silver" : form.purity})`}>
+                  <input className={inp} type="number" step="any" value={manualRate} onChange={(e) => setManualRate(e.target.value)} data-testid="pf-manual-rate" />
+                </F>
+              </div>
+            </div>
+          )}
           <F label="Jarti %"><input className={inp} type="number" step="any" value={form.jarti_percent} onChange={set("jarti_percent")} data-testid="pf-jarti" /></F>
           <F label="Jyala (making charge)"><input className={inp} type="number" step="any" value={form.jyala_amount} onChange={set("jyala_amount")} data-testid="pf-jyala" /></F>
           <F label="Jyala Type"><select className={inp} value={form.jyala_type} onChange={set("jyala_type")} data-testid="pf-jyala-type"><option value="flat">Flat</option><option value="per_tola">Per Tola</option></select></F>
@@ -293,9 +310,15 @@ function ProductForm({ form, setForm, cats, cols, rate, onSaved }) {
             </div>
           </F>
           {preview && (
-            <div className="sm:col-span-3 bg-[#FDFCF8] border border-[#D4AF37]/40 rounded p-3 text-sm" data-testid="pf-price-preview">
-              <p className="font-semibold text-xs text-slate-500 mb-1">Live price at today's rate</p>
-              Metal {rs(preview.metal)} + Jarti {rs(preview.jarti)} + Jyala {rs(preview.jyala)} + costs = <b className="text-[#991B1B]">{rs(preview.total)}</b>
+            <div className="sm:col-span-3 bg-[#FDFCF8] border border-[#D4AF37]/40 rounded p-3 text-sm space-y-1" data-testid="pf-price-preview">
+              <p className="font-semibold text-xs text-slate-500">Price Preview <span className="font-normal text-slate-400">(calculated automatically)</span></p>
+              <div className="flex justify-between"><span className="text-slate-500">Weight</span><span>{preview.weightGrams} g · {preview.weightTola} tola</span></div>
+              <div className="flex justify-between"><span className="text-slate-500">Rate Used</span><span>{rs(preview.ratePerTola)}/tola (factor {preview.purityFactor})</span></div>
+              <div className="flex justify-between"><span className="text-slate-500">Metal Value</span><span>{rs(preview.metalValue)}</span></div>
+              <div className="flex justify-between"><span className="text-slate-500">Jarti Amount</span><span>{rs(preview.jartiAmount)}</span></div>
+              <div className="flex justify-between"><span className="text-slate-500">Jyala</span><span>{rs(preview.jyalaAmount)}</span></div>
+              <div className="flex justify-between"><span className="text-slate-500">Extra Charges</span><span>{rs(preview.extras)}</span></div>
+              <div className="flex justify-between border-t border-[#D4AF37]/30 pt-1 mt-1"><span className="font-semibold">Estimated Selling Price</span><b className="text-[#991B1B]" data-testid="pf-preview-total">{rs(preview.finalPrice)}</b></div>
             </div>
           )}
         </div>

@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { api, apiError } from "@/lib/api";
-import { rs, STATUS_COLORS, GRAMS_PER_TOLA, PURITY_FACTORS } from "@/lib/format";
+import { rs, STATUS_COLORS } from "@/lib/format";
+import { computeQuote, resolveRatePerTola } from "@/lib/calculator";
 import { inp, btnGold, btnGhost, Badge, F } from "@/components/admin/ui";
 import { Plus, X, Trash2 } from "lucide-react";
 
@@ -115,24 +116,27 @@ function OrderForm({ onClose, onSaved }) {
   const addStockItem = (pid) => {
     const p = products.find((x) => x.id === pid);
     if (!p) return;
-    const rpt = p.metal === "gold" ? rate?.gold_24k || 0 : rate?.silver || 0;
+    // Resolve by the product's actual purity, not always the 24K rate --
+    // a 22K/18K stock item used to get prefilled with the 24K figure.
+    const rpt = resolveRatePerTola(rate, p.metal, p.purity) || 0;
     setItems([...items, { ...EMPTY_ITEM, product_id: p.id, name: `${p.name} (${p.product_code})`, metal: p.metal, purity: p.purity, weight_grams: p.weight_grams, rate_per_tola: rpt, jarti_percent: p.jarti_percent, jyala_amount: p.jyala_amount, jyala_type: p.jyala_type, stone_cost: p.stone_cost, polishing_cost: p.polishing_cost, cutting_cost: p.cutting_cost, worker_charge: p.worker_charge, other_cost: p.other_cost }]);
   };
 
   const addCustomItem = () => {
-    const rpt = rate?.gold_24k || 0;
+    const rpt = resolveRatePerTola(rate, "gold", "24K") || 0;
     setItems([...items, { ...EMPTY_ITEM, rate_per_tola: rpt }]);
   };
 
   const setItem = (i, k, v) => setItems(items.map((it, j) => (j === i ? { ...it, [k]: v } : it)));
 
-  const itemTotal = (it) => {
-    const tola = (+it.weight_grams || 0) / GRAMS_PER_TOLA;
-    const metal = tola * (+it.rate_per_tola || 0) * (PURITY_FACTORS[it.purity] || 1);
-    const jarti = metal * (+it.jarti_percent || 0) / 100;
-    const jyala = it.jyala_type === "per_tola" ? (+it.jyala_amount || 0) * tola : +it.jyala_amount || 0;
-    return metal + jarti + jyala + (+it.stone_cost || 0) + (+it.polishing_cost || 0) + (+it.cutting_cost || 0) + (+it.worker_charge || 0) + (+it.other_cost || 0) - (+it.discount || 0);
-  };
+  // Same computeQuote() the calculator page and product form use -- one
+  // formula for metal value/jarti/jyala/extras/discount, not three.
+  const itemTotal = (it) => computeQuote({
+    weightGrams: it.weight_grams, ratePerTola: it.rate_per_tola, purity: it.purity,
+    jartiPercent: it.jarti_percent, jyalaAmount: it.jyala_amount, jyalaType: it.jyala_type,
+    stoneCost: it.stone_cost, polishingCost: it.polishing_cost, cuttingCost: it.cutting_cost,
+    workerCharge: it.worker_charge, otherCost: it.other_cost, discount: it.discount,
+  }).finalPrice;
 
   const total = items.reduce((s, it) => s + itemTotal(it), 0);
   const oldValue = oldGold.enabled ? (+oldGold.old_weight_tola || 0) * (+oldGold.old_valuation_rate_per_tola || 0) * (1 - (+oldGold.old_deduction_percent || 0) / 100) : 0;
@@ -183,6 +187,11 @@ function OrderForm({ onClose, onSaved }) {
           )}
 
           <div className="border border-slate-200 rounded-md p-3">
+            {!rate && (
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded p-2 mb-3">
+                Today's rate not published yet — items will prefill with rate 0/tola; enter a rate per item manually below.
+              </p>
+            )}
             <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
               <p className="font-semibold text-sm">Items</p>
               <div className="flex gap-2">
@@ -212,6 +221,7 @@ function OrderForm({ onClose, onSaved }) {
               </div>
             ))}
             {items.length === 0 && <p className="text-xs text-slate-400">No items added.</p>}
+            {items.length > 0 && <p className="text-xs text-slate-400 mt-1">Each item's total is calculated automatically from weight, purity, rate, jarti/jyala and extra charges.</p>}
           </div>
 
           <div className="border border-amber-200 bg-amber-50/40 rounded-md p-3">

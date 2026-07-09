@@ -1,6 +1,6 @@
 import {
   tolaLalAanaToGrams, gramsToTola, computeQuote, quoteWhatsappLink, buildQuoteText,
-  GRAMS_PER_TOLA, PURITY_FACTORS,
+  resolveRatePerTola, GRAMS_PER_TOLA, PURITY_FACTORS,
 } from "./calculator";
 
 describe("tolaLalAanaToGrams", () => {
@@ -112,5 +112,35 @@ describe("buildQuoteText", () => {
     expect(text).toContain("1 tola");
     expect(text).toContain("Rs. 1,50,000"); // en-IN locale groups as lakhs
     expect(text).toContain("Final price may vary after physical weight/checking.");
+  });
+});
+
+describe("resolveRatePerTola", () => {
+  const rate = { gold_24k: 150000, gold_22k: 140000, silver: 2000 };
+
+  test("returns null with no rate at all (missing-rate fallback)", () => {
+    expect(resolveRatePerTola(null, "gold", "24K")).toBeNull();
+  });
+  test("silver uses the published silver rate regardless of purity key", () => {
+    expect(resolveRatePerTola(rate, "silver", "silver")).toBe(2000);
+  });
+  test("24K uses the published 24K rate directly", () => {
+    expect(resolveRatePerTola(rate, "gold", "24K")).toBe(150000);
+  });
+  test("22K prefers the published 22K rate over deriving one", () => {
+    expect(resolveRatePerTola(rate, "gold", "22K")).toBe(140000);
+  });
+  test("21K/18K derive from the 24K rate via the purity-factor ratio (not published)", () => {
+    const r21 = resolveRatePerTola(rate, "gold", "21K");
+    expect(r21).toBeCloseTo(150000 * (PURITY_FACTORS["21K"] / PURITY_FACTORS["24K"]), 2);
+    const r18 = resolveRatePerTola(rate, "gold", "18K");
+    expect(r18).toBeCloseTo(150000 * (PURITY_FACTORS["18K"] / PURITY_FACTORS["24K"]), 2);
+  });
+  test("22K derives from 24K when the rate table doesn't publish 22K separately", () => {
+    const r = resolveRatePerTola({ gold_24k: 150000 }, "gold", "22K");
+    expect(r).toBeCloseTo(150000 * (PURITY_FACTORS["22K"] / PURITY_FACTORS["24K"]), 2);
+  });
+  test("returns null when there is nothing to derive from", () => {
+    expect(resolveRatePerTola({ silver: 2000 }, "gold", "24K")).toBeNull();
   });
 });

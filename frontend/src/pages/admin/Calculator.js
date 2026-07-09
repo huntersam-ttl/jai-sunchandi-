@@ -4,7 +4,7 @@ import { api } from "@/lib/api";
 import { rs } from "@/lib/format";
 import { useSettings } from "@/context/SettingsContext";
 import {
-  tolaLalAanaToGrams, computeQuote, quoteWhatsappLink, buildQuoteText, PURITY_FACTORS,
+  tolaLalAanaToGrams, computeQuote, quoteWhatsappLink, buildQuoteText, resolveRatePerTola,
 } from "@/lib/calculator";
 import { inp, btnGold, btnGhost, Card, F } from "@/components/admin/ui";
 import { Calculator as CalculatorIcon, RotateCcw, Copy, MessageCircle } from "lucide-react";
@@ -59,18 +59,9 @@ export default function Calculator() {
     ? +form.grams || 0
     : tolaLalAanaToGrams(form.tola, form.lal, form.aana);
 
-  const autoRatePerTola = rate
-    ? (form.metal === "gold"
-        ? (form.purity === "22K" ? rate.gold_22k
-          : form.purity === "24K" ? rate.gold_24k
-          // Rate table only publishes 24K/22K; derive 21K/18K from 24K using
-          // the same purity-factor math the final price already uses.
-          : rate.gold_24k * ((PURITY_FACTORS[form.purity] ?? 1) / PURITY_FACTORS["24K"]))
-        : rate.silver)
-    : null;
-
-  const ratePerTola = autoRatePerTola != null ? autoRatePerTola : (+manualRate || 0);
   const purityKey = form.metal === "silver" ? "silver" : form.purity;
+  const autoRatePerTola = resolveRatePerTola(rate, form.metal, purityKey);
+  const ratePerTola = autoRatePerTola != null ? autoRatePerTola : (+manualRate || 0);
 
   const quote = useMemo(() => computeQuote({
     weightGrams,
