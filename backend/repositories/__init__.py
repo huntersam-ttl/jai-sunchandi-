@@ -17,6 +17,7 @@ from .repairs_repo import RepairsRepository
 from .leads_repo import LeadsRepository
 from .tasks_repo import AdminTasksRepository, MaterialTasksRepository
 from .templates_repo import TemplatesRepository
+from .bill_archives_repo import BillArchivesRepository
 
 __all__ = [
     "BaseRepository", "derive_payment_status",
@@ -24,5 +25,5 @@ __all__ = [
     "RatesRepository", "ProductsRepository", "CustomersRepository",
     "OrdersRepository", "PaymentsRepository", "ExpensesRepository", "RepairsRepository",
     "LeadsRepository", "AdminTasksRepository", "MaterialTasksRepository",
-    "TemplatesRepository",
+    "TemplatesRepository", "BillArchivesRepository",
 ]

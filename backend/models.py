@@ -268,6 +268,28 @@ class RepairJob(Base):
     updated_at: Mapped[datetime] = _updated_at()
 
 
+class BillArchive(Base):
+    """Photo/scan of a hand-written physical bill, searchable later by
+    phone/name/bill number/date and optionally linked to an existing
+    order/repair/customer record."""
+    __tablename__ = "bill_archives"
+    id: Mapped[str] = _uuid_pk()
+    bill_number: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    customer_name: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    customer_phone: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    bill_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    total_amount: Mapped[Optional[Decimal]] = mapped_column(Numeric(12, 2), nullable=True)
+    payment_status: Mapped[str] = mapped_column(Text, server_default=text("'unknown'"))
+    related_order_id: Mapped[Optional[str]] = mapped_column(UUID(as_uuid=False), ForeignKey("orders.id"), nullable=True)
+    related_repair_id: Mapped[Optional[str]] = mapped_column(UUID(as_uuid=False), ForeignKey("repair_jobs.id"), nullable=True)
+    related_customer_id: Mapped[Optional[str]] = mapped_column(UUID(as_uuid=False), ForeignKey("customers.id"), nullable=True)
+    image_path: Mapped[str] = mapped_column(Text)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    is_deleted: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    created_at: Mapped[datetime] = _created_at()
+    updated_at: Mapped[datetime] = _updated_at()
+
+
 class Lead(Base):
     __tablename__ = "leads"
     id: Mapped[str] = _uuid_pk()
@@ -332,6 +354,6 @@ class WhatsappTemplate(Base):
 
 __all__ = [
     "Base", "ShopSettings", "Category", "Collection", "DailyRate", "Product",
-    "Customer", "Order", "OrderItem", "Payment", "RepairJob", "Lead",
+    "Customer", "Order", "OrderItem", "Payment", "RepairJob", "BillArchive", "Lead",
     "Expense", "AdminTask", "MaterialTask", "WhatsappTemplate",
 ]

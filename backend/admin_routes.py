@@ -21,9 +21,9 @@ import db
 import config
 from models import Product
 from repositories import (
-    AdminTasksRepository, CategoriesRepository, CollectionsRepository, CustomersRepository,
-    ExpensesRepository, LeadsRepository, MaterialTasksRepository, OrdersRepository, PaymentsRepository,
-    ProductsRepository, RatesRepository, RepairsRepository, SettingsRepository,
+    AdminTasksRepository, BillArchivesRepository, CategoriesRepository, CollectionsRepository,
+    CustomersRepository, ExpensesRepository, LeadsRepository, MaterialTasksRepository, OrdersRepository,
+    PaymentsRepository, ProductsRepository, RatesRepository, RepairsRepository, SettingsRepository,
     TemplatesRepository,
 )
 from supabase_auth import get_current_admin
@@ -1096,6 +1096,134 @@ async def patch_repair(rid: str, body: RepairUpdateBody, session: AsyncSession =
     return await _repair(repair)
 
 
+# ---------- Bill Archive (photo archive of hand-written physical bills) ----------
+BILL_PAYMENT_STATUSES = ("unknown", "unpaid", "partial", "paid")
+
+
+class BillBody(BaseModel):
+    bill_number: Optional[str] = None
+    customer_name: Optional[str] = None
+    customer_phone: Optional[str] = None
+    bill_date: Optional[str] = None
+    total_amount: Optional[float] = None
+    payment_status: str = "unknown"
+    related_order_id: Optional[str] = None
+    related_repair_id: Optional[str] = None
+    related_customer_id: Optional[str] = None
+    image_path: str
+    notes: Optional[str] = None
+
+
+class BillUpdateBody(BaseModel):
+    bill_number: Optional[str] = None
+    customer_name: Optional[str] = None
+    customer_phone: Optional[str] = None
+    bill_date: Optional[str] = None
+    total_amount: Optional[float] = None
+    payment_status: Optional[str] = None
+    related_order_id: Optional[str] = None
+    related_repair_id: Optional[str] = None
+    related_customer_id: Optional[str] = None
+    image_path: Optional[str] = None
+    notes: Optional[str] = None
+
+
+def _validate_bill_payment_status(payment_status: Optional[str]):
+    if payment_status is not None and payment_status not in BILL_PAYMENT_STATUSES:
+        raise HTTPException(status_code=400, detail="Invalid payment status")
+
+
+async def _bill(b) -> dict:
+    """Full bill row, including a freshly-signed (private-bucket) photo URL --
+    used for the list, detail, create, and update responses."""
+    photo_url = await _signed_storage_url("bill-photos", b.image_path)
+    return {
+        "id": str(b.id), "bill_number": b.bill_number,
+        "customer_name": b.customer_name, "customer_phone": b.customer_phone,
+        "bill_date": _iso(b.bill_date),
+        "total_amount": float(b.total_amount) if b.total_amount is not None else None,
+        "payment_status": b.payment_status,
+        "related_order_id": str(b.related_order_id) if b.related_order_id else None,
+        "related_repair_id": str(b.related_repair_id) if b.related_repair_id else None,
+        "related_customer_id": str(b.related_customer_id) if b.related_customer_id else None,
+        "image_path": b.image_path, "photo_url": photo_url,
+        "notes": b.notes,
+        "created_at": b.created_at.isoformat() if b.created_at else None,
+        "updated_at": b.updated_at.isoformat() if b.updated_at else None,
+    }
+
+
+def _search_bill(b) -> dict:
+    """Lightweight row for the quick-search dropdown -- text fields only, no
+    signed-URL network call, so search stays fast."""
+    return {
+        "id": str(b.id), "bill_number": b.bill_number,
+        "customer_name": b.customer_name, "customer_phone": b.customer_phone,
+        "bill_date": _iso(b.bill_date),
+        "total_amount": float(b.total_amount) if b.total_amount is not None else None,
+        "payment_status": b.payment_status,
+    }
+
+
+@router.get("/bills")
+async def list_bills(q: Optional[str] = None, payment_status: Optional[str] = None,
+                     start_date: Optional[str] = None, end_date: Optional[str] = None,
+                     limit: int = 30, offset: int = 0,
+                     session: AsyncSession = Depends(db.get_session)):
+    limit = max(1, min(limit, 100))
+    with _timed("bills") as counts:
+        repo = BillArchivesRepository(session)
+        rows = await repo.list(q=q, payment_status=payment_status, start_date=start_date,
+                               end_date=end_date, limit=limit, offset=offset)
+        total = await repo.count(q=q, payment_status=payment_status, start_date=start_date, end_date=end_date)
+        items = [await _bill(b) for b in rows]
+        counts["rows"] = len(rows)
+        counts["total"] = total
+    return {"items": items, "total": total}
+
+
+@router.post("/bills")
+async def create_bill(body: BillBody, session: AsyncSession = Depends(db.get_session)):
+    if not body.image_path:
+        raise HTTPException(status_code=400, detail="Bill photo is required")
+    _validate_bill_payment_status(body.payment_status)
+    bill_date = RepairsRepository._date_or_none(body.bill_date) if body.bill_date else None
+    bill = BillArchivesRepository(session).create(
+        bill_number=body.bill_number, customer_name=body.customer_name,
+        customer_phone=body.customer_phone, bill_date=bill_date,
+        total_amount=body.total_amount, payment_status=body.payment_status or "unknown",
+        related_order_id=body.related_order_id or None,
+        related_repair_id=body.related_repair_id or None,
+        related_customer_id=body.related_customer_id or None,
+        image_path=body.image_path, notes=body.notes,
+    )
+    await session.commit()
+    await session.refresh(bill)
+    return await _bill(bill)
+
+
+@router.get("/bills/{bill_id}")
+async def get_bill(bill_id: str, session: AsyncSession = Depends(db.get_session)):
+    bill = await BillArchivesRepository(session).get(bill_id)
+    if not bill or bill.is_deleted:
+        raise HTTPException(status_code=404, detail="Bill not found")
+    return await _bill(bill)
+
+
+@router.put("/bills/{bill_id}")
+async def update_bill(bill_id: str, body: BillUpdateBody, session: AsyncSession = Depends(db.get_session)):
+    data = body.model_dump(exclude_unset=True)
+    _validate_bill_payment_status(data.get("payment_status"))
+    if "bill_date" in data:
+        data["bill_date"] = RepairsRepository._date_or_none(data["bill_date"]) if data["bill_date"] else None
+    bill = await BillArchivesRepository(session).update(bill_id, **data)
+    if not bill:
+        raise HTTPException(status_code=404, detail="Bill not found")
+    await session.commit()
+    await session.refresh(bill)
+    return await _bill(bill)
+
+
 # ---------- Dashboard ----------
 def _repair_summary(r) -> dict:
     return {
@@ -1143,23 +1271,26 @@ def _search_product(p) -> dict:
 async def admin_search(q: str = "", session: AsyncSession = Depends(db.get_session)):
     q = q.strip()
     if not q:
-        return {"customers": [], "orders": [], "repairs": [], "products": []}
+        return {"customers": [], "orders": [], "repairs": [], "products": [], "bills": []}
 
     with _timed("search") as counts:
         customers = await CustomersRepository(session).search(q, limit=_SEARCH_GROUP_LIMIT)
         orders = await OrdersRepository(session).list(q=q, limit=_SEARCH_GROUP_LIMIT)
         repairs = await RepairsRepository(session).list(q=q, limit=_SEARCH_GROUP_LIMIT)
         products = await ProductsRepository(session).list(q=q, limit=_SEARCH_GROUP_LIMIT)
+        bills = await BillArchivesRepository(session).list(q=q, limit=_SEARCH_GROUP_LIMIT)
         counts["customers"] = len(customers)
         counts["orders"] = len(orders)
         counts["repairs"] = len(repairs)
         counts["products"] = len(products)
+        counts["bills"] = len(bills)
 
     return {
         "customers": [_search_customer(c) for c in customers],
         "orders": [_order_list_row(o) for o in orders],
         "repairs": [_repair_summary(r) for r in repairs],
         "products": [_search_product(p) for p in products],
+        "bills": [_search_bill(b) for b in bills],
     }
 
 

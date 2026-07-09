@@ -4,13 +4,14 @@ import { Search, X, Loader2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { STATUS_COLORS } from "@/lib/format";
 
-const EMPTY = { customers: [], orders: [], repairs: [], products: [] };
+const EMPTY = { customers: [], orders: [], repairs: [], products: [], bills: [] };
 
 const GROUPS = [
   { key: "customers", label: "Customers", to: (r) => `/admin/customers/${r.id}` },
   { key: "orders", label: "Orders", to: (r) => `/admin/orders/${r.id}` },
   { key: "repairs", label: "Repairs", to: () => "/admin/repairs" },
   { key: "products", label: "Products", to: () => "/admin/products" },
+  { key: "bills", label: "Bills", to: (r) => `/admin/bills/${r.id}` },
 ];
 
 function ResultRow({ group, r }) {
@@ -30,6 +31,13 @@ function ResultRow({ group, r }) {
       <span className="flex items-center justify-between gap-2 w-full">
         <span><span className="font-medium">{r.repair_number}</span><span className="text-slate-400"> · {r.customer_name}</span>{r.promised_date_ad && <span className="text-slate-400"> · {r.promised_date_ad}</span>}</span>
         <span className={`text-xs px-1.5 py-0.5 rounded-full capitalize shrink-0 ${STATUS_COLORS[r.status] || ""}`}>{r.status?.replace("_", " ")}</span>
+      </span>
+    );
+  }
+  if (group === "bills") {
+    return (
+      <span className="flex items-center justify-between gap-2 w-full">
+        <span><span className="font-medium">{r.bill_number || "Bill"}</span><span className="text-slate-400"> · {r.customer_name}</span>{r.bill_date && <span className="text-slate-400"> · {r.bill_date}</span>}</span>
       </span>
     );
   }

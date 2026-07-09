@@ -17,6 +17,7 @@ export const STORAGE_BUCKETS = {
   shop: { id: "shop", public: true, folder: "shop" },
   repair: { id: "repair-photos", public: false, folder: "repairs" },
   lead: { id: "lead-photos", public: false, folder: "leads" },
+  bill: { id: "bill-photos", public: false, folder: "bills" },
 };
 
 function uniqueName(ext = "jpg") {

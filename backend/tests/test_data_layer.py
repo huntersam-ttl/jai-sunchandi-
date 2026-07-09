@@ -704,3 +704,113 @@ class TestAdminQuickSearch:
         src = inspect.getsource(admin_routes.admin_search)
         # An empty/blank q should return empty groups before any repo call.
         assert 'if not q:' in src.replace("  ", " ") or "if not q:" in src
+
+    def test_search_includes_bills_group(self):
+        import inspect
+
+        import admin_routes
+        src = inspect.getsource(admin_routes.admin_search)
+        assert '"bills"' in src
+        assert "BillArchivesRepository" in src
+
+
+class TestBillArchive:
+    def test_model_registered(self):
+        assert hasattr(models, "BillArchive")
+        assert models.BillArchive.__tablename__ == "bill_archives"
+
+    def test_repository_registered(self):
+        assert hasattr(repos, "BillArchivesRepository")
+
+    def test_repo_list_and_count_accept_search_and_filters(self):
+        import inspect
+
+        from repositories.bill_archives_repo import BillArchivesRepository
+        for method in ("list", "count"):
+            sig = inspect.signature(getattr(BillArchivesRepository, method))
+            for param in ("q", "payment_status", "start_date", "end_date"):
+                assert param in sig.parameters, f"{method}({param})"
+        assert "limit" in inspect.signature(BillArchivesRepository.list).parameters
+        assert "offset" in inspect.signature(BillArchivesRepository.list).parameters
+
+    def test_repo_search_joins_orders_and_repairs_for_linked_lookup(self):
+        import inspect
+
+        from repositories.bill_archives_repo import BillArchivesRepository
+        src = inspect.getsource(BillArchivesRepository._base_query)
+        assert "outerjoin" in src
+        assert "Order" in src
+        assert "RepairJob" in src
+
+    def test_routes_registered_and_protected(self):
+        import app
+        routes = [(r.path, tuple(sorted(getattr(r, "methods", []) or [])))
+                  for r in app.app.routes]
+        for method, path in (
+            ("GET", "/api/admin/bills"), ("POST", "/api/admin/bills"),
+            ("GET", "/api/admin/bills/{bill_id}"), ("PUT", "/api/admin/bills/{bill_id}"),
+        ):
+            assert any(p == path and method in m for p, m in routes), f"{method} {path}"
+        import admin_routes
+        assert admin_routes.router.dependencies, "admin router must stay auth-protected"
+
+    def test_list_route_is_bounded_and_timed(self):
+        import inspect
+
+        import admin_routes
+        src = inspect.getsource(admin_routes.list_bills)
+        assert "_timed(" in src
+        assert "min(limit" in src
+
+    def test_search_serializer_excludes_notes_and_photo_path(self):
+        import inspect
+
+        import admin_routes
+        src = inspect.getsource(admin_routes._search_bill)
+        return_line = src[src.index("return"):]
+        assert "notes" not in return_line
+        assert "image_path" not in return_line
+
+    def test_full_serializer_resolves_a_signed_url_not_a_public_one(self):
+        import inspect
+
+        import admin_routes
+        src = inspect.getsource(admin_routes._bill)
+        assert "_signed_storage_url(\"bill-photos\"" in src
+
+    def test_create_route_requires_a_photo(self):
+        import inspect
+
+        import admin_routes
+        src = inspect.getsource(admin_routes.create_bill)
+        assert "image_path" in src
+        assert "400" in src
+
+    def test_payment_status_is_validated(self):
+        import admin_routes
+        assert admin_routes._validate_bill_payment_status("paid") is None
+        assert admin_routes._validate_bill_payment_status(None) is None
+        try:
+            admin_routes._validate_bill_payment_status("bogus")
+            assert False, "expected HTTPException for an invalid payment status"
+        except Exception as exc:
+            assert getattr(exc, "status_code", None) == 400
+
+
+class TestBillArchivesMigration:
+    def test_migration_file_exists_and_covers_required_columns(self):
+        migrations_dir = BACKEND.parent / "supabase" / "migrations"
+        matches = list(migrations_dir.glob("*bill_archives*.sql"))
+        assert matches, "expected a bill_archives migration file"
+        sql = matches[0].read_text()
+        for column in (
+            "bill_number", "customer_name", "customer_phone", "bill_date",
+            "total_amount", "payment_status", "related_order_id", "related_repair_id",
+            "related_customer_id", "image_path", "notes",
+        ):
+            assert column in sql, column
+        for index_col in ("customer_phone", "customer_name", "bill_number", "bill_date",
+                          "related_order", "related_repair"):
+            assert index_col in sql, f"missing index on {index_col}"
+        assert "bill-photos" in sql
+        assert "enable row level security" in sql

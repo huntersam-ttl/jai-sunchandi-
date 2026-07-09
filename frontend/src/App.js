@@ -38,6 +38,8 @@ const InvoicePrint = lazy(() => import("@/pages/admin/InvoicePrint"));
 const Repairs = lazy(() => import("@/pages/admin/Repairs"));
 const Certificates = lazy(() => import("@/pages/admin/Certificates"));
 const Leads = lazy(() => import("@/pages/admin/Leads"));
+const Bills = lazy(() => import("@/pages/admin/Bills"));
+const BillDetail = lazy(() => import("@/pages/admin/BillDetail"));
 const Reports = lazy(() => import("@/pages/admin/Reports"));
 const Settings = lazy(() => import("@/pages/admin/Settings"));
 const PriceCalculator = lazy(() => import("@/pages/admin/Calculator"));
@@ -85,6 +87,8 @@ function App() {
                 <Route path="repairs" element={<Suspense fallback={<AdminPageFallback />}><Repairs /></Suspense>} />
                 <Route path="certificates" element={<Suspense fallback={<AdminPageFallback />}><Certificates /></Suspense>} />
                 <Route path="leads" element={<Suspense fallback={<AdminPageFallback />}><Leads /></Suspense>} />
+                <Route path="bills" element={<Suspense fallback={<AdminPageFallback />}><Bills /></Suspense>} />
+                <Route path="bills/:id" element={<Suspense fallback={<AdminPageFallback />}><BillDetail /></Suspense>} />
                 <Route path="reports" element={<Suspense fallback={<AdminPageFallback />}><Reports /></Suspense>} />
                 <Route path="settings" element={<Suspense fallback={<AdminPageFallback />}><Settings /></Suspense>} />
                 <Route path="calculator" element={<Suspense fallback={<AdminPageFallback />}><PriceCalculator /></Suspense>} />
