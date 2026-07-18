@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { rs, primaryProductPhoto } from "@/lib/format";
+import { OptimizedImage } from "@/components/OptimizedImage";
 import { useSettings } from "@/context/SettingsContext";
 import { useDocumentMeta } from "@/lib/useDocumentMeta";
 
@@ -67,7 +68,14 @@ export default function Catalogue() {
             <Link key={p.id} to={`/product/${p.id}`} data-testid={`product-card-${p.product_code}`}
               className="bg-white border border-slate-200 rounded-md overflow-hidden hover:-translate-y-1 hover:border-[#D4AF37] transition-all duration-300 fade-up"
               style={{ animationDelay: `${i * 40}ms` }}>
-              <img src={primaryProductPhoto(p)} alt={p.name} className="h-44 w-full object-cover" loading="lazy" />
+              <OptimizedImage
+                src={primaryProductPhoto(p)}
+                alt={p.name}
+                className="h-44 w-full object-cover"
+                widths={[240, 360, 520]}
+                sizes="(min-width: 1024px) 25vw, 50vw"
+                loading="lazy"
+              />
               <div className="p-3">
                 <p className="text-sm font-semibold truncate">{p.name}</p>
                 <p className="text-[11px] text-slate-400 font-mono mt-0.5">{p.product_code}</p>

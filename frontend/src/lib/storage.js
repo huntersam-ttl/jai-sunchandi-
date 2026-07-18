@@ -20,7 +20,7 @@ export const STORAGE_BUCKETS = {
   bill: { id: "bill-photos", public: false, folder: "bills" },
 };
 
-function uniqueName(ext = "jpg") {
+function uniqueName(ext = "webp") {
   const id =
     typeof crypto !== "undefined" && crypto.randomUUID
       ? crypto.randomUUID()
@@ -28,8 +28,6 @@ function uniqueName(ext = "jpg") {
   return `${id}.${ext}`;
 }
 
-// Reuse the existing canvas compressor (returns a JPEG data URL) and convert it to
-// a Blob for upload — no duplicated image logic, and no base64 is persisted.
 async function compressToBlob(file, maxDim = 1200, quality = 0.8) {
   const dataUrl = await compressImage(file, maxDim, quality);
   const res = await fetch(dataUrl);
@@ -52,11 +50,12 @@ export async function uploadImage(file, bucketKey, { folder, maxDim = 1200, qual
   const bucket = resolveBucket(bucketKey);
 
   const blob = await compressToBlob(file, maxDim, quality);
-  const path = `${folder || bucket.folder}/${uniqueName("jpg")}`;
+  const isWebp = blob.type === "image/webp";
+  const path = `${folder || bucket.folder}/${uniqueName(isWebp ? "webp" : "jpg")}`;
 
   const { data, error } = await supabase.storage
     .from(bucket.id)
-    .upload(path, blob, { contentType: "image/jpeg", upsert: false });
+    .upload(path, blob, { contentType: isWebp ? "image/webp" : "image/jpeg", upsert: false });
   if (error) throw error;
 
   if (bucket.public) {

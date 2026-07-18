@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 import { api } from "@/lib/api";
 import { rs, PRODUCT_PLACEHOLDER_IMG } from "@/lib/format";
+import { OptimizedImage } from "@/components/OptimizedImage";
 import { useSettings, waLinkFromSettings } from "@/context/SettingsContext";
 import { MessageCircle } from "lucide-react";
 
@@ -28,12 +29,28 @@ export default function ProductDetail() {
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-12 grid lg:grid-cols-2 gap-10">
       <div>
-        <img src={photos[photo]} alt={p.name} className="w-full h-[360px] sm:h-[440px] object-cover rounded-md border border-slate-200" data-testid="product-main-photo" />
+        <OptimizedImage
+          src={photos[photo]}
+          alt={p.name}
+          className="w-full h-[360px] sm:h-[440px] object-cover rounded-md border border-slate-200"
+          widths={[360, 640, 900]}
+          sizes="(min-width: 1024px) 50vw, 100vw"
+          loading="eager"
+          fetchPriority="high"
+          testId="product-main-photo"
+        />
         {photos.length > 1 && (
           <div className="flex gap-2 mt-3">
             {photos.map((ph, i) => (
               <button key={i} onClick={() => setPhoto(i)} className={`h-16 w-16 rounded border ${i === photo ? "border-[#D4AF37]" : "border-slate-200"}`}>
-                <img src={ph} alt="" className="h-full w-full object-cover rounded" />
+                <OptimizedImage
+                  src={ph}
+                  alt=""
+                  className="h-full w-full object-cover rounded"
+                  widths={[96, 160]}
+                  sizes="64px"
+                  loading="lazy"
+                />
               </button>
             ))}
           </div>

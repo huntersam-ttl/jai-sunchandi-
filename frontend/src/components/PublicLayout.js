@@ -71,7 +71,16 @@ export default function PublicLayout() {
       <header className="sticky top-0 z-40 backdrop-blur-xl bg-white/70 border-b border-slate-200/60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between h-16">
           <Link to="/" data-testid="header-shop-name" className="flex items-center gap-3 leading-tight">
-            {shop.logo && <img src={shop.logo} alt="logo" className="h-9 w-9 object-contain" />}
+            {shop.logo && (
+              <img
+                src={shop.logo}
+                alt="logo"
+                className="h-9 w-9 object-contain"
+                loading="eager"
+                decoding="async"
+                fetchPriority="high"
+              />
+            )}
             <span className="flex flex-col">
               <span className="font-serif-display font-bold text-lg tracking-tight">{shop.shop_name}</span>
               <span className="text-xs text-[#991B1B]">{shop.shop_name_np}</span>
@@ -134,7 +143,15 @@ export default function PublicLayout() {
       <footer className="bg-[#0F172A] text-slate-300 mt-12 sm:mt-20">
         <div className="max-w-7xl mx-auto px-6 py-12 grid grid-cols-1 sm:grid-cols-3 gap-8">
           <div>
-            {shop.logo && <img src={shop.logo} alt="logo" className="h-12 mb-2 object-contain" />}
+            {shop.logo && (
+              <img
+                src={shop.logo}
+                alt="logo"
+                className="h-12 mb-2 object-contain"
+                loading="lazy"
+                decoding="async"
+              />
+            )}
             <p className="font-serif-display text-white text-lg">{shop.shop_name}</p>
             <p className="text-[#D4AF37] text-sm mt-1">{shop.shop_name_np}</p>
             {shop.tagline && <p className="text-sm mt-3 text-slate-400">{shop.tagline}</p>}

@@ -1,5 +1,6 @@
 import { useSettings } from "@/context/SettingsContext";
 import { useDocumentMeta } from "@/lib/useDocumentMeta";
+import { OptimizedImage } from "@/components/OptimizedImage";
 const IMG = "https://images.unsplash.com/photo-1613966561243-c6959a886009?crop=entropy&cs=srgb&fm=jpg&q=85&w=900";
 export default function About() {
   const shop = useSettings();
@@ -12,7 +13,15 @@ export default function About() {
       <h1 className="font-serif-display text-4xl sm:text-5xl font-bold tracking-tighter">Decades of <span className="gold-gradient-text">Trust</span></h1>
       <p className="text-[#991B1B] mt-2">{shop.shop_name_np} · {shop.tagline_np}</p>
       <div className="mt-10 grid lg:grid-cols-2 gap-10 items-center">
-        <img src={IMG} alt="Traditional jewellery" className="rounded-md h-[380px] w-full object-cover" />
+        <OptimizedImage
+          src={IMG}
+          alt="Traditional jewellery"
+          className="rounded-md h-[380px] w-full object-cover"
+          widths={[360, 640, 900]}
+          sizes="(min-width: 1024px) 50vw, 100vw"
+          loading="eager"
+          fetchPriority="high"
+        />
         <div className="space-y-4 text-slate-700">
           <p><b>{shop.shop_name}</b> is a family-run gold and silver shop that has served its community for decades. Generations of families have trusted us for weddings, festivals and everyday ornaments.</p>
           <p>We believe in <b>honest weight</b>, transparent <b>jarti</b> and <b>jyala</b>, and fair valuation for old gold exchange (purano sun satta). Every sale comes with our official stamped bill.</p>

@@ -59,7 +59,7 @@ export const STATUS_COLORS = {
   closed: "bg-slate-200 text-slate-700",
 };
 
-export async function compressImage(file, maxDim = 900, quality = 0.72) {
+export async function compressImage(file, maxDim = 900, quality = 0.72, type = "image/webp") {
   return new Promise((resolve, reject) => {
     const img = new Image();
     const objectUrl = URL.createObjectURL(file);
@@ -70,7 +70,8 @@ export async function compressImage(file, maxDim = 900, quality = 0.72) {
       canvas.width = Math.round(img.width * scale);
       canvas.height = Math.round(img.height * scale);
       canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
-      resolve(canvas.toDataURL("image/jpeg", quality));
+      const outputType = canvas.toDataURL(type).startsWith(`data:${type}`) ? type : "image/jpeg";
+      resolve(canvas.toDataURL(outputType, quality));
     };
     // Without this, an undecodable photo (unsupported format, corrupt
     // capture) leaves onload never firing and the promise hanging forever --

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "@/lib/api";
 import { rs, primaryProductPhoto } from "@/lib/format";
+import { OptimizedImage } from "@/components/OptimizedImage";
 import { useSettings, waLinkFromSettings } from "@/context/SettingsContext";
 import { useDocumentMeta } from "@/lib/useDocumentMeta";
 import {
@@ -112,9 +113,26 @@ export default function Home() {
           </div>
           <div className="lg:col-span-5 fade-up" style={{ animationDelay: "150ms" }}>
             {shop.logo ? (
-              <img src={shop.logo} alt={shop.shop_name} className="rounded-md w-full h-[320px] lg:h-[420px] object-contain shadow-xl" />
+              <img
+                src={shop.logo}
+                alt={shop.shop_name}
+                className="rounded-md w-full h-[320px] lg:h-[420px] object-contain shadow-xl"
+                loading="eager"
+                decoding="async"
+                fetchPriority="high"
+              />
             ) : (
-              <img src={HERO_IMG} alt="Gold jewellery" className="rounded-md w-full h-[320px] lg:h-[420px] object-cover shadow-xl" />
+              <OptimizedImage
+                src={HERO_IMG}
+                alt="Gold jewellery"
+                className="rounded-md w-full h-[320px] lg:h-[420px] object-cover shadow-xl"
+                widths={[360, 640, 820, 1000]}
+                sizes="(min-width: 1024px) 40vw, 100vw"
+                loading="eager"
+                fetchPriority="high"
+                quality={62}
+                fallbackQuality={68}
+              />
             )}
           </div>
         </div>
@@ -144,7 +162,14 @@ export default function Home() {
 
       {/* Our Story */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 mt-16 grid lg:grid-cols-2 gap-10 items-center">
-        <img src={STORY_IMG} alt="Family jewellery shop" className="rounded-md h-[320px] w-full object-cover order-2 lg:order-1" />
+        <OptimizedImage
+          src={STORY_IMG}
+          alt="Family jewellery shop"
+          className="rounded-md h-[320px] w-full object-cover order-2 lg:order-1"
+          widths={[360, 640, 900]}
+          sizes="(min-width: 1024px) 50vw, 100vw"
+          loading="lazy"
+        />
         <div className="order-1 lg:order-2">
           <h2 className="font-serif-display text-2xl sm:text-3xl font-bold tracking-tight">Our Story</h2>
           <div className="mt-4 space-y-4 text-slate-700 text-sm sm:text-base leading-relaxed">
@@ -203,7 +228,14 @@ export default function Home() {
           <div className="mt-6 grid grid-cols-2 lg:grid-cols-4 gap-4">
             {products.map((p) => (
               <Link key={p.id} to={`/product/${p.id}`} className="bg-white border border-slate-200 rounded-md overflow-hidden hover:-translate-y-1 transition-transform duration-300">
-                <img src={primaryProductPhoto(p)} alt={p.name} className="h-40 w-full object-cover" />
+                <OptimizedImage
+                  src={primaryProductPhoto(p)}
+                  alt={p.name}
+                  className="h-40 w-full object-cover"
+                  widths={[240, 360, 520]}
+                  sizes="(min-width: 1024px) 25vw, 50vw"
+                  loading="lazy"
+                />
                 <div className="p-3">
                   <p className="text-sm font-semibold truncate">{p.name}</p>
                   <p className="text-xs text-slate-500">{p.purity} · {p.weight_tola} tola</p>
