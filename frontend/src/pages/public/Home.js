@@ -7,7 +7,7 @@ import { useSettings, waLinkFromSettings } from "@/context/SettingsContext";
 import { useDocumentMeta } from "@/lib/useDocumentMeta";
 import {
   MessageCircle, ArrowRight, ShieldCheck, Scale, HandCoins, Sparkles,
-  Wrench, Gem, Phone, MapPin, Clock, Navigation,
+  Wrench, Gem, Phone, MapPin, Clock, Navigation, CalendarDays, UsersRound,
 } from "lucide-react";
 
 const HERO_IMG = "https://images.unsplash.com/photo-1721103418312-b0057a8c31c2?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA4Mzl8MHwxfHNlYXJjaHwzfHxnb2xkJTIwamV3ZWxyeSUyMG5lY2tsYWNlJTIwcHJlbWl1bXxlbnwwfHx8fDE3ODMwMzIzMTR8MA&ixlib=rb-4.1.0&q=85";
@@ -162,27 +162,55 @@ export default function Home() {
 
       {/* Our Story */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 mt-16 grid lg:grid-cols-2 gap-10 items-center">
-        <OptimizedImage
-          src={STORY_IMG}
-          alt="Family jewellery shop"
-          className="rounded-md h-[320px] w-full object-cover order-2 lg:order-1"
-          widths={[360, 640, 900]}
-          sizes="(min-width: 1024px) 50vw, 100vw"
-          loading="lazy"
-        />
+        <div className="order-2 lg:order-1">
+          <OptimizedImage
+            src={STORY_IMG}
+            alt="Family jewellery shop counter"
+            className="rounded-md h-[320px] w-full object-cover"
+            widths={[360, 640, 900]}
+            sizes="(min-width: 1024px) 50vw, 100vw"
+            loading="lazy"
+          />
+          {shop.logo && (
+            <div className="mt-4 flex items-center gap-3 rounded-md border border-slate-200 bg-white p-3">
+              <img src={shop.logo} alt={shop.shop_name} className="h-14 w-14 object-contain" loading="lazy" decoding="async" />
+              <div>
+                <p className="text-sm font-semibold">{shop.shop_name}</p>
+                <p className="text-xs text-slate-500">Family-run gold and silver shop</p>
+              </div>
+            </div>
+          )}
+        </div>
         <div className="order-1 lg:order-2">
           <h2 className="font-serif-display text-2xl sm:text-3xl font-bold tracking-tight">Our Story</h2>
           <div className="mt-4 space-y-4 text-slate-700 text-sm sm:text-base leading-relaxed">
             <p>
-              {shop.shop_name} began as a small family counter and has grown, generation after generation,
-              into a shop trusted by families across the community for their most important moments —
-              weddings, Dashain-Tihar, birthdays, and everyday gold.
+              {shop.shop_name} is a family-run sun-chandi pasal built on decades of trust. The shop grew from
+              a small counter into a place families return to for weddings, Dashain-Tihar, birthdays, old gold
+              exchange, repairs, and everyday ornaments.
             </p>
             <p>
-              What hasn't changed is how we do business: honest weight on a calibrated scale, clear explanation
-              of jarti (purity deduction) and jyala (making charge) before you pay, and a fair word on old gold
-              exchange. Every family that walks in once tends to come back for the next occasion too.
+              What makes the family business different is the way every detail is explained at the counter:
+              weight is checked openly, jarti and jyala are discussed before billing, and custom work is guided
+              with patience instead of pressure.
             </p>
+          </div>
+          <div className="mt-6 grid sm:grid-cols-3 gap-3 text-sm">
+            <div className="rounded-md border border-slate-200 bg-white p-4">
+              <CalendarDays className="text-[#D4AF37]" size={22} strokeWidth={1.5} />
+              <p className="font-semibold mt-3">Founded</p>
+              <p className="text-slate-500 mt-1">Serving families for decades</p>
+            </div>
+            <div className="rounded-md border border-slate-200 bg-white p-4">
+              <UsersRound className="text-[#D4AF37]" size={22} strokeWidth={1.5} />
+              <p className="font-semibold mt-3">Family</p>
+              <p className="text-slate-500 mt-1">Run by the shop family</p>
+            </div>
+            <div className="rounded-md border border-slate-200 bg-white p-4">
+              <MapPin className="text-[#D4AF37]" size={22} strokeWidth={1.5} />
+              <p className="font-semibold mt-3">Location</p>
+              <p className="text-slate-500 mt-1">{shop.address || "Nepal community jewellery shop"}</p>
+            </div>
           </div>
         </div>
       </section>
