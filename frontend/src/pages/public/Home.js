@@ -76,7 +76,7 @@ export default function Home() {
   const [products, setProducts] = useState([]);
   useDocumentMeta(
     `${shop.shop_name || "Jai Supa Deurali Sun-Chandi Pasal"} – Gold & Silver Jewellery Shop in Nepal | Custom Orders, Repair & Old Gold Exchange`,
-    "Gold and silver jewellery shop in Nepal for custom jewellery orders, repair and polishing, and old gold exchange. Honest weight, transparent jarti and jyala, direct shop-counter pricing. WhatsApp enquiries welcome from Nepal and abroad."
+    "Jai Supa Deurali Sun-Chandi Pasal offers gold jewellery Nepal, silver ornaments, buy gold guidance, custom orders, fair jarti/jyala and WhatsApp help."
   );
   useEffect(() => {
     api.get("/rates/today").then((r) => setRate(r.data)).catch(() => {});
