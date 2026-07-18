@@ -178,6 +178,8 @@ export default function PublicLayout() {
             <Link to="/catalogue" className="block hover:text-[#D4AF37]">Catalogue</Link>
             <Link to="/order-status" className="block hover:text-[#D4AF37]">Check Order Status</Link>
             <Link to="/contact" className="block hover:text-[#D4AF37]">Contact Us</Link>
+            <Link to="/privacy-policy" className="block hover:text-[#D4AF37]">Privacy Policy</Link>
+            <Link to="/terms" className="block hover:text-[#D4AF37]">Terms of Service</Link>
             {hasWhatsapp && (
               <a href={waLink(contextualMsg)} target="_blank" rel="noreferrer"
                 className="block hover:text-[#D4AF37]">
