@@ -6,7 +6,7 @@ import { useSettings, waLinkFromSettings } from "@/context/SettingsContext";
 import { useDocumentMeta } from "@/lib/useDocumentMeta";
 import {
   MessageCircle, ArrowRight, ShieldCheck, Scale, HandCoins, Sparkles,
-  Wrench, Gem,
+  Wrench, Gem, Phone, MapPin, Clock, Navigation,
 } from "lucide-react";
 
 const HERO_IMG = "https://images.unsplash.com/photo-1721103418312-b0057a8c31c2?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA4Mzl8MHwxfHNlYXJjaHwzfHxnb2xkJTIwamV3ZWxyeSUyMG5lY2tsYWNlJTIwcHJlbWl1bXxlbnwwfHx8fDE3ODMwMzIzMTR8MA&ixlib=rb-4.1.0&q=85";
@@ -26,6 +26,23 @@ const COLLECTION_INFO = {
 };
 function collectionDescription(name) {
   return COLLECTION_INFO[(name || "").trim().toLowerCase()] || "Explore this collection in our catalogue.";
+}
+
+function telHref(phone) {
+  const cleaned = String(phone || "").trim().replace(/[^\d+]/g, "");
+  return cleaned ? `tel:${cleaned}` : null;
+}
+
+function whatsappHref(phone, message) {
+  const digits = String(phone || "").replace(/\D/g, "");
+  if (!digits) return null;
+  const normalized = digits.length === 10 && digits.startsWith("9") ? `977${digits}` : digits;
+  return `https://wa.me/${normalized}?text=${encodeURIComponent(message)}`;
+}
+
+function mapEmbedSrc(shop) {
+  const query = shop.address || shop.maps_link || shop.shop_name;
+  return query ? `https://www.google.com/maps?q=${encodeURIComponent(query)}&output=embed` : null;
 }
 
 const SERVICES = [
@@ -48,6 +65,12 @@ export default function Home() {
   const shop = useSettings();
   const waLink = (msg) => waLinkFromSettings(shop, msg);
   const heroWaLink = waLink(shop.default_whatsapp_message || `Namaste! I want to enquire about jewellery at ${shop.shop_name}.`);
+  const contactWhatsappLink = whatsappHref(
+    shop.whatsapp,
+    shop.default_whatsapp_message || `Namaste ${shop.shop_name}! I want to visit the shop.`
+  );
+  const contactPhoneLink = telHref(shop.phone);
+  const contactMapSrc = mapEmbedSrc(shop);
   const [rate, setRate] = useState(null);
   const [collections, setCollections] = useState([]);
   const [products, setProducts] = useState([]);
@@ -228,6 +251,98 @@ export default function Home() {
             </a>
           </div>
         )}
+      </section>
+
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 mt-16 mb-16" data-testid="home-visit-shop-section">
+        <div className="bg-[#0F172A] text-white rounded-md overflow-hidden grid lg:grid-cols-2">
+          <div className="p-6 sm:p-8 lg:p-10">
+            <p className="text-[#D4AF37] text-sm tracking-widest uppercase">Visit Our Shop</p>
+            <h2 className="font-serif-display text-2xl sm:text-3xl font-bold tracking-tight mt-2">
+              {shop.shop_name || "Jai Supa Deurali Sun-Chandi Pasal"}
+            </h2>
+            {shop.shop_name_np && <p className="text-slate-300 mt-1">{shop.shop_name_np}</p>}
+
+            <div className="mt-6 space-y-4 text-sm sm:text-base">
+              {shop.address && (
+                <p className="flex gap-3" data-testid="home-shop-address">
+                  <MapPin className="text-[#D4AF37] shrink-0 mt-0.5" size={20} strokeWidth={1.5} />
+                  <span>{shop.address}</span>
+                </p>
+              )}
+              {shop.opening_hours && (
+                <p className="flex gap-3" data-testid="home-shop-hours">
+                  <Clock className="text-[#D4AF37] shrink-0 mt-0.5" size={20} strokeWidth={1.5} />
+                  <span>{shop.opening_hours}</span>
+                </p>
+              )}
+              {shop.phone && (
+                <p className="flex gap-3" data-testid="home-shop-phone">
+                  <Phone className="text-[#D4AF37] shrink-0 mt-0.5" size={20} strokeWidth={1.5} />
+                  {contactPhoneLink ? (
+                    <a href={contactPhoneLink} className="hover:text-[#D4AF37] underline-offset-4 hover:underline">
+                      {shop.phone}
+                    </a>
+                  ) : (
+                    <span>{shop.phone}</span>
+                  )}
+                </p>
+              )}
+              {shop.whatsapp && (
+                <p className="flex gap-3" data-testid="home-shop-whatsapp">
+                  <MessageCircle className="text-[#D4AF37] shrink-0 mt-0.5" size={20} strokeWidth={1.5} />
+                  {contactWhatsappLink ? (
+                    <a href={contactWhatsappLink} target="_blank" rel="noreferrer" className="hover:text-[#D4AF37] underline-offset-4 hover:underline">
+                      WhatsApp: {shop.whatsapp}
+                    </a>
+                  ) : (
+                    <span>WhatsApp: {shop.whatsapp}</span>
+                  )}
+                </p>
+              )}
+            </div>
+
+            <div className="mt-7 flex flex-wrap gap-3">
+              {contactPhoneLink && (
+                <a href={contactPhoneLink}
+                  className="inline-flex items-center gap-2 bg-white text-[#0F172A] px-5 py-3 rounded-md min-h-[46px] font-medium hover:bg-slate-100 transition-colors"
+                  data-testid="home-call-shop-btn">
+                  <Phone size={18} /> Call Shop
+                </a>
+              )}
+              {contactWhatsappLink && (
+                <a href={contactWhatsappLink} target="_blank" rel="noreferrer"
+                  className="inline-flex items-center gap-2 bg-[#25D366] text-white px-5 py-3 rounded-md min-h-[46px] font-medium hover:bg-[#1fb457] transition-colors"
+                  data-testid="home-whatsapp-shop-btn">
+                  <MessageCircle size={18} /> Contact on WhatsApp
+                </a>
+              )}
+              {shop.maps_link && (
+                <a href={shop.maps_link} target="_blank" rel="noreferrer"
+                  className="inline-flex items-center gap-2 border border-slate-500 text-white px-5 py-3 rounded-md min-h-[46px] font-medium hover:border-[#D4AF37] hover:text-[#D4AF37] transition-colors"
+                  data-testid="home-directions-btn">
+                  <Navigation size={18} /> Get Directions
+                </a>
+              )}
+            </div>
+          </div>
+          <div className="min-h-[280px] bg-slate-900">
+            {contactMapSrc ? (
+              <iframe
+                title={`${shop.shop_name || "Jai Supa Deurali Sun-Chandi Pasal"} map`}
+                src={contactMapSrc}
+                className="w-full h-full min-h-[280px] border-0"
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                allowFullScreen
+                data-testid="home-shop-map"
+              />
+            ) : (
+              <div className="h-full min-h-[280px] flex items-center justify-center text-slate-300 text-sm px-6 text-center">
+                Map location will be added soon.
+              </div>
+            )}
+          </div>
+        </div>
       </section>
     </div>
   );
