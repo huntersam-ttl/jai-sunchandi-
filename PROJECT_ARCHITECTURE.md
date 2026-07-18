@@ -68,7 +68,7 @@ Core principle (from the PRD): *the physical stamped paper bill remains the offi
 | Auth | bcrypt (passlib), PyJWT (HS256), httpOnly cookie + Bearer token |
 | DB | MongoDB (single database, UUID string `id` primary keys) |
 | Nepali locale | `nepali-datetime` (AD→BS conversion), custom Devanagari numeral translation |
-| Build/config | CRACO (`@` alias → `src/`), dotenv, Emergent visual-edits plugin |
+| Build/config | CRACO (`@` alias → `src/`), dotenv |
 
 ---
 
@@ -117,7 +117,7 @@ jai-sunchandi-/
 │
 ├── memory/PRD.md         # product requirements + implementation log
 ├── design_guidelines.json
-├── test_result.md        # Emergent testing-agent protocol/state
+├── test_result.md        # Local testing-agent protocol/state
 └── test_reports/
 ```
 

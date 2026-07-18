@@ -158,8 +158,8 @@ Products/Orders/Customers/Repairs/Certificates each hand-roll the same fixed-ove
 ### 5.2 🟡 Data fetching is manual `useState`+axios everywhere
 No caching, dedup, or loading/error conventions despite `react-query`/`swr` being installed. Leads to repeated boilerplate and no request dedup. **Fix:** adopt one data layer (react-query is already present) for admin lists/detail.
 
-### 5.3 🔵 Emergent/Craco scaffolding
-`craco.config.js` carries health-check plugin + visual-edits wiring, and `test_result.md` is an agent-protocol file. Fine to keep, but document that these are platform scaffolding, not app logic.
+### 5.3 🔵 Craco scaffolding
+`craco.config.js` carries build wiring, and `test_result.md` is an agent-protocol file. Fine to keep, but document that these are platform scaffolding, not app logic.
 
 ---
 

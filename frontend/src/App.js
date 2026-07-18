@@ -1,6 +1,6 @@
 import "@/App.css";
 import { Suspense, lazy } from "react";
-import { BrowserRouter, Navigate, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "sonner";
 import { AuthProvider } from "@/context/AuthContext";
 import { SettingsProvider } from "@/context/SettingsContext";
@@ -70,7 +70,6 @@ function App() {
                 <Route path="/verify/invoice/:id" element={<VerifyInvoice />} />
                 <Route path="/verify/certificate/:id" element={<VerifyCertificate />} />
               </Route>
-              <Route path="/Emergent/*" element={<Navigate to="/admin" replace />} />
               <Route path="/admin/login" element={
                 <Suspense fallback={<AdminPageFallback />}><Login /></Suspense>
               } />
