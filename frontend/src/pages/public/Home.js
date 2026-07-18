@@ -153,10 +153,9 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Featured Collections */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 mt-16">
-        <h2 className="font-serif-display text-2xl sm:text-3xl font-bold tracking-tight">Featured Collections</h2>
-        {collections.length > 0 ? (
+      {collections.length > 0 && (
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 mt-16">
+          <h2 className="font-serif-display text-2xl sm:text-3xl font-bold tracking-tight">Featured Collections</h2>
           <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {collections.map((c) => (
               <Link key={c.id} to={`/catalogue?collection=${encodeURIComponent(c.name)}`}
@@ -169,10 +168,8 @@ export default function Home() {
               </Link>
             ))}
           </div>
-        ) : (
-          <p className="mt-6 text-sm text-slate-500">Collections will appear here once added by the shop.</p>
-        )}
-      </section>
+        </section>
+      )}
 
       {products.length > 0 && (
         <section className="max-w-7xl mx-auto px-4 sm:px-6 mt-16">
