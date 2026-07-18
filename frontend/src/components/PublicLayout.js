@@ -38,12 +38,15 @@ const mobileQuickActions = [
   { to: "/order-status", label: "Order Status", icon: PackageSearch },
 ];
 
+const FLOATING_WHATSAPP_MESSAGE = "Namaste! I visited your website and have a question about your jewellery.";
+
 export default function PublicLayout() {
   const [open, setOpen] = useState(false);
   const shop = useSettings();
   const location = useLocation();
   const waLink = (msg) => waLinkFromSettings(shop, msg);
   const contextualMsg = contextualWhatsappMessage(location.pathname, shop);
+  const floatingWhatsappLink = waLink(FLOATING_WHATSAPP_MESSAGE);
   const hasWhatsapp = Boolean(shop.whatsapp);
   const hasAddress = Boolean(shop.address);
   const hasPhone = Boolean(shop.phone);
@@ -134,10 +137,12 @@ export default function PublicLayout() {
         <Outlet />
       </main>
       {hasWhatsapp && (
-        <a href={waLink(contextualMsg)} target="_blank" rel="noreferrer"
+        <a href={floatingWhatsappLink} target="_blank" rel="noreferrer"
           data-testid="floating-whatsapp-btn"
-          className="fixed bottom-5 right-5 z-50 bg-[#25D366] text-white p-4 rounded-full shadow-lg hover:-translate-y-1 transition-transform duration-300">
-          <MessageCircle size={24} />
+          aria-label="Chat with us on WhatsApp"
+          title="Chat with us on WhatsApp"
+          className="fixed bottom-24 right-4 sm:bottom-6 sm:right-6 z-50 inline-flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg ring-4 ring-white/90 hover:-translate-y-1 hover:bg-[#1DA851] transition-all duration-300">
+          <MessageCircle size={26} aria-hidden="true" />
         </a>
       )}
       <footer className="bg-[#0F172A] text-slate-300 mt-12 sm:mt-20">
