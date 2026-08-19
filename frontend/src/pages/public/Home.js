@@ -6,7 +6,7 @@ import { OptimizedImage } from "@/components/OptimizedImage";
 import { PrimaryLink, Reveal, SecondaryLink } from "@/components/PublicPolish";
 import { useSettings, waLinkFromSettings } from "@/context/SettingsContext";
 import { useDocumentMeta } from "@/lib/useDocumentMeta";
-import { BRAND_POSITIONING, OFFICIAL_SHOP_NAME, PUBLIC_BRAND_NAME } from "@/lib/brand";
+import { BRAND_POSITIONING, DEFAULT_LOGO_PATH, OFFICIAL_SHOP_NAME, PUBLIC_BRAND_NAME } from "@/lib/brand";
 import {
   MessageCircle, ShieldCheck, Scale, HandCoins, Sparkles,
   Wrench, Gem, Phone, MapPin, Clock, Navigation, CalendarDays, UsersRound,
@@ -80,6 +80,7 @@ export default function Home() {
   );
   const contactPhoneLink = telHref(shop.phone);
   const contactMapSrc = mapEmbedSrc(shop);
+  const logoSrc = shop.logo || DEFAULT_LOGO_PATH;
   const [rate, setRate] = useState(null);
   const [collections, setCollections] = useState([]);
   const [products, setProducts] = useState([]);
@@ -183,15 +184,13 @@ export default function Home() {
             sizes="(min-width: 1024px) 50vw, 100vw"
             loading="lazy"
           />
-          {shop.logo && (
-            <div className="mt-4 flex items-center gap-3 rounded-md border border-slate-200 bg-white p-3">
-              <img src={shop.logo} alt={shop.shop_name} className="h-14 w-14 object-contain" loading="lazy" decoding="async" />
-              <div>
-                <p className="text-sm font-semibold">{shop.shop_name}</p>
-                <p className="text-xs text-slate-500">Family-run gold and silver shop</p>
-              </div>
+          <div className="mt-4 flex items-center gap-3 rounded-md border border-[#D4AF37]/25 bg-white p-3">
+            <img src={logoSrc} alt={`${PUBLIC_BRAND_NAME} logo`} className="h-14 w-14 rounded-full object-contain" loading="lazy" decoding="async" />
+            <div>
+              <p className="text-sm font-semibold">{PUBLIC_BRAND_NAME}</p>
+              <p className="text-xs text-slate-500">Family-run gold and silver shop</p>
             </div>
-          )}
+          </div>
         </div>
         <div className="order-1 lg:order-2">
           <p className="brand-eyebrow">Family shop story</p>

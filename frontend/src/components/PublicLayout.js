@@ -3,7 +3,7 @@ import { MessageCircle, Menu, X, Gem, TrendingUp, PackageSearch, MapPin, Phone, 
 import { useState } from "react";
 import { useSettings, waLinkFromSettings } from "@/context/SettingsContext";
 import { useJsonLd } from "@/lib/useDocumentMeta";
-import { NEPALI_SHOP_NAME, OFFICIAL_SHOP_NAME, PUBLIC_BRAND_NAME } from "@/lib/brand";
+import { DEFAULT_LOGO_PATH, NEPALI_SHOP_NAME, OFFICIAL_SHOP_NAME, PUBLIC_BRAND_NAME } from "@/lib/brand";
 const links = [
   { to: "/", label: "Home" },
   { to: "/rates", label: "Rates" },
@@ -48,6 +48,7 @@ export default function PublicLayout() {
   const waLink = (msg) => waLinkFromSettings(shop, msg);
   const contextualMsg = contextualWhatsappMessage(location.pathname, shop);
   const floatingWhatsappLink = waLink(FLOATING_WHATSAPP_MESSAGE);
+  const logoSrc = shop.logo || DEFAULT_LOGO_PATH;
   const hasWhatsapp = Boolean(shop.whatsapp);
   const hasAddress = Boolean(shop.address);
   const hasPhone = Boolean(shop.phone);
@@ -66,7 +67,7 @@ export default function PublicLayout() {
     ...(shop.address && { address: { "@type": "PostalAddress", streetAddress: shop.address, addressCountry: "NP" } }),
     ...(shop.opening_hours && { openingHours: shop.opening_hours }),
     ...(shop.maps_link && { hasMap: shop.maps_link }),
-    ...(shop.logo && { image: shop.logo }),
+    image: logoSrc,
     priceRange: "$$",
   };
   useJsonLd("jewelry-store-schema", shop.shop_name ? jsonLd : null);
@@ -76,16 +77,14 @@ export default function PublicLayout() {
       <header className="sticky top-0 z-40 border-b border-[#D4AF37]/20 bg-[#FFFDF7]/86 shadow-[0_1px_24px_rgba(43,27,23,.06)] backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between h-16">
           <Link to="/" data-testid="header-shop-name" className="focus-brand group flex items-center gap-3 leading-tight rounded-md">
-            {shop.logo && (
-              <img
-                src={shop.logo}
-                alt="logo"
-                className="h-9 w-9 object-contain"
-                loading="eager"
-                decoding="async"
-                fetchPriority="high"
-              />
-            )}
+            <img
+              src={logoSrc}
+              alt={`${PUBLIC_BRAND_NAME} logo`}
+              className="h-10 w-10 rounded-full object-contain"
+              loading="eager"
+              decoding="async"
+              fetchPriority="high"
+            />
             <span className="flex flex-col">
               <span className="font-serif-display text-xl font-bold tracking-tight transition-colors group-hover:text-[#5B0D18]">{PUBLIC_BRAND_NAME}</span>
               <span className="font-devanagari text-xs text-[#5B0D18]">{shop.shop_name_np}</span>
@@ -152,15 +151,13 @@ export default function PublicLayout() {
       <footer className="brand-dark mt-12 sm:mt-20">
         <div className="max-w-7xl mx-auto px-6 py-12 grid grid-cols-1 sm:grid-cols-3 gap-8">
           <div>
-            {shop.logo && (
-              <img
-                src={shop.logo}
-                alt="logo"
-                className="h-12 mb-2 object-contain"
-                loading="lazy"
-                decoding="async"
-              />
-            )}
+            <img
+              src={logoSrc}
+              alt={`${PUBLIC_BRAND_NAME} logo`}
+              className="mb-3 h-14 w-14 rounded-full object-contain"
+              loading="lazy"
+              decoding="async"
+            />
             <p className="font-serif-display text-2xl text-white">{PUBLIC_BRAND_NAME}</p>
             <p className="mt-1 text-sm text-[#E8DFD2]">{OFFICIAL_SHOP_NAME}</p>
             <p className="font-devanagari text-[#F1D77A] text-sm mt-1">{shop.shop_name_np}</p>

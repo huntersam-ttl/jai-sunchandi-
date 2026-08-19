@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { PUBLIC_BRAND_NAME } from "@/lib/brand";
+import { DEFAULT_LOGO_PATH, PUBLIC_BRAND_NAME } from "@/lib/brand";
 
 const DEFAULT_TITLE = PUBLIC_BRAND_NAME;
 
@@ -48,7 +48,7 @@ export function useDocumentMeta(title, description, options = {}) {
     const previousDescription = document.querySelector('meta[name="description"]')?.getAttribute("content");
     const previousCanonical = document.querySelector('link[rel="canonical"]')?.getAttribute("href");
     const canonical = options.canonical || `${window.location.origin}${window.location.pathname}`;
-    const image = options.image || `${window.location.origin}/og-image.svg`;
+    const image = options.image || `${window.location.origin}${DEFAULT_LOGO_PATH}`;
     if (title) document.title = title;
     if (description) setMetaTag("description", description);
     setCanonical(canonical);
