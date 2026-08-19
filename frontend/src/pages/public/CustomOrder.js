@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { api, apiError } from "@/lib/api";
 import { useSettings } from "@/context/SettingsContext";
 import { useDocumentMeta } from "@/lib/useDocumentMeta";
+import { PUBLIC_BRAND_NAME } from "@/lib/brand";
 
 export const Field = ({ label, children }) => (
   <label className="block">
@@ -11,12 +12,12 @@ export const Field = ({ label, children }) => (
   </label>
 );
 
-export const inputCls = "w-full border border-[#9F7225]/25 rounded-md px-3 py-3 text-base focus:outline-none focus:ring-2 focus:ring-[#C99A3D]/45 bg-white/80";
+export const inputCls = "w-full border border-[#5B0D18]/25 rounded-md px-3 py-3 text-base focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/45 bg-white/80";
 
 export default function CustomOrder() {
   const shop = useSettings();
   useDocumentMeta(
-    `Custom Gold Order – ${shop.shop_name || "Jai Supa Deurali Sun-Chandi Pasal"}`,
+    `Custom Gold Order – ${PUBLIC_BRAND_NAME}`,
     "Request a custom gold or silver ornament made to your design — share your requirement and we'll get in touch."
   );
   const [form, setForm] = useState({ name: "", phone: "", item_type: "", metal: "gold", approx_weight: "", budget: "", deadline: "", notes: "" });
@@ -58,7 +59,7 @@ export default function CustomOrder() {
         <Field label="Deadline"><input type="date" className={inputCls} value={form.deadline} onChange={set("deadline")} data-testid="co-deadline" /></Field>
         <Field label="Notes / Design details"><textarea rows={3} className={inputCls} value={form.notes} onChange={set("notes")} data-testid="co-notes" /></Field>
         <button type="submit" data-testid="co-submit"
-          className="focus-brand w-full bg-[#171310] text-white py-4 rounded-md min-h-[52px] text-base font-semibold hover:bg-[#2B211A] transition-colors duration-300">
+          className="focus-brand w-full bg-[#5B0D18] text-white py-4 rounded-md min-h-[52px] text-base font-semibold hover:bg-[#2B1B17] transition-colors duration-300">
           Send Request
         </button>
       </form>

@@ -36,7 +36,7 @@ export function PageHeader({ eyebrow, title, highlight, children, className = ""
 }
 
 export function PrimaryLink({ to, href, children, className = "", external = false, icon = true, ...props }) {
-  const cls = `focus-brand shine-hover inline-flex min-h-[48px] items-center justify-center gap-2 rounded-md bg-[#171310] px-5 py-3 text-sm font-semibold text-white shadow-[0_18px_34px_rgba(23,19,16,.16)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#2B211A] ${className}`;
+  const cls = `focus-brand shine-hover inline-flex min-h-[48px] items-center justify-center gap-2 rounded-md border border-[#D4AF37]/35 bg-[#5B0D18] px-5 py-3 text-sm font-semibold text-[#FFFDF7] shadow-[0_18px_34px_rgba(91,13,24,.18)] transition-all duration-300 hover:-translate-y-0.5 hover:border-[#D4AF37] hover:bg-[#2B1B17] ${className}`;
   const content = <>{children}{icon && <ArrowRight size={17} aria-hidden="true" />}</>;
   if (href) {
     return <a href={href} target={external ? "_blank" : undefined} rel={external ? "noreferrer" : undefined} className={cls} {...props}>{content}</a>;
@@ -45,7 +45,7 @@ export function PrimaryLink({ to, href, children, className = "", external = fal
 }
 
 export function SecondaryLink({ to, href, children, className = "", external = false, ...props }) {
-  const cls = `focus-brand inline-flex min-h-[48px] items-center justify-center gap-2 rounded-md border border-[#9F7225]/35 bg-white/55 px-5 py-3 text-sm font-semibold text-[#171310] backdrop-blur transition-all duration-300 hover:-translate-y-0.5 hover:border-[#C99A3D] hover:bg-[#FFFDF7] ${className}`;
+  const cls = `focus-brand inline-flex min-h-[48px] items-center justify-center gap-2 rounded-md border border-[#5B0D18]/35 bg-[#FFFDF7]/65 px-5 py-3 text-sm font-semibold text-[#5B0D18] backdrop-blur transition-all duration-300 hover:-translate-y-0.5 hover:border-[#D4AF37] hover:bg-[#FFFDF7] ${className}`;
   if (href) {
     return <a href={href} target={external ? "_blank" : undefined} rel={external ? "noreferrer" : undefined} className={cls} {...props}>{children}</a>;
   }
@@ -55,8 +55,8 @@ export function SecondaryLink({ to, href, children, className = "", external = f
 export function EmptyState({ title, children, action }) {
   return (
     <div className="brand-card rounded-md px-6 py-10 text-center">
-      <div className="mx-auto mb-5 h-12 w-12 rounded-full border border-[#C99A3D]/35 bg-[#F8F4EC] shadow-inner" />
-      <p className="font-serif-display text-2xl font-semibold text-[#171310]">{title}</p>
+      <div className="mx-auto mb-5 h-12 w-12 rounded-full border border-[#D4AF37]/40 bg-[#F7F1E6] shadow-inner" />
+      <p className="font-serif-display text-2xl font-semibold text-[#2B1B17]">{title}</p>
       {children && <p className="mx-auto mt-3 max-w-lg text-sm leading-relaxed text-[#6B5E55]">{children}</p>}
       {action && <div className="mt-6">{action}</div>}
     </div>

@@ -1,12 +1,13 @@
 import { useSettings } from "@/context/SettingsContext";
 import { useDocumentMeta } from "@/lib/useDocumentMeta";
+import { OFFICIAL_SHOP_NAME, PUBLIC_BRAND_NAME } from "@/lib/brand";
 
 export default function Terms() {
   const shop = useSettings();
-  const shopName = shop.shop_name || "Jai Supa Deurali Sun-Chandi Pasal";
+  const shopName = shop.shop_name || OFFICIAL_SHOP_NAME;
 
   useDocumentMeta(
-    `Terms of Service - ${shopName}`,
+    `Terms of Service - ${PUBLIC_BRAND_NAME}`,
     "Simple shop terms for gold and silver orders, custom jewellery deposits, old gold exchange, repairs, and pickup."
   );
 

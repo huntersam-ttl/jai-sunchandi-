@@ -5,11 +5,12 @@ import { uploadImage } from "@/lib/storage";
 import { useSettings } from "@/context/SettingsContext";
 import { useDocumentMeta } from "@/lib/useDocumentMeta";
 import { Field, inputCls } from "./CustomOrder";
+import { PUBLIC_BRAND_NAME } from "@/lib/brand";
 
 export default function Repair() {
   const shop = useSettings();
   useDocumentMeta(
-    `Jewellery Repair – ${shop.shop_name || "Jai Supa Deurali Sun-Chandi Pasal"}`,
+    `Jewellery Repair – ${PUBLIC_BRAND_NAME}`,
     "Request a jewellery repair — resizing, broken clasps, polishing, and more — from our experienced karigars."
   );
   const [form, setForm] = useState({ name: "", phone: "", service_type: "repair", notes: "" });
@@ -74,7 +75,7 @@ export default function Repair() {
           {photoPreview && <img src={photoPreview} alt="upload preview" className="mt-2 h-24 rounded border" />}
         </Field>
         <button type="submit" disabled={submitting} data-testid="rp-submit"
-          className="focus-brand w-full bg-[#171310] text-white py-4 rounded-md min-h-[52px] text-base font-semibold hover:bg-[#2B211A] transition-colors duration-300 disabled:opacity-60">
+          className="focus-brand w-full bg-[#5B0D18] text-white py-4 rounded-md min-h-[52px] text-base font-semibold hover:bg-[#2B1B17] transition-colors duration-300 disabled:opacity-60">
           {submitting ? "Sending…" : "Send Request"}
         </button>
       </form>

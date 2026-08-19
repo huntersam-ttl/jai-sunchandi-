@@ -6,12 +6,13 @@ import { STATUS_COLORS } from "@/lib/format";
 import { inputCls } from "./CustomOrder";
 import { useSettings, waLinkFromSettings } from "@/context/SettingsContext";
 import { useDocumentMeta } from "@/lib/useDocumentMeta";
+import { PUBLIC_BRAND_NAME } from "@/lib/brand";
 
 export default function OrderStatus() {
   const shop = useSettings();
   const [params] = useSearchParams();
   useDocumentMeta(
-    `Check Order Status – ${shop.shop_name || "Jai Supa Deurali Sun-Chandi Pasal"}`,
+    `Check Order Status – ${PUBLIC_BRAND_NAME}`,
     "Check the status of your gold or silver order using your order number and phone number."
   );
   // A shop-shared receipt/WhatsApp link can prefill the order number (not
@@ -55,33 +56,34 @@ export default function OrderStatus() {
     <div className="min-h-[calc(100vh-4rem-14rem)] flex items-start justify-center px-4 sm:px-6 py-12 sm:py-16">
       <div className="max-w-xl w-full">
         <div className="text-center sm:text-left">
-          <h1 className="font-serif-display text-4xl font-bold tracking-tighter">Check Order Status</h1>
-          <p className="text-slate-600 mt-2 text-sm">
+          <p className="brand-eyebrow">Customer receipt help</p>
+          <h1 className="font-serif-display text-4xl sm:text-5xl font-bold tracking-tight ornament-line mt-3">Check Order Status</h1>
+          <p className="text-[#5F5147] mt-5 text-sm leading-relaxed">
             Enter your order number and the phone number you gave at the shop.
           </p>
         </div>
-        <form onSubmit={check} className="mt-6 space-y-3 bg-white border border-slate-200 rounded-md p-5 sm:p-6">
+        <form onSubmit={check} className="brand-card mt-6 space-y-3 rounded-md p-5 sm:p-6">
           <input className={inputCls} placeholder="Order number e.g. ORD-0001"
             value={form.order_number} onChange={set("order_number")} data-testid="status-order-input" />
           <div className="flex flex-col sm:flex-row gap-3">
             <input className={inputCls} placeholder="98XXXXXXXX"
               value={form.phone} onChange={set("phone")} data-testid="status-phone-input" />
             <button type="submit" data-testid="status-check-btn"
-              className="bg-[#0F172A] text-white px-6 rounded-md min-h-[48px] hover:bg-slate-800 transition-colors whitespace-nowrap flex items-center justify-center gap-2">
+              className="focus-brand bg-[#5B0D18] text-white px-6 rounded-md min-h-[48px] hover:bg-[#2B1B17] transition-colors whitespace-nowrap flex items-center justify-center gap-2">
               <Search size={16} /> {loading ? "Checking…" : "Check"}
             </button>
           </div>
         </form>
 
         {error && (
-          <div className="mt-6 bg-white border border-slate-200 rounded-md p-4 text-sm text-slate-500" data-testid="status-error">
+          <div className="mt-6 brand-card rounded-md p-4 text-sm text-[#5F5147]" data-testid="status-error">
             {error}
           </div>
         )}
 
         {order && (
           <div className="mt-6" data-testid="status-results">
-            <div className="bg-white border border-slate-200 rounded-md p-4 sm:p-5" data-testid={`status-order-${order.order_number}`}>
+            <div className="brand-card rounded-md p-4 sm:p-5" data-testid={`status-order-${order.order_number}`}>
               <div className="flex justify-between items-center">
                 <p className="font-semibold">{order.order_number}</p>
                 <span className={`text-xs px-2 py-0.5 rounded-full capitalize ${STATUS_COLORS[order.status] || ""}`}>
@@ -101,7 +103,7 @@ export default function OrderStatus() {
         )}
 
         {!searched && (
-          <div className="mt-6 bg-slate-50 border border-dashed border-slate-200 rounded-md p-5 text-sm text-slate-500 space-y-2" data-testid="status-help">
+          <div className="mt-6 border border-dashed border-[#D4AF37]/35 bg-[#FFFDF7]/70 rounded-md p-5 text-sm text-[#5F5147] space-y-2" data-testid="status-help">
             <p className="font-medium text-slate-600">Not sure of your order number?</p>
             <p>It's printed on the receipt we gave you at the shop — it looks like <span className="font-mono">ORD-0001</span>.</p>
             {shop.whatsapp && (

@@ -6,6 +6,7 @@ import { OptimizedImage } from "@/components/OptimizedImage";
 import { PrimaryLink, Reveal, SecondaryLink } from "@/components/PublicPolish";
 import { useSettings, waLinkFromSettings } from "@/context/SettingsContext";
 import { useDocumentMeta } from "@/lib/useDocumentMeta";
+import { BRAND_POSITIONING, OFFICIAL_SHOP_NAME, PUBLIC_BRAND_NAME } from "@/lib/brand";
 import {
   MessageCircle, ShieldCheck, Scale, HandCoins, Sparkles,
   Wrench, Gem, Phone, MapPin, Clock, Navigation, CalendarDays, UsersRound,
@@ -83,8 +84,8 @@ export default function Home() {
   const [collections, setCollections] = useState([]);
   const [products, setProducts] = useState([]);
   useDocumentMeta(
-    `${shop.shop_name || "Jai Supa Deurali Sun-Chandi Pasal"} – Gold & Silver Jewellery Shop in Nepal | Custom Orders, Repair & Old Gold Exchange`,
-    "Jai Supa Deurali Sun-Chandi Pasal offers gold jewellery Nepal, silver ornaments, buy gold guidance, custom orders, fair jarti/jyala and WhatsApp help."
+    `${PUBLIC_BRAND_NAME} – Gold & Silver Jewellery Shop in Nepal | Custom Orders, Repair & Old Gold Exchange`,
+    "Jai Supa Deurali Jewellers offers gold jewellery Nepal, silver ornaments, buy gold guidance, custom orders, fair jarti/jyala and WhatsApp help."
   );
   useEffect(() => {
     api.get("/rates/today").then((r) => setRate(r.data)).catch(() => {});
@@ -94,15 +95,16 @@ export default function Home() {
   return (
     <div>
       <section className="relative overflow-hidden">
-        <div className="ambient-glow pointer-events-none absolute -right-20 top-10 h-72 w-72 rounded-full bg-[#C99A3D]/20 blur-3xl" />
-        <div className="pointer-events-none absolute left-4 top-28 hidden h-px w-24 bg-gradient-to-r from-transparent via-[#C99A3D] to-transparent lg:block" />
+        <div className="ambient-glow pointer-events-none absolute -right-20 top-10 h-72 w-72 rounded-full bg-[#D4AF37]/20 blur-3xl" />
+        <div className="pointer-events-none absolute left-4 top-28 hidden h-px w-24 bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent lg:block" />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-14 lg:py-24 grid lg:grid-cols-12 gap-10 items-center">
           <div className="lg:col-span-7 fade-up">
-            <p className="brand-eyebrow mb-4">Jai Supa Deurali Jewellery</p>
+            <p className="brand-eyebrow mb-4">{PUBLIC_BRAND_NAME}</p>
+            <p className="mb-3 text-sm font-semibold text-[#5F5147]">{BRAND_POSITIONING}</p>
             <h1 className="font-serif-display text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight leading-[0.96]">
               Jewellery made with <span className="gold-gradient-text">trust.</span>
             </h1>
-            <p className="font-devanagari mt-4 text-2xl text-[#8F1D18]">{shop.shop_name_np}</p>
+            <p className="font-devanagari mt-4 text-2xl text-[#5B0D18]">{shop.shop_name_np}</p>
             <p className="mt-5 max-w-xl text-base leading-relaxed text-[#5F5147]">
               A family-run Nepali sun-chandi pasal for gold and silver jewellery, careful repairs, old gold exchange, and custom work explained clearly at the counter.
             </p>
@@ -115,8 +117,8 @@ export default function Home() {
               )}
             </div>
             <div className="mt-8 grid max-w-2xl grid-cols-3 gap-3 text-xs text-[#6B5E55] sm:text-sm">
-              {["Transparent weight", "Daily rates", "Shop-counter pricing"].map((item) => (
-                <div key={item} className="rounded-md border border-[#9F7225]/20 bg-white/55 px-3 py-2 text-center shadow-sm">{item}</div>
+              {["Transparent weight", "24K gold & silver rates", "Shop-counter pricing"].map((item) => (
+                <div key={item} className="rounded-md border border-[#D4AF37]/25 bg-white/55 px-3 py-2 text-center shadow-sm">{item}</div>
               ))}
             </div>
           </div>
@@ -166,7 +168,7 @@ export default function Home() {
           )}
         </div>
         <div className="text-right mt-2">
-          <Link to="/rates" className="text-sm text-[#991B1B] hover:text-[#D4AF37]">View 30-day rate history →</Link>
+          <Link to="/rates" className="text-sm font-semibold text-[#5B0D18] hover:text-[#D4AF37]">View 30-day rate history →</Link>
         </div>
       </section>
 
@@ -196,7 +198,7 @@ export default function Home() {
           <h2 className="font-serif-display text-3xl sm:text-4xl font-bold tracking-tight ornament-line mt-2">Our Story</h2>
           <div className="mt-4 space-y-4 text-slate-700 text-sm sm:text-base leading-relaxed">
             <p>
-              {shop.shop_name} is a family-run sun-chandi pasal built on decades of trust. The shop grew from
+              {PUBLIC_BRAND_NAME} is the public face of {OFFICIAL_SHOP_NAME}, a family-run sun-chandi pasal built on decades of trust. The shop grew from
               a small counter into a place families return to for weddings, Dashain-Tihar, birthdays, old gold
               exchange, repairs, and everyday ornaments.
             </p>
@@ -248,11 +250,11 @@ export default function Home() {
             {collections.map((c) => (
               <Link key={c.id} to={`/catalogue?collection=${encodeURIComponent(c.name)}`}
                 data-testid={`collection-card-${c.name.toLowerCase().replace(/[^a-z]+/g, "-")}`}
-                className="group brand-card rounded-md p-6 flex flex-col hover:-translate-y-1 hover:border-[#C99A3D] hover:shadow-md transition-all duration-300">
+                className="group brand-card rounded-md p-6 flex flex-col hover:-translate-y-1 hover:border-[#D4AF37] hover:shadow-md transition-all duration-300">
                 <Gem className="text-[#D4AF37]" strokeWidth={1.5} />
                 <p className="font-serif-display text-lg mt-3">{c.name}</p>
                 <p className="text-sm text-slate-500 mt-1 flex-1">{collectionDescription(c.name)}</p>
-                <p className="text-xs font-medium text-[#991B1B] mt-4 group-hover:text-[#D4AF37]">Explore catalogue →</p>
+                <p className="text-xs font-medium text-[#5B0D18] mt-4 group-hover:text-[#D4AF37]">Explore catalogue →</p>
               </Link>
             ))}
           </div>
@@ -263,7 +265,7 @@ export default function Home() {
         <section className="max-w-7xl mx-auto px-4 sm:px-6 mt-16">
           <div className="flex items-end justify-between">
             <h2 className="font-serif-display text-2xl sm:text-3xl font-bold tracking-tight">New Arrivals</h2>
-            <Link to="/catalogue" className="text-sm text-[#991B1B]">View all →</Link>
+            <Link to="/catalogue" className="text-sm font-semibold text-[#5B0D18]">View all →</Link>
           </div>
           <div className="mt-6 grid grid-cols-2 lg:grid-cols-4 gap-4">
             {products.map((p) => (
@@ -292,7 +294,7 @@ export default function Home() {
         <p className="brand-eyebrow">Traditional trust, modern service</p>
         <h2 className="font-serif-display text-3xl sm:text-4xl font-bold tracking-tight ornament-line mt-2">Gold & Silver Jewellery Shop for Families in Nepal</h2>
         <p className="mt-4 text-sm sm:text-base text-slate-700 leading-relaxed max-w-3xl">
-          {shop.shop_name} helps families buy, repair, exchange, and customise gold and silver jewellery with
+          {PUBLIC_BRAND_NAME} helps families buy, repair, exchange, and customise gold and silver jewellery with
           honest weight, clear jarti/jyala, and direct shop-counter pricing. Whether you are in Nepal or abroad,
           you can contact our shop on WhatsApp to ask about jewellery designs, custom orders, old gold exchange,
           and today's gold/silver rate.
@@ -303,7 +305,7 @@ export default function Home() {
               <c.icon className="text-[#D4AF37]" strokeWidth={1.5} size={26} />
               <p className="font-semibold mt-3">{c.t}</p>
               <p className="text-sm text-slate-600 mt-1 leading-relaxed flex-1">{c.d}</p>
-              <Link to={c.to} className="text-xs font-medium text-[#991B1B] hover:text-[#D4AF37] mt-4">{c.linkLabel}</Link>
+              <Link to={c.to} className="text-xs font-medium text-[#5B0D18] hover:text-[#D4AF37] mt-4">{c.linkLabel}</Link>
             </div>
           ))}
         </div>
@@ -311,11 +313,11 @@ export default function Home() {
           Final price is confirmed only after shop checking, weight, purity, jarti, jyala, and today's rate.
         </p>
         <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm">
-          <Link to="/catalogue" className="text-[#991B1B] hover:text-[#D4AF37] font-medium">Browse Catalogue →</Link>
-          <Link to="/custom-order" className="text-[#991B1B] hover:text-[#D4AF37] font-medium">Custom Order →</Link>
-          <Link to="/repair" className="text-[#991B1B] hover:text-[#D4AF37] font-medium">Repair →</Link>
-          <Link to="/rates" className="text-[#991B1B] hover:text-[#D4AF37] font-medium">Gold & Silver Rates →</Link>
-          <Link to="/contact" className="text-[#991B1B] hover:text-[#D4AF37] font-medium">Contact →</Link>
+          <Link to="/catalogue" className="text-[#5B0D18] hover:text-[#D4AF37] font-medium">Browse Catalogue →</Link>
+          <Link to="/custom-order" className="text-[#5B0D18] hover:text-[#D4AF37] font-medium">Custom Order →</Link>
+          <Link to="/repair" className="text-[#5B0D18] hover:text-[#D4AF37] font-medium">Repair →</Link>
+          <Link to="/rates" className="text-[#5B0D18] hover:text-[#D4AF37] font-medium">Gold & Silver Rates →</Link>
+          <Link to="/contact" className="text-[#5B0D18] hover:text-[#D4AF37] font-medium">Contact →</Link>
         </div>
         {shop.maps_link && (
           <div className="mt-5">
@@ -331,7 +333,7 @@ export default function Home() {
           <div className="p-6 sm:p-8 lg:p-10">
             <p className="text-[#E8C774] text-sm tracking-widest uppercase font-bold">Visit Our Shop</p>
             <h2 className="font-serif-display text-2xl sm:text-3xl font-bold tracking-tight mt-2">
-              {shop.shop_name || "Jai Supa Deurali Sun-Chandi Pasal"}
+              {PUBLIC_BRAND_NAME}
             </h2>
             {shop.shop_name_np && <p className="text-slate-300 mt-1">{shop.shop_name_np}</p>}
 
@@ -382,7 +384,7 @@ export default function Home() {
               )}
               {contactPhoneLink && (
                 <a href={contactPhoneLink}
-                  className="inline-flex items-center gap-2 bg-white text-[#0F172A] px-5 py-3 rounded-md min-h-[46px] font-medium hover:bg-slate-100 transition-colors"
+                  className="inline-flex items-center gap-2 bg-white text-[#5B0D18] px-5 py-3 rounded-md min-h-[46px] font-medium hover:bg-slate-100 transition-colors"
                   data-testid="home-call-shop-btn">
                   <Phone size={18} /> Call Shop
                 </a>
@@ -406,7 +408,7 @@ export default function Home() {
           <div className="min-h-[280px] bg-slate-900">
             {contactMapSrc ? (
               <iframe
-                title={`${shop.shop_name || "Jai Supa Deurali Sun-Chandi Pasal"} map`}
+                title={`${PUBLIC_BRAND_NAME} map`}
                 src={contactMapSrc}
                 className="w-full h-full min-h-[280px] border-0"
                 loading="lazy"

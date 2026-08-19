@@ -8,6 +8,7 @@ import { EmptyState, PrimaryLink, SecondaryLink } from "@/components/PublicPolis
 import { useSettings, waLinkFromSettings } from "@/context/SettingsContext";
 import { MessageCircle, MapPin, ShieldCheck } from "lucide-react";
 import { useDocumentMeta } from "@/lib/useDocumentMeta";
+import { PUBLIC_BRAND_NAME } from "@/lib/brand";
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -22,8 +23,8 @@ export default function ProductDetail() {
   }, [id]);
 
   useDocumentMeta(
-    p ? `${p.name} (${p.product_code}) – ${shop.shop_name}` : `Product – ${shop.shop_name || "Jai Supa Deurali Sun-Chandi Pasal"}`,
-    p ? `${p.name} ${p.metal || ""} ${p.purity || ""} jewellery from ${shop.shop_name}. Enquire on WhatsApp or visit the shop for final price.` : "Gold and silver jewellery product detail."
+    p ? `${p.name} (${p.product_code}) – ${PUBLIC_BRAND_NAME}` : `Product – ${PUBLIC_BRAND_NAME}`,
+    p ? `${p.name} ${p.metal || ""} ${p.purity || ""} jewellery from ${PUBLIC_BRAND_NAME}. Enquire on WhatsApp or visit the shop for final price.` : "Gold and silver jewellery product detail."
   );
 
   if (err) return <div className="brand-shell py-20"><EmptyState title="Product not found">This design may no longer be available online. Please browse the catalogue or contact the shop.</EmptyState></div>;
@@ -39,7 +40,7 @@ export default function ProductDetail() {
         <OptimizedImage
           src={photos[photo]}
           alt={p.name}
-          className="w-full h-[360px] sm:h-[520px] object-cover rounded-md border border-[#9F7225]/20 shadow-[0_24px_70px_rgba(23,19,16,.12)]"
+          className="w-full h-[360px] sm:h-[520px] object-cover rounded-md border border-[#D4AF37]/25 shadow-[0_24px_70px_rgba(43,27,23,.12)]"
           widths={[360, 640, 900]}
           sizes="(min-width: 1024px) 50vw, 100vw"
           loading="eager"
@@ -66,8 +67,8 @@ export default function ProductDetail() {
       <div>
         <p className="brand-eyebrow" data-testid="product-code">Code: {p.product_code}</p>
         <h1 className="font-serif-display text-4xl sm:text-6xl font-bold tracking-tight mt-2 ornament-line" data-testid="product-name">{p.name}</h1>
-        {p.name_np && <p className="font-devanagari text-[#8F1D18] mt-3">{p.name_np}</p>}
-        <p className="mt-6 text-3xl font-bold text-[#8F1D18]" data-testid="product-price">
+        {p.name_np && <p className="font-devanagari text-[#5B0D18] mt-3">{p.name_np}</p>}
+        <p className="mt-6 text-3xl font-bold text-[#5B0D18]" data-testid="product-price">
           {p.estimated_price ? `${rs(p.estimated_price)}*` : "Inquire for today's price"}
         </p>
         {p.estimated_price && <p className="text-xs text-[#6B5E55]">* Estimate from the published rate. Final price is confirmed at the shop.</p>}
@@ -89,8 +90,8 @@ export default function ProductDetail() {
           )}
           <SecondaryLink to="/contact"><MapPin size={18} /> Visit the shop</SecondaryLink>
         </div>
-        <div className="mt-6 flex items-start gap-3 rounded-md border border-[#9F7225]/20 bg-white/60 p-4 text-sm text-[#5F5147]">
-          <ShieldCheck className="mt-0.5 shrink-0 text-[#C99A3D]" size={20} strokeWidth={1.5} />
+        <div className="mt-6 flex items-start gap-3 rounded-md border border-[#D4AF37]/25 bg-white/60 p-4 text-sm text-[#5F5147]">
+          <ShieldCheck className="mt-0.5 shrink-0 text-[#D4AF37]" size={20} strokeWidth={1.5} />
           <p>Weight, purity, jarti, jyala and final price are checked and confirmed at the shop counter.</p>
         </div>
         <div className="mt-8 brand-card rounded-md p-4 inline-flex items-center gap-4">
@@ -109,6 +110,6 @@ export default function ProductDetail() {
 const Info = ({ label, value, cap }) => (
   <div className="brand-card rounded-md p-3">
     <p className="text-xs text-[#86786D]">{label}</p>
-    <p className={`font-semibold text-[#171310] ${cap ? "capitalize" : ""}`}>{value}</p>
+    <p className={`font-semibold text-[#2B1B17] ${cap ? "capitalize" : ""}`}>{value}</p>
   </div>
 );

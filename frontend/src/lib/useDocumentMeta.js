@@ -1,6 +1,7 @@
 import { useEffect } from "react";
+import { PUBLIC_BRAND_NAME } from "@/lib/brand";
 
-const DEFAULT_TITLE = "Jai Supa Deurali Sun-Chandi Pasal";
+const DEFAULT_TITLE = PUBLIC_BRAND_NAME;
 
 function setMetaTag(name, content) {
   if (!content) return;

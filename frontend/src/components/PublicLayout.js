@@ -3,6 +3,7 @@ import { MessageCircle, Menu, X, Gem, TrendingUp, PackageSearch, MapPin, Phone, 
 import { useState } from "react";
 import { useSettings, waLinkFromSettings } from "@/context/SettingsContext";
 import { useJsonLd } from "@/lib/useDocumentMeta";
+import { NEPALI_SHOP_NAME, OFFICIAL_SHOP_NAME, PUBLIC_BRAND_NAME } from "@/lib/brand";
 const links = [
   { to: "/", label: "Home" },
   { to: "/rates", label: "Rates" },
@@ -58,7 +59,8 @@ export default function PublicLayout() {
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "JewelryStore",
-    name: shop.shop_name,
+    name: PUBLIC_BRAND_NAME,
+    alternateName: [OFFICIAL_SHOP_NAME, NEPALI_SHOP_NAME],
     ...(shop.tagline && { description: shop.tagline }),
     ...(shop.phone && { telephone: shop.phone }),
     ...(shop.address && { address: { "@type": "PostalAddress", streetAddress: shop.address, addressCountry: "NP" } }),
@@ -70,8 +72,8 @@ export default function PublicLayout() {
   useJsonLd("jewelry-store-schema", shop.shop_name ? jsonLd : null);
 
   return (
-    <div className="brand-page min-h-screen text-[#171310]">
-      <header className="sticky top-0 z-40 border-b border-[#9F7225]/15 bg-[#FFFDF7]/82 shadow-[0_1px_24px_rgba(23,19,16,.06)] backdrop-blur-xl">
+    <div className="brand-page min-h-screen text-[#2B1B17]">
+      <header className="sticky top-0 z-40 border-b border-[#D4AF37]/20 bg-[#FFFDF7]/86 shadow-[0_1px_24px_rgba(43,27,23,.06)] backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between h-16">
           <Link to="/" data-testid="header-shop-name" className="focus-brand group flex items-center gap-3 leading-tight rounded-md">
             {shop.logo && (
@@ -85,35 +87,35 @@ export default function PublicLayout() {
               />
             )}
             <span className="flex flex-col">
-              <span className="font-serif-display text-xl font-bold tracking-tight transition-colors group-hover:text-[#9F7225]">{shop.shop_name}</span>
-              <span className="font-devanagari text-xs text-[#8F1D18]">{shop.shop_name_np}</span>
+              <span className="font-serif-display text-xl font-bold tracking-tight transition-colors group-hover:text-[#5B0D18]">{PUBLIC_BRAND_NAME}</span>
+              <span className="font-devanagari text-xs text-[#5B0D18]">{shop.shop_name_np}</span>
             </span>
           </Link>
           <nav className="hidden lg:flex items-center gap-6">
             {links.map((l) => (
               <NavLink key={l.to} to={l.to} data-testid={`nav-${l.label.toLowerCase().replace(/[^a-z]+/g, "-")}`}
-                className={({ isActive }) => `focus-brand rounded-sm text-sm font-semibold transition-colors duration-300 hover:text-[#9F7225] ${isActive ? "text-[#9F7225]" : "text-[#4E4036]"}`}>
+                className={({ isActive }) => `focus-brand rounded-sm text-sm font-semibold transition-colors duration-300 hover:text-[#5B0D18] ${isActive ? "text-[#5B0D18]" : "text-[#4E4036]"}`}>
                 {l.label}
               </NavLink>
             ))}
             {hasWhatsapp && (
               <a href={waLink(contextualMsg)} target="_blank" rel="noreferrer"
                 data-testid="header-whatsapp-btn"
-                className="focus-brand inline-flex items-center gap-2 rounded-md bg-[#171310] px-4 py-2 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(23,19,16,.16)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#25D366]">
+                className="focus-brand inline-flex items-center gap-2 rounded-md border border-[#D4AF37]/30 bg-[#5B0D18] px-4 py-2 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(91,13,24,.18)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#25D366]">
                 <MessageCircle size={16} /> WhatsApp
               </a>
             )}
           </nav>
-          <button className="focus-brand lg:hidden rounded-full border border-[#9F7225]/20 bg-white/70 p-2" data-testid="mobile-menu-btn" onClick={() => setOpen(!open)} aria-expanded={open} aria-label="Open navigation">
+          <button className="focus-brand lg:hidden rounded-full border border-[#D4AF37]/30 bg-white/70 p-2" data-testid="mobile-menu-btn" onClick={() => setOpen(!open)} aria-expanded={open} aria-label="Open navigation">
             {open ? <X /> : <Menu />}
           </button>
         </div>
         {open && (
-          <nav className="lg:hidden border-t border-[#9F7225]/15 bg-[#FFFDF7] px-6 py-5 shadow-xl">
+          <nav className="lg:hidden border-t border-[#D4AF37]/20 bg-[#FFFDF7] px-6 py-5 shadow-xl">
             <div className="grid gap-2">
             {links.map((l) => (
               <NavLink key={l.to} to={l.to} onClick={() => setOpen(false)}
-                className={({ isActive }) => `focus-brand rounded-md px-3 py-2 text-base font-semibold ${isActive ? "bg-[#F8F4EC] text-[#9F7225]" : "text-[#332923]"}`}>{l.label}</NavLink>
+                className={({ isActive }) => `focus-brand rounded-md px-3 py-2 text-base font-semibold ${isActive ? "bg-[#F7F1E6] text-[#5B0D18]" : "text-[#3A2721]"}`}>{l.label}</NavLink>
             ))}
             </div>
           </nav>
@@ -123,7 +125,7 @@ export default function PublicLayout() {
         <div className="lg:hidden flex items-stretch gap-2 px-3 pb-2 overflow-x-auto">
           {mobileQuickActions.map((a) => (
             <Link key={a.to} to={a.to} data-testid={`mobile-quick-${a.label.toLowerCase().replace(/[^a-z]+/g, "-")}`}
-              className="focus-brand flex items-center gap-1.5 whitespace-nowrap rounded-full border border-[#9F7225]/15 bg-white/70 px-3 py-2 text-xs font-semibold text-[#4E4036] transition-colors hover:bg-[#F8F4EC]">
+              className="focus-brand flex items-center gap-1.5 whitespace-nowrap rounded-full border border-[#D4AF37]/20 bg-white/70 px-3 py-2 text-xs font-semibold text-[#4E4036] transition-colors hover:bg-[#F7F1E6]">
               <a.icon size={14} /> {a.label}
             </Link>
           ))}
@@ -159,8 +161,9 @@ export default function PublicLayout() {
                 decoding="async"
               />
             )}
-            <p className="font-serif-display text-2xl text-white">{shop.shop_name}</p>
-            <p className="font-devanagari text-[#E8C774] text-sm mt-1">{shop.shop_name_np}</p>
+            <p className="font-serif-display text-2xl text-white">{PUBLIC_BRAND_NAME}</p>
+            <p className="mt-1 text-sm text-[#E8DFD2]">{OFFICIAL_SHOP_NAME}</p>
+            <p className="font-devanagari text-[#F1D77A] text-sm mt-1">{shop.shop_name_np}</p>
             {shop.tagline && <p className="text-sm mt-3 text-[#E8DFD2] leading-relaxed">{shop.tagline}</p>}
             <p className="mt-5 inline-flex items-center gap-2 rounded-full border border-[#E8C774]/25 px-3 py-1.5 text-xs text-[#E8DFD2]">
               <ShieldCheck size={14} /> Family-run jewellery shop

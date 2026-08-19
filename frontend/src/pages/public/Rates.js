@@ -6,6 +6,7 @@ import { useDocumentMeta } from "@/lib/useDocumentMeta";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { MessageCircle, Phone } from "lucide-react";
 import { EmptyState, PrimaryLink } from "@/components/PublicPolish";
+import { PUBLIC_BRAND_NAME } from "@/lib/brand";
 
 function rateStatus(rate) {
   if (!rate?.date_ad) return { title: "Gold & Silver Rates", label: "Rate from the shop counter" };
@@ -21,8 +22,8 @@ export default function Rates() {
   const [rate, setRate] = useState(null);
   const [history, setHistory] = useState([]);
   useDocumentMeta(
-    `Gold & Silver Rates – ${shop.shop_name || "Jai Supa Deurali Sun-Chandi Pasal"}`,
-    "24K gold and silver rate per tola from Jai Supa Deurali Sun-Chandi Pasal, with published date and 30-day history."
+    `Gold & Silver Rates – ${PUBLIC_BRAND_NAME}`,
+    "24K gold and silver rate per tola from Jai Supa Deurali Jewellers, with published date and 30-day history."
   );
 
   useEffect(() => {
@@ -45,8 +46,8 @@ export default function Rates() {
             ["Silver", rate.silver, rate.silver_np, "silver"]].map(([label, v, np, key]) => (
             <div key={label} data-testid={`rate-card-${key}`} className="brand-card rounded-md p-6">
               <p className="text-sm font-semibold text-[#6B5E55]">{label} / tola</p>
-              <p className="text-3xl font-bold mt-2 text-[#171310]">{rs(v)}</p>
-              <p className="text-[#8F1D18]">रु. {np}</p>
+              <p className="text-3xl font-bold mt-2 text-[#2B1B17]">{rs(v)}</p>
+              <p className="text-[#5B0D18]">रु. {np}</p>
             </div>
           ))}
           <p className="sm:col-span-2 text-xs text-[#6B5E55]">{status.label} (AD) · {rate.bs_date_np} (BS)</p>
@@ -84,7 +85,7 @@ export default function Rates() {
                 <YAxis tick={{ fontSize: 11 }} domain={["auto", "auto"]} />
                 <Tooltip />
                 <Legend />
-                <Line type="monotone" dataKey="gold_24k" name="24K Gold" stroke="#C99A3D" strokeWidth={3} dot={false} />
+                <Line type="monotone" dataKey="gold_24k" name="24K Gold" stroke="#D4AF37" strokeWidth={3} dot={false} />
                 <Line type="monotone" dataKey="silver" name="Silver" stroke="#6B7280" strokeWidth={2} dot={false} />
               </LineChart>
             </ResponsiveContainer>

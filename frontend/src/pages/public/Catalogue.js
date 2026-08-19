@@ -7,11 +7,12 @@ import { EmptyState, ProductSkeletonGrid } from "@/components/PublicPolish";
 import { useSettings } from "@/context/SettingsContext";
 import { useDocumentMeta } from "@/lib/useDocumentMeta";
 import { MessageCircle } from "lucide-react";
+import { PUBLIC_BRAND_NAME } from "@/lib/brand";
 
 export default function Catalogue() {
   const shop = useSettings();
   useDocumentMeta(
-    `Catalogue – ${shop.shop_name || "Jai Supa Deurali Sun-Chandi Pasal"}`,
+    `Catalogue – ${PUBLIC_BRAND_NAME}`,
     "Browse our gold and silver jewellery catalogue — bridal sets, daily wear, festival jewellery, and more."
   );
   const [params, setParams] = useSearchParams();
@@ -80,7 +81,7 @@ export default function Catalogue() {
         <div className="mt-8" data-testid="catalogue-empty">
           <EmptyState
             title="Products coming soon"
-            action={<a href="/contact" className="text-sm font-semibold text-[#8F1D18] hover:text-[#C99A3D]">Visit the shop or WhatsApp us for available designs</a>}
+            action={<a href="/contact" className="text-sm font-semibold text-[#5B0D18] hover:text-[#D4AF37]">Visit the shop or WhatsApp us for available designs</a>}
           >
             The online catalogue will show jewellery here once the shop adds product photos and details.
           </EmptyState>
@@ -89,7 +90,7 @@ export default function Catalogue() {
         <div className="mt-8 grid grid-cols-2 lg:grid-cols-4 gap-4" data-testid="catalogue-grid">
           {products.map((p, i) => (
             <Link key={p.id} to={`/product/${p.id}`} data-testid={`product-card-${p.product_code}`}
-              className="group brand-card rounded-md overflow-hidden hover:-translate-y-1 hover:border-[#C99A3D] transition-all duration-300 fade-up"
+              className="group brand-card rounded-md overflow-hidden hover:-translate-y-1 hover:border-[#D4AF37] transition-all duration-300 fade-up"
               style={{ animationDelay: `${i * 40}ms` }}>
               <OptimizedImage
                 src={primaryProductPhoto(p)}
@@ -101,9 +102,9 @@ export default function Catalogue() {
               />
               <div className="p-3">
                 <p className="font-serif-display text-lg font-semibold leading-tight truncate">{p.name}</p>
-                <p className="text-[11px] text-[#8F1D18] font-mono mt-1">{p.product_code}</p>
+                <p className="text-[11px] text-[#5B0D18] font-mono mt-1">{p.product_code}</p>
                 <p className="text-xs text-[#6B5E55] mt-1 capitalize">{p.metal} · {p.purity} · {p.weight_tola} tola</p>
-                <p className="text-sm mt-2 font-bold text-[#8F1D18]">
+                <p className="text-sm mt-2 font-bold text-[#5B0D18]">
                   {p.estimated_price ? `${rs(p.estimated_price)}*` : "Inquire for today's price"}
                 </p>
                 <span className={`inline-block mt-3 text-[11px] px-2 py-0.5 rounded-full ${p.status === "available" ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}>

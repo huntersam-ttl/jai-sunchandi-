@@ -1,12 +1,13 @@
 import { useSettings } from "@/context/SettingsContext";
 import { useDocumentMeta } from "@/lib/useDocumentMeta";
+import { OFFICIAL_SHOP_NAME, PUBLIC_BRAND_NAME } from "@/lib/brand";
 
 export default function PrivacyPolicy() {
   const shop = useSettings();
-  const shopName = shop.shop_name || "Jai Supa Deurali Sun-Chandi Pasal";
+  const shopName = shop.shop_name || OFFICIAL_SHOP_NAME;
 
   useDocumentMeta(
-    `Privacy Policy - ${shopName}`,
+    `Privacy Policy - ${PUBLIC_BRAND_NAME}`,
     "Simple privacy policy for jewellery enquiries, WhatsApp messages, custom orders, repairs, and customer contact details."
   );
 
