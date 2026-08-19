@@ -1,45 +1,59 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Outfit:wght@300..800&family=Manrope:wght@300..800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&family=Noto+Serif+Devanagari:wght@500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-    --cream: #FDFCF8;
-    --navy: #0F172A;
-    --gold: #D4AF37;
-    --red: #991B1B;
-    --background: 44 33% 98%;
-    --foreground: 222 47% 11%;
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --brand-ink: #171310;
+    --brand-ink-soft: #332923;
+    --brand-cream: #F8F4EC;
+    --brand-ivory: #FFFDF7;
+    --brand-stone: #E8DFD2;
+    --brand-gold: #C99A3D;
+    --brand-gold-dark: #9F7225;
+    --brand-gold-light: #E8C774;
+    --brand-red: #8F1D18;
+    --brand-success: #1F7A4D;
+    --cream: var(--brand-cream);
+    --navy: var(--brand-ink);
+    --gold: var(--brand-gold);
+    --red: var(--brand-red);
+    --background: 38 46% 95%;
+    --foreground: 28 18% 8%;
+    --card: 42 55% 98%;
+    --card-foreground: 28 18% 8%;
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
-    --primary: 222 47% 11%;
+    --primary: 28 18% 8%;
     --primary-foreground: 44 33% 98%;
     --secondary: 44 30% 94%;
     --secondary-foreground: 222 47% 11%;
     --muted: 44 20% 94%;
     --muted-foreground: 215 16% 40%;
-    --accent: 46 65% 52%;
-    --accent-foreground: 222 47% 11%;
+    --accent: 39 55% 51%;
+    --accent-foreground: 28 18% 8%;
     --destructive: 0 72% 35%;
     --destructive-foreground: 0 0% 98%;
     --border: 214 32% 91%;
     --input: 214 32% 91%;
-    --ring: 46 65% 52%;
+    --ring: 39 55% 51%;
     --radius: 0.375rem;
 }
 
 body {
     margin: 0;
-    font-family: 'Outfit', sans-serif;
-    background-color: var(--cream);
-    color: var(--navy);
+    font-family: 'Manrope', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background:
+        radial-gradient(circle at 18% 0%, rgba(201, 154, 61, 0.12), transparent 28rem),
+        linear-gradient(180deg, var(--brand-ivory), var(--brand-cream) 36rem);
+    color: var(--brand-ink);
     -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
 }
 
-.font-serif-display { font-family: 'Playfair Display', serif; }
+.font-serif-display { font-family: 'Cormorant Garamond', 'Noto Serif Devanagari', serif; }
+.font-devanagari { font-family: 'Noto Serif Devanagari', 'Cormorant Garamond', serif; }
 .font-admin { font-family: 'Manrope', sans-serif; }
 
 @layer base {
@@ -47,7 +61,7 @@ body {
 }
 
 .gold-gradient-text {
-    background: linear-gradient(120deg, #B8860B, #D4AF37, #F5D67B, #D4AF37);
+    background: linear-gradient(120deg, #9F7225, #C99A3D, #E8C774, #C99A3D);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -57,6 +71,141 @@ body {
 @keyframes fadeUp {
     from { opacity: 0; transform: translateY(16px); }
     to { opacity: 1; transform: translateY(0); }
+}
+
+.brand-page {
+    position: relative;
+    overflow: hidden;
+}
+
+.brand-page::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    opacity: .34;
+    background-image:
+        linear-gradient(rgba(23, 19, 16, .035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(23, 19, 16, .025) 1px, transparent 1px);
+    background-size: 42px 42px;
+    mask-image: linear-gradient(to bottom, black, transparent 80%);
+}
+
+.brand-shell {
+    width: min(100% - 2rem, 80rem);
+    margin-inline: auto;
+}
+
+.brand-section {
+    margin-top: clamp(3.75rem, 7vw, 6.5rem);
+}
+
+.brand-eyebrow {
+    color: var(--brand-red);
+    font-size: .75rem;
+    font-weight: 800;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+}
+
+.brand-card {
+    background:
+        linear-gradient(180deg, rgba(255, 253, 247, .96), rgba(255, 250, 239, .88));
+    border: 1px solid rgba(159, 114, 37, .22);
+    box-shadow: 0 22px 60px rgba(23, 19, 16, .08);
+}
+
+.brand-dark {
+    background:
+        radial-gradient(circle at 14% 0%, rgba(201, 154, 61, .28), transparent 20rem),
+        linear-gradient(135deg, #171310, #2B211A);
+    color: #FFF9EA;
+}
+
+.ornament-line {
+    position: relative;
+}
+
+.ornament-line::after {
+    content: "";
+    display: block;
+    width: 5rem;
+    height: 1px;
+    margin-top: .85rem;
+    background: linear-gradient(90deg, transparent, var(--brand-gold), transparent);
+}
+
+.jewellery-frame {
+    position: relative;
+}
+
+.jewellery-frame::before,
+.jewellery-frame::after {
+    content: "";
+    position: absolute;
+    inset: .85rem;
+    border: 1px solid rgba(232, 199, 116, .48);
+    border-radius: .5rem;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.jewellery-frame::after {
+    inset: 1.45rem;
+    border-color: rgba(255, 253, 247, .28);
+}
+
+.shine-hover {
+    position: relative;
+    overflow: hidden;
+}
+
+.shine-hover::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    translate: -120% 0;
+    background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,.26), transparent 70%);
+    transition: translate .65s ease;
+    pointer-events: none;
+}
+
+.shine-hover:hover::after {
+    translate: 120% 0;
+}
+
+.focus-brand:focus-visible {
+    outline: 3px solid rgba(201, 154, 61, .7);
+    outline-offset: 3px;
+}
+
+.skeleton-shimmer {
+    background: linear-gradient(90deg, rgba(232, 223, 210, .55), rgba(255, 253, 247, .9), rgba(232, 223, 210, .55));
+    background-size: 220% 100%;
+    animation: shimmer 1.45s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+    from { background-position: 220% 0; }
+    to { background-position: -220% 0; }
+}
+
+@keyframes ambientGlow {
+    0%, 100% { transform: translate3d(0, 0, 0) scale(1); opacity: .72; }
+    50% { transform: translate3d(10px, -12px, 0) scale(1.05); opacity: .9; }
+}
+
+.ambient-glow {
+    animation: ambientGlow 9s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: .001ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: .001ms !important;
+    }
 }
 
 @media print {

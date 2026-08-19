@@ -5,6 +5,15 @@ import { useSettings, waLinkFromSettings } from "@/context/SettingsContext";
 import { useDocumentMeta } from "@/lib/useDocumentMeta";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { MessageCircle, Phone } from "lucide-react";
+import { EmptyState, PrimaryLink } from "@/components/PublicPolish";
+
+function rateStatus(rate) {
+  if (!rate?.date_ad) return { title: "Gold & Silver Rates", label: "Rate from the shop counter" };
+  const today = new Date().toISOString().slice(0, 10);
+  return rate.date_ad === today
+    ? { title: "Today's Gold & Silver Rates", label: `Published today · ${rate.date_ad}` }
+    : { title: "Last Published Gold & Silver Rates", label: `Last published · ${rate.date_ad}` };
+}
 
 export default function Rates() {
   const shop = useSettings();
@@ -12,8 +21,8 @@ export default function Rates() {
   const [rate, setRate] = useState(null);
   const [history, setHistory] = useState([]);
   useDocumentMeta(
-    `Today's Gold & Silver Rate – ${shop.shop_name || "Jai Supa Deurali Sun-Chandi Pasal"}`,
-    "Today's gold and silver rate per tola, updated from the shop counter, with 30-day rate history."
+    `Gold & Silver Rates – ${shop.shop_name || "Jai Supa Deurali Sun-Chandi Pasal"}`,
+    "24K gold and silver rate per tola from Jai Supa Deurali Sun-Chandi Pasal, with published date and 30-day history."
   );
 
   useEffect(() => {
@@ -21,34 +30,39 @@ export default function Rates() {
     api.get("/rates/history", { params: { days: 30 } }).then((r) => setHistory(r.data)).catch(() => {});
   }, []);
 
+  const status = rateStatus(rate);
+
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-12">
-      <h1 className="font-serif-display text-4xl sm:text-5xl font-bold tracking-tighter">Today's Rate <span className="gold-gradient-text">आजको दर</span></h1>
+    <div className="brand-shell max-w-5xl py-12 sm:py-16">
+      <p className="brand-eyebrow">Shop counter reference</p>
+      <h1 className="font-serif-display text-4xl sm:text-6xl font-bold tracking-tight ornament-line mt-3">{status.title} <span className="gold-gradient-text">आजको दर</span></h1>
+      <p className="mt-5 max-w-2xl text-sm leading-relaxed text-[#5F5147]">
+        Public shop rates focus on 24K Gold and Silver. Final jewellery price depends on weight, purity, jarti, jyala and agreed making work.
+      </p>
       {rate ? (
         <div className="mt-8 grid sm:grid-cols-2 gap-4" data-testid="rates-page-widget">
           {[["24K Gold", rate.gold_24k, rate.gold_24k_np, "gold24"],
             ["Silver", rate.silver, rate.silver_np, "silver"]].map(([label, v, np, key]) => (
-            <div key={label} data-testid={`rate-card-${key}`} className="bg-white border border-slate-200 rounded-md p-6">
-              <p className="text-sm text-slate-500">{label} / tola</p>
-              <p className="text-2xl font-bold mt-1">{rs(v)}</p>
-              <p className="text-[#991B1B]">रु. {np}</p>
+            <div key={label} data-testid={`rate-card-${key}`} className="brand-card rounded-md p-6">
+              <p className="text-sm font-semibold text-[#6B5E55]">{label} / tola</p>
+              <p className="text-3xl font-bold mt-2 text-[#171310]">{rs(v)}</p>
+              <p className="text-[#8F1D18]">रु. {np}</p>
             </div>
           ))}
-          <p className="sm:col-span-2 text-xs text-slate-500">Last updated: {rate.date_ad} (AD) · {rate.bs_date_np} (BS)</p>
+          <p className="sm:col-span-2 text-xs text-[#6B5E55]">{status.label} (AD) · {rate.bs_date_np} (BS)</p>
         </div>
       ) : (
-        <div className="mt-8 bg-white border border-slate-200 rounded-md p-6" data-testid="no-rate-msg">
-          <p className="text-slate-600 leading-relaxed">
-            Today's gold and silver rate is updated from the shop counter. Please call or WhatsApp us for the
-            confirmed live rate.
-          </p>
+        <div className="mt-8" data-testid="no-rate-msg">
+          <EmptyState title="Today's rate has not been published yet">
+            Please contact the shop for the confirmed 24K gold and silver rate.
+          </EmptyState>
           <div className="mt-4 flex flex-wrap gap-3">
             {shop.whatsapp && (
-              <a href={waLink(`Namaste ${shop.shop_name}, could you share today's confirmed gold/silver rate?`)}
-                target="_blank" rel="noreferrer" data-testid="no-rate-whatsapp-btn"
-                className="inline-flex items-center gap-2 bg-[#25D366] text-white px-4 py-2.5 rounded-md text-sm hover:bg-[#1fb457] transition-colors">
+              <PrimaryLink href={waLink(`Namaste ${shop.shop_name}, could you share today's confirmed gold/silver rate?`)}
+                external icon={false} data-testid="no-rate-whatsapp-btn"
+                className="bg-[#25D366] hover:bg-[#1fb457]">
                 <MessageCircle size={16} /> Ask on WhatsApp
-              </a>
+              </PrimaryLink>
             )}
             {shop.phone && (
               <a href={`tel:${shop.phone}`} data-testid="no-rate-phone-btn"
@@ -60,8 +74,8 @@ export default function Rates() {
         </div>
       )}
 
-      <div className="mt-12 bg-white border border-slate-200 rounded-md p-4 sm:p-6">
-        <h2 className="text-lg font-semibold mb-4">30-Day Rate History</h2>
+      <div className="mt-12 brand-card rounded-md p-4 sm:p-6">
+        <h2 className="font-serif-display text-2xl font-semibold mb-4">30-Day Rate History</h2>
         {history.length > 1 ? (
           <div className="h-72" data-testid="rate-history-chart">
             <ResponsiveContainer width="100%" height="100%">
@@ -70,8 +84,8 @@ export default function Rates() {
                 <YAxis tick={{ fontSize: 11 }} domain={["auto", "auto"]} />
                 <Tooltip />
                 <Legend />
-                <Line type="monotone" dataKey="gold_24k" name="24K Gold" stroke="#D4AF37" strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="silver" name="Silver" stroke="#64748B" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="gold_24k" name="24K Gold" stroke="#C99A3D" strokeWidth={3} dot={false} />
+                <Line type="monotone" dataKey="silver" name="Silver" stroke="#6B7280" strokeWidth={2} dot={false} />
               </LineChart>
             </ResponsiveContainer>
           </div>

@@ -3,10 +3,11 @@ import { Link } from "react-router-dom";
 import { api } from "@/lib/api";
 import { rs, primaryProductPhoto } from "@/lib/format";
 import { OptimizedImage } from "@/components/OptimizedImage";
+import { PrimaryLink, Reveal, SecondaryLink } from "@/components/PublicPolish";
 import { useSettings, waLinkFromSettings } from "@/context/SettingsContext";
 import { useDocumentMeta } from "@/lib/useDocumentMeta";
 import {
-  MessageCircle, ArrowRight, ShieldCheck, Scale, HandCoins, Sparkles,
+  MessageCircle, ShieldCheck, Scale, HandCoins, Sparkles,
   Wrench, Gem, Phone, MapPin, Clock, Navigation, CalendarDays, UsersRound,
 } from "lucide-react";
 
@@ -42,8 +43,14 @@ function whatsappHref(phone, message) {
 }
 
 function mapEmbedSrc(shop) {
-  const query = shop.address || shop.maps_link || shop.shop_name;
+  const query = shop.maps_link || shop.address;
   return query ? `https://www.google.com/maps?q=${encodeURIComponent(query)}&output=embed` : null;
+}
+
+function rateLabel(rate) {
+  if (!rate?.date_ad) return "Rate from the shop counter";
+  const today = new Date().toISOString().slice(0, 10);
+  return rate.date_ad === today ? `Published today · ${rate.date_ad}` : `Last published rate · ${rate.date_ad}`;
 }
 
 const SERVICES = [
@@ -87,28 +94,30 @@ export default function Home() {
   return (
     <div>
       <section className="relative overflow-hidden">
+        <div className="ambient-glow pointer-events-none absolute -right-20 top-10 h-72 w-72 rounded-full bg-[#C99A3D]/20 blur-3xl" />
+        <div className="pointer-events-none absolute left-4 top-28 hidden h-px w-24 bg-gradient-to-r from-transparent via-[#C99A3D] to-transparent lg:block" />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-14 lg:py-24 grid lg:grid-cols-12 gap-10 items-center">
           <div className="lg:col-span-7 fade-up">
-            <p className="text-[#991B1B] text-sm tracking-widest uppercase mb-4">{shop.tagline_np} · Since decades</p>
-            <h1 className="font-serif-display text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tighter leading-[1.05]">
-              Pure Gold. <span className="gold-gradient-text">Pure Trust.</span>
+            <p className="brand-eyebrow mb-4">Jai Supa Deurali Jewellery</p>
+            <h1 className="font-serif-display text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight leading-[0.96]">
+              Jewellery made with <span className="gold-gradient-text">trust.</span>
             </h1>
-            <p className="mt-3 font-serif-display text-2xl text-slate-700">{shop.shop_name_np}</p>
-            <p className="mt-5 text-base text-slate-600 max-w-xl">
-              A decades-old family jewellery shop serving generations with honest weight, fair pricing and handcrafted gold & silver ornaments — your trusted Nepali sun-chandi pasal.
+            <p className="font-devanagari mt-4 text-2xl text-[#8F1D18]">{shop.shop_name_np}</p>
+            <p className="mt-5 max-w-xl text-base leading-relaxed text-[#5F5147]">
+              A family-run Nepali sun-chandi pasal for gold and silver jewellery, careful repairs, old gold exchange, and custom work explained clearly at the counter.
             </p>
             <div className="mt-8 flex flex-wrap gap-4">
-              <Link to="/catalogue" data-testid="hero-catalogue-btn"
-                className="inline-flex items-center gap-2 bg-[#0F172A] text-white px-6 py-3.5 rounded-md min-h-[48px] hover:bg-slate-800 transition-colors duration-300">
-                Browse Catalogue <ArrowRight size={18} />
-              </Link>
+              <PrimaryLink to="/catalogue" data-testid="hero-catalogue-btn">Browse Catalogue</PrimaryLink>
               {heroWaLink && (
-                <a href={heroWaLink} target="_blank" rel="noreferrer"
-                  data-testid="hero-whatsapp-btn"
-                  className="inline-flex items-center gap-2 border border-[#0F172A] px-6 py-3.5 rounded-md min-h-[48px] hover:bg-[#25D366] hover:text-white hover:border-[#25D366] transition-colors duration-300">
+                <SecondaryLink href={heroWaLink} external data-testid="hero-whatsapp-btn">
                   <MessageCircle size={18} /> WhatsApp Us
-                </a>
+                </SecondaryLink>
               )}
+            </div>
+            <div className="mt-8 grid max-w-2xl grid-cols-3 gap-3 text-xs text-[#6B5E55] sm:text-sm">
+              {["Transparent weight", "Daily rates", "Shop-counter pricing"].map((item) => (
+                <div key={item} className="rounded-md border border-[#9F7225]/20 bg-white/55 px-3 py-2 text-center shadow-sm">{item}</div>
+              ))}
             </div>
           </div>
           <div className="lg:col-span-5 fade-up" style={{ animationDelay: "150ms" }}>
@@ -116,7 +125,7 @@ export default function Home() {
               <img
                 src={shop.logo}
                 alt={shop.shop_name}
-                className="rounded-md w-full h-[320px] lg:h-[420px] object-contain shadow-xl"
+                className="jewellery-frame rounded-md w-full h-[320px] lg:h-[440px] object-contain shadow-xl"
                 loading="eager"
                 decoding="async"
                 fetchPriority="high"
@@ -125,7 +134,7 @@ export default function Home() {
               <OptimizedImage
                 src={HERO_IMG}
                 alt="Gold jewellery"
-                className="rounded-md w-full h-[320px] lg:h-[420px] object-cover shadow-xl"
+                className="jewellery-frame rounded-md w-full h-[320px] lg:h-[440px] object-cover shadow-xl"
                 widths={[360, 640, 820, 1000]}
                 sizes="(min-width: 1024px) 40vw, 100vw"
                 loading="eager"
@@ -139,10 +148,11 @@ export default function Home() {
       </section>
 
       <section className="max-w-7xl mx-auto px-4 sm:px-6">
-        <div data-testid="home-rate-widget" className="bg-[#0F172A] text-white rounded-md p-6 sm:p-8 grid grid-cols-1 sm:grid-cols-3 gap-6 items-center">
+        <div data-testid="home-rate-widget" className="brand-dark rounded-md p-6 sm:p-8 grid grid-cols-1 sm:grid-cols-3 gap-6 items-center shadow-[0_24px_70px_rgba(23,19,16,.18)]">
           <div>
-            <p className="text-[#D4AF37] font-serif-display text-lg">आजको दर</p>
-            <p className="text-xs text-slate-400">Last updated {rate ? `· ${rate.date_ad}` : ""}</p>
+            <p className="font-serif-display text-2xl text-[#E8C774]">Gold & Silver Rates</p>
+            <p className="font-devanagari text-sm text-[#E8DFD2]">आजको सुनचाँदी दर</p>
+            <p className="text-xs text-[#B8AA9A]">{rateLabel(rate)}</p>
           </div>
           {rate ? (
             <>
@@ -151,7 +161,7 @@ export default function Home() {
             </>
           ) : (
             <p className="sm:col-span-2 text-slate-300 text-sm leading-relaxed" data-testid="home-no-rate-msg">
-              Today's gold and silver rate is updated from the shop counter. Please call or WhatsApp us for the confirmed live rate.
+              Today's rate has not been published yet. Please contact the shop.
             </p>
           )}
         </div>
@@ -161,7 +171,7 @@ export default function Home() {
       </section>
 
       {/* Our Story */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 mt-16 grid lg:grid-cols-2 gap-10 items-center">
+      <Reveal as="section" className="max-w-7xl mx-auto px-4 sm:px-6 mt-16 grid lg:grid-cols-2 gap-10 items-center">
         <div className="order-2 lg:order-1">
           <OptimizedImage
             src={STORY_IMG}
@@ -182,7 +192,8 @@ export default function Home() {
           )}
         </div>
         <div className="order-1 lg:order-2">
-          <h2 className="font-serif-display text-2xl sm:text-3xl font-bold tracking-tight">Our Story</h2>
+          <p className="brand-eyebrow">Family shop story</p>
+          <h2 className="font-serif-display text-3xl sm:text-4xl font-bold tracking-tight ornament-line mt-2">Our Story</h2>
           <div className="mt-4 space-y-4 text-slate-700 text-sm sm:text-base leading-relaxed">
             <p>
               {shop.shop_name} is a family-run sun-chandi pasal built on decades of trust. The shop grew from
@@ -196,38 +207,39 @@ export default function Home() {
             </p>
           </div>
           <div className="mt-6 grid sm:grid-cols-3 gap-3 text-sm">
-            <div className="rounded-md border border-slate-200 bg-white p-4">
+            <div className="brand-card rounded-md p-4">
               <CalendarDays className="text-[#D4AF37]" size={22} strokeWidth={1.5} />
               <p className="font-semibold mt-3">Founded</p>
               <p className="text-slate-500 mt-1">Serving families for decades</p>
             </div>
-            <div className="rounded-md border border-slate-200 bg-white p-4">
+            <div className="brand-card rounded-md p-4">
               <UsersRound className="text-[#D4AF37]" size={22} strokeWidth={1.5} />
               <p className="font-semibold mt-3">Family</p>
               <p className="text-slate-500 mt-1">Run by the shop family</p>
             </div>
-            <div className="rounded-md border border-slate-200 bg-white p-4">
+            <div className="brand-card rounded-md p-4">
               <MapPin className="text-[#D4AF37]" size={22} strokeWidth={1.5} />
               <p className="font-semibold mt-3">Location</p>
               <p className="text-slate-500 mt-1">{shop.address || "Nepal community jewellery shop"}</p>
             </div>
           </div>
         </div>
-      </section>
+      </Reveal>
 
       {/* Services / what we offer */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 mt-16">
-        <h2 className="font-serif-display text-2xl sm:text-3xl font-bold tracking-tight">What We Offer</h2>
+      <Reveal as="section" className="max-w-7xl mx-auto px-4 sm:px-6 mt-16">
+        <p className="brand-eyebrow">Counter services</p>
+        <h2 className="font-serif-display text-3xl sm:text-4xl font-bold tracking-tight ornament-line mt-2">What We Offer</h2>
         <div className="mt-6 grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {SERVICES.map((f) => (
-            <div key={f.t} className="bg-white border border-slate-200 rounded-md p-6">
+            <div key={f.t} className="brand-card rounded-md p-6 transition-transform duration-300 hover:-translate-y-1">
               <f.icon className="text-[#D4AF37]" strokeWidth={1.5} />
               <p className="font-semibold mt-3">{f.t}</p>
               <p className="text-sm text-slate-600 mt-1 leading-relaxed">{f.d}</p>
             </div>
           ))}
         </div>
-      </section>
+      </Reveal>
 
       {collections.length > 0 && (
         <section className="max-w-7xl mx-auto px-4 sm:px-6 mt-16">
@@ -236,7 +248,7 @@ export default function Home() {
             {collections.map((c) => (
               <Link key={c.id} to={`/catalogue?collection=${encodeURIComponent(c.name)}`}
                 data-testid={`collection-card-${c.name.toLowerCase().replace(/[^a-z]+/g, "-")}`}
-                className="group bg-white border border-slate-200 rounded-md p-6 flex flex-col hover:-translate-y-1 hover:border-[#D4AF37] hover:shadow-md transition-all duration-300">
+                className="group brand-card rounded-md p-6 flex flex-col hover:-translate-y-1 hover:border-[#C99A3D] hover:shadow-md transition-all duration-300">
                 <Gem className="text-[#D4AF37]" strokeWidth={1.5} />
                 <p className="font-serif-display text-lg mt-3">{c.name}</p>
                 <p className="text-sm text-slate-500 mt-1 flex-1">{collectionDescription(c.name)}</p>
@@ -255,11 +267,11 @@ export default function Home() {
           </div>
           <div className="mt-6 grid grid-cols-2 lg:grid-cols-4 gap-4">
             {products.map((p) => (
-              <Link key={p.id} to={`/product/${p.id}`} className="bg-white border border-slate-200 rounded-md overflow-hidden hover:-translate-y-1 transition-transform duration-300">
+              <Link key={p.id} to={`/product/${p.id}`} className="group brand-card rounded-md overflow-hidden hover:-translate-y-1 transition-transform duration-300">
                 <OptimizedImage
                   src={primaryProductPhoto(p)}
                   alt={p.name}
-                  className="h-40 w-full object-cover"
+                  className="aspect-[4/5] h-auto w-full object-cover transition-transform duration-500 group-hover:scale-105"
                   widths={[240, 360, 520]}
                   sizes="(min-width: 1024px) 25vw, 50vw"
                   loading="lazy"
@@ -277,7 +289,8 @@ export default function Home() {
       {/* Why customers choose this shop -- real, SEO-focused content, no
           placeholder reviews/photos and no discount claims. */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 mt-16">
-        <h2 className="font-serif-display text-2xl sm:text-3xl font-bold tracking-tight">Gold & Silver Jewellery Shop for Families in Nepal</h2>
+        <p className="brand-eyebrow">Traditional trust, modern service</p>
+        <h2 className="font-serif-display text-3xl sm:text-4xl font-bold tracking-tight ornament-line mt-2">Gold & Silver Jewellery Shop for Families in Nepal</h2>
         <p className="mt-4 text-sm sm:text-base text-slate-700 leading-relaxed max-w-3xl">
           {shop.shop_name} helps families buy, repair, exchange, and customise gold and silver jewellery with
           honest weight, clear jarti/jyala, and direct shop-counter pricing. Whether you are in Nepal or abroad,
@@ -286,7 +299,7 @@ export default function Home() {
         </p>
         <div className="mt-6 grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {WHY_US_CARDS.map((c) => (
-            <div key={c.t} className="bg-white border border-slate-200 rounded-md p-6 flex flex-col">
+            <div key={c.t} className="brand-card rounded-md p-6 flex flex-col">
               <c.icon className="text-[#D4AF37]" strokeWidth={1.5} size={26} />
               <p className="font-semibold mt-3">{c.t}</p>
               <p className="text-sm text-slate-600 mt-1 leading-relaxed flex-1">{c.d}</p>
@@ -301,7 +314,7 @@ export default function Home() {
           <Link to="/catalogue" className="text-[#991B1B] hover:text-[#D4AF37] font-medium">Browse Catalogue →</Link>
           <Link to="/custom-order" className="text-[#991B1B] hover:text-[#D4AF37] font-medium">Custom Order →</Link>
           <Link to="/repair" className="text-[#991B1B] hover:text-[#D4AF37] font-medium">Repair →</Link>
-          <Link to="/rates" className="text-[#991B1B] hover:text-[#D4AF37] font-medium">Today's Rate →</Link>
+          <Link to="/rates" className="text-[#991B1B] hover:text-[#D4AF37] font-medium">Gold & Silver Rates →</Link>
           <Link to="/contact" className="text-[#991B1B] hover:text-[#D4AF37] font-medium">Contact →</Link>
         </div>
         {shop.maps_link && (
@@ -314,9 +327,9 @@ export default function Home() {
       </section>
 
       <section className="max-w-7xl mx-auto px-4 sm:px-6 mt-16 mb-16" data-testid="home-visit-shop-section">
-        <div className="bg-[#0F172A] text-white rounded-md overflow-hidden grid lg:grid-cols-2">
+        <div className="brand-dark rounded-md overflow-hidden grid lg:grid-cols-2 shadow-[0_24px_70px_rgba(23,19,16,.18)]">
           <div className="p-6 sm:p-8 lg:p-10">
-            <p className="text-[#D4AF37] text-sm tracking-widest uppercase">Visit Our Shop</p>
+            <p className="text-[#E8C774] text-sm tracking-widest uppercase font-bold">Visit Our Shop</p>
             <h2 className="font-serif-display text-2xl sm:text-3xl font-bold tracking-tight mt-2">
               {shop.shop_name || "Jai Supa Deurali Sun-Chandi Pasal"}
             </h2>
@@ -362,6 +375,11 @@ export default function Home() {
             </div>
 
             <div className="mt-7 flex flex-wrap gap-3">
+              {!contactPhoneLink && !contactWhatsappLink && !shop.maps_link && (
+                <SecondaryLink to="/contact" className="border-white/25 bg-white/10 text-white hover:bg-white/15">
+                  Contact options
+                </SecondaryLink>
+              )}
               {contactPhoneLink && (
                 <a href={contactPhoneLink}
                   className="inline-flex items-center gap-2 bg-white text-[#0F172A] px-5 py-3 rounded-md min-h-[46px] font-medium hover:bg-slate-100 transition-colors"
@@ -397,8 +415,11 @@ export default function Home() {
                 data-testid="home-shop-map"
               />
             ) : (
-              <div className="h-full min-h-[280px] flex items-center justify-center text-slate-300 text-sm px-6 text-center">
-                Map location will be added soon.
+              <div className="h-full min-h-[280px] flex items-center justify-center text-[#E8DFD2] text-sm px-6 text-center">
+                <div className="max-w-xs">
+                  <p className="font-serif-display text-2xl text-white">Jai Supa Deurali</p>
+                  <p className="mt-2 text-xs uppercase tracking-[0.2em] text-[#E8C774]">Gold & silver jewellery shop</p>
+                </div>
               </div>
             )}
           </div>

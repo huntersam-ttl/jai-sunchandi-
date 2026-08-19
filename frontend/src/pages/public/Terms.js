@@ -11,18 +11,18 @@ export default function Terms() {
   );
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-12">
-      <p className="text-sm font-semibold text-[#991B1B]">Terms of Service</p>
-      <h1 className="font-serif-display text-4xl sm:text-5xl font-bold tracking-tighter mt-2">
+    <div className="brand-shell max-w-4xl py-12 sm:py-16">
+      <p className="brand-eyebrow">Terms of Service</p>
+      <h1 className="font-serif-display text-4xl sm:text-6xl font-bold tracking-tight ornament-line mt-3">
         Simple shop terms
       </h1>
-      <p className="mt-4 text-slate-600 leading-relaxed">
+      <p className="mt-5 text-[#5F5147] leading-relaxed">
         These terms explain how {shopName} handles jewellery orders, custom work, old gold exchange, and repairs.
         We use clear shop records and will explain price, weight, jarti, jyala, deposits, and delivery timing before
         final confirmation.
       </p>
 
-      <div className="mt-10 space-y-8 text-slate-700">
+      <div className="mt-10 space-y-5 text-[#5F5147]">
         <section>
           <h2 className="text-xl font-semibold text-slate-900">Orders and pricing</h2>
           <ul className="mt-3 list-disc pl-5 space-y-2">

@@ -4,8 +4,10 @@ import { QRCodeSVG } from "qrcode.react";
 import { api } from "@/lib/api";
 import { rs, PRODUCT_PLACEHOLDER_IMG } from "@/lib/format";
 import { OptimizedImage } from "@/components/OptimizedImage";
+import { EmptyState, PrimaryLink, SecondaryLink } from "@/components/PublicPolish";
 import { useSettings, waLinkFromSettings } from "@/context/SettingsContext";
-import { MessageCircle } from "lucide-react";
+import { MessageCircle, MapPin, ShieldCheck } from "lucide-react";
+import { useDocumentMeta } from "@/lib/useDocumentMeta";
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -19,20 +21,25 @@ export default function ProductDetail() {
     api.get(`/products/${id}`).then((r) => setP(r.data)).catch(() => setErr(true));
   }, [id]);
 
-  if (err) return <div className="max-w-4xl mx-auto px-6 py-20 text-center text-slate-500">Product not found or no longer available.</div>;
-  if (!p) return <div className="max-w-4xl mx-auto px-6 py-20 text-center text-slate-500">Loading…</div>;
+  useDocumentMeta(
+    p ? `${p.name} (${p.product_code}) – ${shop.shop_name}` : `Product – ${shop.shop_name || "Jai Supa Deurali Sun-Chandi Pasal"}`,
+    p ? `${p.name} ${p.metal || ""} ${p.purity || ""} jewellery from ${shop.shop_name}. Enquire on WhatsApp or visit the shop for final price.` : "Gold and silver jewellery product detail."
+  );
+
+  if (err) return <div className="brand-shell py-20"><EmptyState title="Product not found">This design may no longer be available online. Please browse the catalogue or contact the shop.</EmptyState></div>;
+  if (!p) return <div className="brand-shell py-20"><div className="brand-card rounded-md p-6"><div className="skeleton-shimmer h-80 rounded-md" /></div></div>;
 
   const photos = p.photos?.length ? p.photos : [PRODUCT_PLACEHOLDER_IMG];
   const url = `${window.location.origin}/product/${p.id}`;
   const enquiryWaLink = waLink(`Namaste ${shop.shop_name}! I am interested in "${p.name}" (${p.product_code}). Please share today's price and details.`);
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-12 grid lg:grid-cols-2 gap-10">
+    <div className="brand-shell py-12 sm:py-16 grid lg:grid-cols-2 gap-10">
       <div>
         <OptimizedImage
           src={photos[photo]}
           alt={p.name}
-          className="w-full h-[360px] sm:h-[440px] object-cover rounded-md border border-slate-200"
+          className="w-full h-[360px] sm:h-[520px] object-cover rounded-md border border-[#9F7225]/20 shadow-[0_24px_70px_rgba(23,19,16,.12)]"
           widths={[360, 640, 900]}
           sizes="(min-width: 1024px) 50vw, 100vw"
           loading="eager"
@@ -57,13 +64,13 @@ export default function ProductDetail() {
         )}
       </div>
       <div>
-        <p className="text-xs text-slate-500 font-mono" data-testid="product-code">Code: {p.product_code}</p>
-        <h1 className="font-serif-display text-3xl sm:text-4xl font-bold tracking-tight mt-1" data-testid="product-name">{p.name}</h1>
-        {p.name_np && <p className="text-[#991B1B] mt-1">{p.name_np}</p>}
-        <p className="mt-4 text-2xl font-bold text-[#991B1B]" data-testid="product-price">
+        <p className="brand-eyebrow" data-testid="product-code">Code: {p.product_code}</p>
+        <h1 className="font-serif-display text-4xl sm:text-6xl font-bold tracking-tight mt-2 ornament-line" data-testid="product-name">{p.name}</h1>
+        {p.name_np && <p className="font-devanagari text-[#8F1D18] mt-3">{p.name_np}</p>}
+        <p className="mt-6 text-3xl font-bold text-[#8F1D18]" data-testid="product-price">
           {p.estimated_price ? `${rs(p.estimated_price)}*` : "Inquire for today's price"}
         </p>
-        {p.estimated_price && <p className="text-xs text-slate-400">* Live estimate from today's rate</p>}
+        {p.estimated_price && <p className="text-xs text-[#6B5E55]">* Estimate from the published rate. Final price is confirmed at the shop.</p>}
         <div className="mt-6 grid grid-cols-2 gap-3 text-sm">
           <Info label="Metal" value={p.metal} cap />
           <Info label="Purity" value={p.purity} />
@@ -73,15 +80,20 @@ export default function ProductDetail() {
           <Info label="Collection" value={p.collection || "—"} />
           <Info label="Availability" value={p.status} cap />
         </div>
-        {p.description && <p className="mt-5 text-sm text-slate-600">{p.description}</p>}
-        {enquiryWaLink && (
-          <a href={enquiryWaLink}
-            target="_blank" rel="noreferrer" data-testid="whatsapp-enquiry-button"
-            className="mt-8 inline-flex items-center justify-center gap-2 w-full sm:w-auto bg-[#25D366] text-white px-8 py-4 rounded-md min-h-[52px] text-base font-semibold hover:bg-[#1fb457] transition-colors duration-300">
-            <MessageCircle size={20} /> Enquire on WhatsApp
-          </a>
-        )}
-        <div className="mt-8 bg-white border border-slate-200 rounded-md p-4 inline-flex items-center gap-4">
+        {p.description && <p className="mt-6 text-sm leading-relaxed text-[#5F5147]">{p.description}</p>}
+        <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+          {enquiryWaLink && (
+            <PrimaryLink href={enquiryWaLink} external icon={false} data-testid="whatsapp-enquiry-button" className="bg-[#25D366] hover:bg-[#1fb457]">
+              <MessageCircle size={20} /> Enquire on WhatsApp
+            </PrimaryLink>
+          )}
+          <SecondaryLink to="/contact"><MapPin size={18} /> Visit the shop</SecondaryLink>
+        </div>
+        <div className="mt-6 flex items-start gap-3 rounded-md border border-[#9F7225]/20 bg-white/60 p-4 text-sm text-[#5F5147]">
+          <ShieldCheck className="mt-0.5 shrink-0 text-[#C99A3D]" size={20} strokeWidth={1.5} />
+          <p>Weight, purity, jarti, jyala and final price are checked and confirmed at the shop counter.</p>
+        </div>
+        <div className="mt-8 brand-card rounded-md p-4 inline-flex items-center gap-4">
           <QRCodeSVG value={url} size={88} data-testid="product-qr" />
           <div className="text-xs text-slate-500">
             <p className="font-semibold text-slate-700">Product QR</p>
@@ -95,8 +107,8 @@ export default function ProductDetail() {
 }
 
 const Info = ({ label, value, cap }) => (
-  <div className="bg-white border border-slate-200 rounded-md p-3">
-    <p className="text-xs text-slate-400">{label}</p>
-    <p className={`font-semibold ${cap ? "capitalize" : ""}`}>{value}</p>
+  <div className="brand-card rounded-md p-3">
+    <p className="text-xs text-[#86786D]">{label}</p>
+    <p className={`font-semibold text-[#171310] ${cap ? "capitalize" : ""}`}>{value}</p>
   </div>
 );

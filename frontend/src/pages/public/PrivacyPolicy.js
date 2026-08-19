@@ -11,17 +11,17 @@ export default function PrivacyPolicy() {
   );
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-12">
-      <p className="text-sm font-semibold text-[#991B1B]">Privacy Policy</p>
-      <h1 className="font-serif-display text-4xl sm:text-5xl font-bold tracking-tighter mt-2">
+    <div className="brand-shell max-w-4xl py-12 sm:py-16">
+      <p className="brand-eyebrow">Privacy Policy</p>
+      <h1 className="font-serif-display text-4xl sm:text-6xl font-bold tracking-tight ornament-line mt-3">
         How we handle your information
       </h1>
-      <p className="mt-4 text-slate-600 leading-relaxed">
+      <p className="mt-5 text-[#5F5147] leading-relaxed">
         {shopName} only collects the information needed to answer enquiries, prepare orders, track repairs, and
         contact customers about shop work. We keep this simple and use it only for the shop.
       </p>
 
-      <div className="mt-10 space-y-8 text-slate-700">
+      <div className="mt-10 space-y-5 text-[#5F5147]">
         <section>
           <h2 className="text-xl font-semibold text-slate-900">Information we may collect</h2>
           <ul className="mt-3 list-disc pl-5 space-y-2">
@@ -56,6 +56,14 @@ export default function PrivacyPolicy() {
           <p className="mt-3 leading-relaxed">
             If you contact us on WhatsApp or by phone, your message and contact details may stay in our shop
             WhatsApp account or phone records so we can continue the conversation and support your order.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="text-xl font-semibold text-slate-900">Website analytics</h2>
+          <p className="mt-3 leading-relaxed">
+            We may use basic website analytics to understand which public pages are being visited and improve the
+            website. This is used for shop website improvement, not for selling customer information.
           </p>
         </section>
 

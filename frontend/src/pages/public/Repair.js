@@ -47,17 +47,18 @@ export default function Repair() {
   };
 
   if (sent) return (
-    <div className="max-w-xl mx-auto px-6 py-24 text-center" data-testid="repair-success">
+    <div className="brand-shell max-w-xl py-24 text-center" data-testid="repair-success">
       <p className="font-serif-display text-3xl font-bold">धन्यवाद! Request received</p>
       <p className="mt-3 text-slate-600">We will contact you on {form.phone} about your {form.service_type} request.</p>
     </div>
   );
 
   return (
-    <div className="max-w-xl mx-auto px-4 sm:px-6 py-12">
-      <h1 className="font-serif-display text-4xl font-bold tracking-tighter">Repair / Polish / Cleaning</h1>
-      <p className="text-slate-600 mt-2 text-sm">Bring old jewellery back to life. Send a request and visit the shop.</p>
-      <form onSubmit={submit} className="mt-8 space-y-4" data-testid="repair-form">
+    <div className="brand-shell max-w-xl py-12 sm:py-16">
+      <p className="brand-eyebrow">Repair service</p>
+      <h1 className="font-serif-display text-4xl sm:text-5xl font-bold tracking-tight ornament-line mt-3">Repair / Polish / Cleaning</h1>
+      <p className="text-[#5F5147] mt-5 text-sm leading-relaxed">Bring old jewellery back to life. Send a request and visit the shop for inspection and final repair guidance.</p>
+      <form onSubmit={submit} className="brand-card mt-8 space-y-4 rounded-md p-5 sm:p-6" data-testid="repair-form">
         <Field label="Your Name *"><input className={inputCls} value={form.name} onChange={set("name")} data-testid="rp-name" /></Field>
         <Field label="Phone Number *"><input className={inputCls} value={form.phone} onChange={set("phone")} data-testid="rp-phone" /></Field>
         <Field label="Service Type">
@@ -73,7 +74,7 @@ export default function Repair() {
           {photoPreview && <img src={photoPreview} alt="upload preview" className="mt-2 h-24 rounded border" />}
         </Field>
         <button type="submit" disabled={submitting} data-testid="rp-submit"
-          className="w-full bg-[#0F172A] text-white py-4 rounded-md min-h-[52px] text-base font-semibold hover:bg-slate-800 transition-colors duration-300 disabled:opacity-60">
+          className="focus-brand w-full bg-[#171310] text-white py-4 rounded-md min-h-[52px] text-base font-semibold hover:bg-[#2B211A] transition-colors duration-300 disabled:opacity-60">
           {submitting ? "Sending…" : "Send Request"}
         </button>
       </form>

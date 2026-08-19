@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">Jai Supa Deurali Jewellery</title>
+  <desc id="desc">Branded social sharing image for Jai Supa Deurali Sun-Chandi Pasal.</desc>
+  <defs>
+    <radialGradient id="glow" cx="28%" cy="22%" r="70%">
+      <stop offset="0%" stop-color="#E8C774" stop-opacity=".58"/>
+      <stop offset="45%" stop-color="#C99A3D" stop-opacity=".22"/>
+      <stop offset="100%" stop-color="#171310" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="gold" x1="0" x2="1">
+      <stop offset="0" stop-color="#9F7225"/>
+      <stop offset=".45" stop-color="#E8C774"/>
+      <stop offset="1" stop-color="#C99A3D"/>
+    </linearGradient>
+    <pattern id="grid" width="44" height="44" patternUnits="userSpaceOnUse">
+      <path d="M44 0H0v44" fill="none" stroke="#E8C774" stroke-opacity=".13"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="630" fill="#171310"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+  <rect width="1200" height="630" fill="url(#grid)"/>
+  <path d="M112 104h976v422H112z" fill="none" stroke="#C99A3D" stroke-opacity=".55" stroke-width="2"/>
+  <path d="M144 136h912v358H144z" fill="none" stroke="#E8C774" stroke-opacity=".25" stroke-width="1"/>
+  <circle cx="948" cy="177" r="88" fill="none" stroke="url(#gold)" stroke-width="3"/>
+  <circle cx="948" cy="177" r="54" fill="none" stroke="#E8C774" stroke-opacity=".35" stroke-width="2"/>
+  <path d="M890 177c28-42 88-42 116 0-28 42-88 42-116 0Z" fill="none" stroke="#E8C774" stroke-opacity=".5" stroke-width="2"/>
+  <text x="160" y="216" fill="#E8C774" font-family="Georgia, serif" font-size="30" letter-spacing="8">JAI SUPA DEURALI</text>
+  <text x="160" y="306" fill="#FFFDF7" font-family="Georgia, serif" font-size="72" font-weight="700">Jewellery made</text>
+  <text x="160" y="386" fill="#FFFDF7" font-family="Georgia, serif" font-size="72" font-weight="700">with trust.</text>
+  <text x="160" y="444" fill="#E8DFD2" font-family="Arial, sans-serif" font-size="26">Gold &amp; silver jewellery shop in Nepal</text>
+  <text x="160" y="486" fill="#C99A3D" font-family="Arial, sans-serif" font-size="24">Custom orders · Repair · Old gold exchange · Daily rates</text>
+</svg>

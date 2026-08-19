@@ -13,23 +13,59 @@ function setMetaTag(name, content) {
   tag.setAttribute("content", content);
 }
 
+function setPropertyTag(property, content) {
+  if (!content) return;
+  let tag = document.querySelector(`meta[property="${property}"]`);
+  if (!tag) {
+    tag = document.createElement("meta");
+    tag.setAttribute("property", property);
+    document.head.appendChild(tag);
+  }
+  tag.setAttribute("content", content);
+}
+
+function setCanonical(url) {
+  if (!url) return;
+  let link = document.querySelector('link[rel="canonical"]');
+  if (!link) {
+    link = document.createElement("link");
+    link.setAttribute("rel", "canonical");
+    document.head.appendChild(link);
+  }
+  link.setAttribute("href", url);
+}
+
 /**
  * Sets document title + meta description for the current page (CRA has no
  * server-side rendering, so this is a client-side title/meta swap rather
  * than true per-route SSR meta -- still the standard approach for a CRA SPA
  * and what crawlers that execute JS will see).
  */
-export function useDocumentMeta(title, description) {
+export function useDocumentMeta(title, description, options = {}) {
   useEffect(() => {
     const previousTitle = document.title;
     const previousDescription = document.querySelector('meta[name="description"]')?.getAttribute("content");
+    const previousCanonical = document.querySelector('link[rel="canonical"]')?.getAttribute("href");
+    const canonical = options.canonical || `${window.location.origin}${window.location.pathname}`;
+    const image = options.image || `${window.location.origin}/og-image.svg`;
     if (title) document.title = title;
     if (description) setMetaTag("description", description);
+    setCanonical(canonical);
+    setPropertyTag("og:title", title || DEFAULT_TITLE);
+    setPropertyTag("og:description", description);
+    setPropertyTag("og:type", options.type || "website");
+    setPropertyTag("og:url", canonical);
+    setPropertyTag("og:image", image);
+    setMetaTag("twitter:card", "summary_large_image");
+    setMetaTag("twitter:title", title || DEFAULT_TITLE);
+    setMetaTag("twitter:description", description);
+    setMetaTag("twitter:image", image);
     return () => {
       document.title = previousTitle || DEFAULT_TITLE;
       if (previousDescription) setMetaTag("description", previousDescription);
+      if (previousCanonical) setCanonical(previousCanonical);
     };
-  }, [title, description]);
+  }, [title, description, options.canonical, options.image, options.type]);
 }
 
 /** Injects/replaces a single JSON-LD <script> tag, keyed by id, so multiple

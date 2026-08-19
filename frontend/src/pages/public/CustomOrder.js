@@ -6,12 +6,12 @@ import { useDocumentMeta } from "@/lib/useDocumentMeta";
 
 export const Field = ({ label, children }) => (
   <label className="block">
-    <span className="text-sm font-medium text-slate-700">{label}</span>
+    <span className="text-sm font-semibold text-[#4E4036]">{label}</span>
     <div className="mt-1">{children}</div>
   </label>
 );
 
-export const inputCls = "w-full border border-slate-300 rounded-md px-3 py-3 text-base focus:outline-none focus:ring-1 focus:ring-[#D4AF37] bg-white";
+export const inputCls = "w-full border border-[#9F7225]/25 rounded-md px-3 py-3 text-base focus:outline-none focus:ring-2 focus:ring-[#C99A3D]/45 bg-white/80";
 
 export default function CustomOrder() {
   const shop = useSettings();
@@ -33,17 +33,18 @@ export default function CustomOrder() {
   };
 
   if (sent) return (
-    <div className="max-w-xl mx-auto px-6 py-24 text-center" data-testid="custom-order-success">
+    <div className="brand-shell max-w-xl py-24 text-center" data-testid="custom-order-success">
       <p className="font-serif-display text-3xl font-bold">धन्यवाद! Thank you!</p>
       <p className="mt-3 text-slate-600">Your custom order request has been received. We will call you on {form.phone} soon.</p>
     </div>
   );
 
   return (
-    <div className="max-w-xl mx-auto px-4 sm:px-6 py-12">
-      <h1 className="font-serif-display text-4xl font-bold tracking-tighter">Custom Order Request</h1>
-      <p className="text-slate-600 mt-2 text-sm">Tell us what you want made. We will contact you with a price estimate.</p>
-      <form onSubmit={submit} className="mt-8 space-y-4" data-testid="custom-order-form">
+    <div className="brand-shell max-w-xl py-12 sm:py-16">
+      <p className="brand-eyebrow">Custom jewellery</p>
+      <h1 className="font-serif-display text-4xl sm:text-5xl font-bold tracking-tight ornament-line mt-3">Custom Order Request</h1>
+      <p className="text-[#5F5147] mt-5 text-sm leading-relaxed">Tell us what you want made. The shop will contact you to discuss design, weight, jarti, jyala and price estimate.</p>
+      <form onSubmit={submit} className="brand-card mt-8 space-y-4 rounded-md p-5 sm:p-6" data-testid="custom-order-form">
         <Field label="Your Name *"><input className={inputCls} value={form.name} onChange={set("name")} data-testid="co-name" /></Field>
         <Field label="Phone Number *"><input className={inputCls} value={form.phone} onChange={set("phone")} data-testid="co-phone" /></Field>
         <Field label="Item Type (e.g. ring, necklace, tilhari)"><input className={inputCls} value={form.item_type} onChange={set("item_type")} data-testid="co-item-type" /></Field>
@@ -57,7 +58,7 @@ export default function CustomOrder() {
         <Field label="Deadline"><input type="date" className={inputCls} value={form.deadline} onChange={set("deadline")} data-testid="co-deadline" /></Field>
         <Field label="Notes / Design details"><textarea rows={3} className={inputCls} value={form.notes} onChange={set("notes")} data-testid="co-notes" /></Field>
         <button type="submit" data-testid="co-submit"
-          className="w-full bg-[#0F172A] text-white py-4 rounded-md min-h-[52px] text-base font-semibold hover:bg-slate-800 transition-colors duration-300">
+          className="focus-brand w-full bg-[#171310] text-white py-4 rounded-md min-h-[52px] text-base font-semibold hover:bg-[#2B211A] transition-colors duration-300">
           Send Request
         </button>
       </form>
