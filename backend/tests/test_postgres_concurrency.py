@@ -192,12 +192,35 @@ async def _pay(data, order_id: str, amount) -> tuple[bool, str | None]:
             return False, str(exc)
 
 
-def test_concurrent_payments_preserve_balance(seeded):
+async def _set_payable(order_id: str, amount: str = "100.00") -> None:
+    async with Session.begin() as session:
+        await session.execute(
+            text("update orders set net_payable = :amount, total_price = :amount, remaining_balance = :amount where id = :id"),
+            {"amount": amount, "id": order_id},
+        )
+
+
+def test_two_concurrent_valid_payments_preserve_balance(seeded):
     async def run():
         ok, order_id = await _create_order(seeded, [])
         assert ok
-        async with Session.begin() as session:
-            await session.execute(text("update orders set net_payable = 100.00, total_price = 100.00, remaining_balance = 100.00 where id = :id"), {"id": order_id})
+        await _set_payable(order_id)
+        return order_id, await asyncio.gather(_pay(seeded, order_id, 40), _pay(seeded, order_id, 50))
+
+    order_id, results = _run(run())
+    assert all(ok for ok, _ in results)
+    async def verify():
+        async with Session() as session:
+            return await session.execute(text("select advance_total, remaining_balance, payment_status from orders where id = :id"), {"id": order_id})
+    row = _run(verify()).one()
+    assert tuple(row) == (90, 10, "partial")
+
+
+def test_concurrent_payments_reject_overpayment(seeded):
+    async def run():
+        ok, order_id = await _create_order(seeded, [])
+        assert ok
+        await _set_payable(order_id)
         return order_id, await asyncio.gather(_pay(seeded, order_id, 60), _pay(seeded, order_id, 60))
 
     order_id, results = _run(run())
@@ -205,5 +228,42 @@ def test_concurrent_payments_preserve_balance(seeded):
     async def verify():
         async with Session() as session:
             return await session.execute(text("select advance_total, remaining_balance, payment_status from orders where id = :id"), {"id": order_id})
-    row = _run(verify()).one()
-    assert tuple(row) == (60, 40, "partial")
+    assert tuple(_run(verify()).one()) == (60, 40, "partial")
+
+
+def test_failed_payment_rolls_back_without_changing_balance(seeded):
+    async def run():
+        ok, order_id = await _create_order(seeded, [])
+        assert ok
+        await _set_payable(order_id)
+        payment_result = await _pay(seeded, order_id, 150)
+        async with Session() as session:
+            row = (await session.execute(text("""
+                select o.advance_total, o.remaining_balance, o.payment_status,
+                       count(p.id) as payment_count
+                from orders o left join payments p on p.order_id = o.id
+                where o.id = :id
+                group by o.id, o.advance_total, o.remaining_balance, o.payment_status
+            """), {"id": order_id})).one()
+        return payment_result, tuple(row)
+
+    payment_result, row = _run(run())
+    assert payment_result == (False, "Payment exceeds the remaining balance")
+    assert row == (0, 100, "unpaid", 0)
+
+
+def test_cancellation_releases_reserved_product(seeded):
+    async def run():
+        ok, order_id = await _create_order(seeded, [seeded["product_ids"][0]])
+        assert ok
+        async with Session() as session:
+            order = await OrdersRepository(session).update_status(order_id, "cancelled")
+            assert order is not None
+            await session.commit()
+        async with Session() as session:
+            return await session.scalar(
+                text("select status from products where id = :id"),
+                {"id": seeded["product_ids"][0]},
+            )
+
+    assert _run(run()) == "available"
