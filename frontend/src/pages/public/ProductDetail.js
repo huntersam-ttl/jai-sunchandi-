@@ -6,7 +6,7 @@ import { rs, PRODUCT_PLACEHOLDER_IMG } from "@/lib/format";
 import { OptimizedImage } from "@/components/OptimizedImage";
 import { EmptyState, PrimaryLink, SecondaryLink } from "@/components/PublicPolish";
 import { useSettings, waLinkFromSettings } from "@/context/SettingsContext";
-import { MessageCircle, MapPin, ShieldCheck } from "lucide-react";
+import { MessageCircle, MapPin, ShieldCheck, ChevronLeft, ChevronRight } from "lucide-react";
 import { useDocumentMeta } from "@/lib/useDocumentMeta";
 import { PUBLIC_BRAND_NAME } from "@/lib/brand";
 
@@ -31,6 +31,7 @@ export default function ProductDetail() {
   if (!p) return <div className="brand-shell py-20"><div className="brand-card rounded-md p-6"><div className="skeleton-shimmer h-80 rounded-md" /></div></div>;
 
   const photos = p.photos?.length ? p.photos : [PRODUCT_PLACEHOLDER_IMG];
+  const selectPhoto = (next) => setPhoto((current) => (next + photos.length) % photos.length);
   const url = `${window.location.origin}/product/${p.id}`;
   const enquiryWaLink = waLink(`Namaste ${shop.shop_name}! I am interested in "${p.name}" (${p.product_code}). Please share today's price and details.`);
 
@@ -47,10 +48,11 @@ export default function ProductDetail() {
           fetchPriority="high"
           testId="product-main-photo"
         />
+        {photos.length > 1 && <div className="flex justify-between -mt-14 px-3 relative"><button type="button" aria-label="Previous product photo" onClick={() => selectPhoto(photo - 1)} className="h-10 w-10 rounded-full bg-black/55 text-white flex items-center justify-center"><ChevronLeft size={20} /></button><button type="button" aria-label="Next product photo" onClick={() => selectPhoto(photo + 1)} className="h-10 w-10 rounded-full bg-black/55 text-white flex items-center justify-center"><ChevronRight size={20} /></button></div>}
         {photos.length > 1 && (
           <div className="flex gap-2 mt-3">
             {photos.map((ph, i) => (
-              <button key={i} onClick={() => setPhoto(i)} className={`h-16 w-16 rounded border ${i === photo ? "border-[#D4AF37]" : "border-slate-200"}`}>
+              <button key={i} type="button" aria-label={`Show product photo ${i + 1}`} aria-current={i === photo} onClick={() => setPhoto(i)} className={`h-16 w-16 rounded border ${i === photo ? "border-[#D4AF37] ring-2 ring-[#D4AF37]/30" : "border-slate-200"}`}>
                 <OptimizedImage
                   src={ph}
                   alt=""

@@ -597,6 +597,10 @@ class OrderUpdateBody(BaseModel):
     delivery_time: Optional[str] = None
     notes: Optional[str] = None
     status: Optional[str] = None
+    fulfilment_method: Optional[str] = None
+    collector_name: Optional[str] = None
+    collector_phone: Optional[str] = None
+    collector_relationship: Optional[str] = None
 
 
 class StatusBody(BaseModel):
@@ -676,6 +680,9 @@ def _order(o) -> dict:
         "old_gold_value": float(o.old_gold_value), "net_payable": float(o.net_payable),
         "advance_total": float(o.advance_total), "remaining_balance": float(o.remaining_balance),
         "payment_status": o.payment_status, "items": [_order_item(i) for i in o.items],
+        "fulfilment_method": o.fulfilment_method, "collector_name": o.collector_name,
+        "collector_phone": o.collector_phone, "collector_relationship": o.collector_relationship,
+        "collected_at": o.collected_at.isoformat() if o.collected_at else None,
         "payments": [_payment(p) for p in o.payments],
         "is_deleted": o.is_deleted,
         "created_at": o.created_at.isoformat() if o.created_at else None,
@@ -737,7 +744,10 @@ def _apply_order_update(order, body: OrderUpdateBody):
         if status not in ORDER_STATUSES:
             raise HTTPException(status_code=400, detail="Invalid order status")
         order.status = status
-    for key in ("order_type", "custom_description", "delivery_time", "notes"):
+    if "fulfilment_method" in data:
+        if data["fulfilment_method"] not in ("shop_pickup", "courier", "international_shipping"):
+            raise HTTPException(status_code=400, detail="Invalid fulfilment method")
+    for key in ("order_type", "custom_description", "delivery_time", "notes", "fulfilment_method", "collector_name", "collector_phone", "collector_relationship"):
         if key in data:
             setattr(order, key, data[key] or "")
     if "delivery_date_ad" in data:
@@ -1001,6 +1011,11 @@ class LeadUpdateBody(BaseModel):
     deadline: Optional[str] = None
     notes: Optional[str] = None
     photo_url: Optional[str] = None
+    photo_urls: Optional[list[str]] = None
+    purity: Optional[str] = None
+    size: Optional[str] = None
+    country: Optional[str] = None
+    fulfilment_method: Optional[str] = None
     status: Optional[str] = None
 
 
@@ -1013,6 +1028,8 @@ async def _lead(l) -> dict:
         "item_type": l.item_type, "metal": l.metal, "service_type": l.service_type,
         "approx_weight": l.approx_weight, "budget": l.budget, "deadline": l.deadline,
         "notes": l.notes, "photo_url": l.photo_url, "photo": photo,
+        "photo_urls": l.photo_urls or [], "purity": l.purity, "size": l.size,
+        "country": l.country, "fulfilment_method": l.fulfilment_method,
         "status": l.status, "is_deleted": l.is_deleted,
         "created_at": l.created_at.isoformat() if l.created_at else None,
         "updated_at": l.updated_at.isoformat() if l.updated_at else None,

@@ -17,10 +17,11 @@ export default function OrderDetail() {
   const [order, setOrder] = useState(null);
   const [error, setError] = useState(null);
   const [pay, setPay] = useState({ amount: "", method: "cash", note: "", payment_date_ad: new Date().toISOString().slice(0, 10) });
+  const [fulfilment, setFulfilment] = useState({ fulfilment_method: "shop_pickup", collector_name: "", collector_phone: "", collector_relationship: "" });
 
   const load = () => {
     setError(null);
-    api.get(`/admin/orders/${id}`).then((r) => setOrder(r.data))
+    api.get(`/admin/orders/${id}`).then((r) => { setOrder(r.data); setFulfilment({ fulfilment_method: r.data.fulfilment_method || "shop_pickup", collector_name: r.data.collector_name || "", collector_phone: r.data.collector_phone || "", collector_relationship: r.data.collector_relationship || "" }); })
       .catch((err) => { console.error("Order detail load failed:", err); setError(apiError(err)); });
   };
   useEffect(() => { load(); }, [id]); // eslint-disable-line
@@ -54,6 +55,14 @@ export default function OrderDetail() {
     } catch (e) { toast.error(apiError(e)); }
   };
 
+  const saveFulfilment = async () => {
+    try {
+      await api.patch(`/admin/orders/${id}`, fulfilment);
+      toast.success("Fulfilment details saved");
+      load();
+    } catch (e) { toast.error(apiError(e)); }
+  };
+
   const whatsappLink = orderWhatsappLink(order, buildOrderWhatsappMessage(order, shop.shop_name));
   const statusLink = orderStatusLink(order);
   const copyStatusLink = async () => {
@@ -82,6 +91,17 @@ export default function OrderDetail() {
           </select>
         </div>
       </div>
+
+      <Card title="Fulfilment and collection">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3" data-testid="order-fulfilment">
+          <F label="Method"><select className={inp} value={fulfilment.fulfilment_method} onChange={(e) => setFulfilment({ ...fulfilment, fulfilment_method: e.target.value })}><option value="shop_pickup">Shop pickup</option><option value="courier">Courier within Nepal</option><option value="international_shipping">International shipping</option></select></F>
+          <F label="Collector name"><input className={inp} value={fulfilment.collector_name} onChange={(e) => setFulfilment({ ...fulfilment, collector_name: e.target.value })} placeholder="If someone else collects" /></F>
+          <F label="Collector phone"><input className={inp} value={fulfilment.collector_phone} onChange={(e) => setFulfilment({ ...fulfilment, collector_phone: e.target.value })} /></F>
+          <F label="Relationship"><input className={inp} value={fulfilment.collector_relationship} onChange={(e) => setFulfilment({ ...fulfilment, collector_relationship: e.target.value })} placeholder="e.g. brother, courier" /></F>
+        </div>
+        <p className="text-xs text-slate-500 mt-3">Record who will receive the finished piece. Confirm identity and payment at handover before marking the order delivered.</p>
+        <button className={`${btnGold} mt-3`} onClick={saveFulfilment}>Save fulfilment</button>
+      </Card>
 
       <div className="grid lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 space-y-4">

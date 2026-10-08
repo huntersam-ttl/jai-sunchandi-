@@ -134,6 +134,11 @@ class LeadCreate(BaseModel):
     deadline: str = ""
     notes: str = ""
     photo_url: str = ""   # stored Storage path (private) — never base64
+    photo_urls: list[str] = []
+    purity: str = ""
+    size: str = ""
+    country: str = ""
+    fulfilment_method: str = "shop_pickup"
 
 
 @router.post("/leads")
@@ -143,6 +148,10 @@ async def create_lead(body: LeadCreate, session: AsyncSession = Depends(db.get_s
         raise HTTPException(status_code=422, detail="Invalid lead_type")
     if not body.name.strip() or not body.phone.strip():
         raise HTTPException(status_code=422, detail="Name and phone are required")
+    if body.fulfilment_method not in ("shop_pickup", "courier", "international_shipping"):
+        raise HTTPException(status_code=422, detail="Invalid fulfilment method")
+    if len(body.photo_urls) > 5:
+        raise HTTPException(status_code=422, detail="Up to five design photos are allowed")
     lead = await LeadsRepository(session).create_lead(**body.model_dump())
     await session.commit()
     return {"ok": True, "id": str(lead.id)}
@@ -160,6 +169,7 @@ async def public_order_status(order_number: str, phone: str,
         "order_number": order.order_number,
         "order_type": order.order_type,
         "status": order.status,
+        "fulfilment_method": order.fulfilment_method,
         "delivery_date_ad": _iso(order.delivery_date_ad) if order.delivery_date_ad else None,
         "delivery_date_bs_np": order.delivery_date_bs_np,
     }

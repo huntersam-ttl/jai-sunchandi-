@@ -92,8 +92,13 @@ export default function OrderStatus() {
               </div>
               <div className="mt-2 text-sm text-slate-600 space-y-1">
                 <p>Type: <span className="capitalize">{order.order_type.replace("_", " ")}</span></p>
+                {order.fulfilment_method && <p>Fulfilment: <span className="capitalize">{order.fulfilment_method.replaceAll("_", " ")}</span></p>}
                 {order.delivery_date_bs_np && <p>Delivery date (BS): {order.delivery_date_bs_np}</p>}
                 {order.delivery_date_ad && <p>Delivery date (AD): {order.delivery_date_ad}</p>}
+              </div>
+              <div className="mt-4 border-t border-slate-100 pt-3 text-xs text-[#5F5147]">
+                <p className="font-semibold text-slate-700">What happens next?</p>
+                <p className="mt-1">We update the status as your piece moves from confirmation to making, ready, and collection or delivery. For a price or timing question, message the shop using the help link below.</p>
               </div>
               <p className="mt-3 text-xs text-slate-400">
                 For payment or balance details, please contact the shop.
