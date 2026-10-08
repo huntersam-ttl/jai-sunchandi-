@@ -63,8 +63,8 @@ export default function Orders() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">Orders</h1>
-        <div className="flex gap-2">
-          <input className={inp} style={{ width: 200 }} placeholder="Search order, customer, phone…"
+        <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+          <input className={`${inp} min-w-0 flex-1 sm:flex-none`} style={{ maxWidth: 200 }} placeholder="Search order, customer, phone…"
             value={qInput} onChange={(e) => setQInput(e.target.value)} data-testid="orders-search-input" />
           <select className={inp} style={{ width: 160 }} value={status} onChange={(e) => setStatus(e.target.value)} data-testid="orders-status-filter">
             <option value="">All statuses</option>
@@ -75,10 +75,11 @@ export default function Orders() {
             <option value="archived">Archived</option>
             <option value="all">All</option>
           </select>
-          <button className={btnGold} onClick={() => setShowForm(true)} data-testid="add-order-btn"><Plus size={16} /> New Order</button>
+          <button className={`${btnGold} min-h-[44px]`} onClick={() => setShowForm(true)} data-testid="add-order-btn"><Plus size={16} /> New Order</button>
         </div>
       </div>
-      <div className="bg-white border border-slate-200 rounded-md overflow-x-auto">
+      <p className="text-xs text-slate-500 sm:hidden">Swipe horizontally to view full order details.</p>
+      <div className="bg-white border border-slate-200 rounded-md overflow-x-auto" role="region" aria-label="Shop orders table" tabIndex={0}>
         <table className="w-full text-sm">
           <thead><tr className="text-left text-xs text-slate-500 border-b">
             <th className="p-3">Order</th><th>Customer</th><th>Type</th><th>Delivery</th><th>Net Payable</th><th>Remaining</th><th>Status</th><th></th></tr></thead>

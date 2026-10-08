@@ -45,6 +45,7 @@ export default function Dashboard() {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [rateForm, setRateForm] = useState({ gold_24k: "", silver: "" });
+  const [savingRate, setSavingRate] = useState(false);
   const [openTasks, setOpenTasks] = useState([]);
 
   const load = () => {
@@ -69,13 +70,19 @@ export default function Dashboard() {
 
   const saveRate = async (e) => {
     e.preventDefault();
+    if (savingRate) return;
+    if (!Number.isFinite(+rateForm.gold_24k) || +rateForm.gold_24k <= 0 || !Number.isFinite(+rateForm.silver) || +rateForm.silver <= 0) {
+      toast.error("Enter positive gold and silver rates before saving.");
+      return;
+    }
+    setSavingRate(true);
     try {
       await api.post("/admin/rates", {
         gold_24k: +rateForm.gold_24k, gold_22k: +rateForm.gold_24k, silver: +rateForm.silver,
       });
       toast.success("Today's rate updated");
       load();
-    } catch (err) { toast.error(apiError(err)); }
+    } catch (err) { toast.error(apiError(err)); } finally { setSavingRate(false); }
   };
 
   if (loading && !data) return <DashboardSkeleton />;

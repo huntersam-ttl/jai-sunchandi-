@@ -6,6 +6,7 @@ import { inp, btnGold, Card, F } from "@/components/admin/ui";
 
 export default function RatesAdmin() {
   const [history, setHistory] = useState([]);
+  const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ date_ad: new Date().toISOString().slice(0, 10), gold_24k: "", silver: "" });
 
   const load = () => api.get("/rates/history", { params: { days: 90 } }).then((r) => setHistory(r.data.slice().reverse()))
@@ -14,11 +15,17 @@ export default function RatesAdmin() {
 
   const submit = async (e) => {
     e.preventDefault();
+    if (saving) return;
+    if (!form.date_ad || !Number.isFinite(+form.gold_24k) || +form.gold_24k <= 0 || !Number.isFinite(+form.silver) || +form.silver <= 0) {
+      toast.error("Enter a date and positive 24K gold and silver rates.");
+      return;
+    }
+    setSaving(true);
     try {
       await api.post("/admin/rates", { date_ad: form.date_ad, gold_24k: +form.gold_24k, gold_22k: +form.gold_24k, silver: +form.silver });
       toast.success("Rate saved");
       load();
-    } catch (err) { toast.error(apiError(err)); }
+    } catch (err) { toast.error(apiError(err)); } finally { setSaving(false); }
   };
 
   return (
@@ -29,7 +36,7 @@ export default function RatesAdmin() {
           <F label="Date (AD)"><input className={inp} type="date" value={form.date_ad} onChange={(e) => setForm({ ...form, date_ad: e.target.value })} data-testid="rates-date-input" /></F>
           <F label="24K Gold"><input className={inp} type="number" step="any" value={form.gold_24k} onChange={(e) => setForm({ ...form, gold_24k: e.target.value })} data-testid="rates-gold24-input" /></F>
           <F label="Silver"><input className={inp} type="number" step="any" value={form.silver} onChange={(e) => setForm({ ...form, silver: e.target.value })} data-testid="rates-silver-input" /></F>
-          <button className={btnGold} data-testid="rates-save-btn">Save</button>
+          <button type="submit" className={btnGold} disabled={saving} data-testid="rates-save-btn">{saving ? "Saving…" : "Save Rate"}</button>
         </form>
         <p className="text-xs text-slate-500 mt-2">Public shop rate uses 24K Gold and Silver. Jewellery prices still depend on weight, jarti, jyala and making charge.</p>
       </Card>
