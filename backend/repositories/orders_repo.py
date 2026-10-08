@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import noload
 
 from models import Order, OrderItem, Product
@@ -144,11 +144,22 @@ class OrdersRepository(BaseRepository):
             items=order_items,
         )
         self.session.add(order)
+        # Conditional UPDATE serializes claims and rejects unavailable products.
+        seen_product_ids = set()
         for item in order_items:
             if item.product_id:
-                product = await self.session.get(Product, item.product_id)
-                if product is not None:
-                    product.status = "reserved"
+                if item.product_id in seen_product_ids:
+                    raise ValueError("The same product cannot be reserved twice")
+                seen_product_ids.add(item.product_id)
+                result = await self.session.execute(
+                    update(Product)
+                    .where(Product.id == item.product_id, Product.status == "available",
+                           Product.is_deleted.is_(False))
+                    .values(status="reserved")
+                    .returning(Product.id)
+                )
+                if result.scalar_one_or_none() is None:
+                    raise ValueError("Product is unavailable or already reserved")
         await self.session.flush()
         return order
 
