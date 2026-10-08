@@ -14,12 +14,13 @@ from typing import Optional
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import db
 import config
-from models import Product
+from models import Order, Product
 from repositories import (
     AdminTasksRepository, BillArchivesRepository, CategoriesRepository, CollectionsRepository,
     CustomersRepository, ExpensesRepository, LeadsRepository, MaterialTasksRepository, OrdersRepository,
