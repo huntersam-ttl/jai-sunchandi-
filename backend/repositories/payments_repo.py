@@ -5,7 +5,7 @@ payment_status happen in the same session (the caller's transaction), giving
 atomic ledger updates — the integrity the Mongo version could not guarantee.
 """
 from datetime import date, datetime
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 
 from sqlalchemy import func, select
 
@@ -16,6 +16,7 @@ from .base import BaseRepository, derive_payment_status
 
 class PaymentsRepository(BaseRepository):
     model = Payment
+    _CENT = Decimal("0.01")
 
     @staticmethod
     def _date_or_today(value) -> date:
@@ -61,8 +62,10 @@ class PaymentsRepository(BaseRepository):
         total_paid = (await self.session.execute(
             select(func.coalesce(func.sum(Payment.amount), 0))
             .where(Payment.order_id == order.id))).scalar_one()
-        advance = round(float(total_paid), 2)
-        remaining = round(float(order.net_payable) - advance, 2)
+        advance = Decimal(str(total_paid or 0)).quantize(self._CENT, rounding=ROUND_HALF_UP)
+        remaining = (Decimal(str(order.net_payable)) - advance).quantize(
+            self._CENT, rounding=ROUND_HALF_UP
+        )
         order.advance_total = advance
         order.remaining_balance = remaining
         order.payment_status = derive_payment_status(order.net_payable, advance)

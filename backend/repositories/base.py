@@ -4,6 +4,7 @@ Repositories are thin data-access objects. They do not open transactions
 themselves — the caller (a route/service in a later phase) owns the session and
 commit boundary (see db.session_scope / db.get_session).
 """
+from decimal import Decimal, ROUND_HALF_UP
 from typing import Any, Optional, Sequence
 
 from sqlalchemy import select
@@ -39,8 +40,8 @@ class BaseRepository:
 
 def derive_payment_status(net_payable, advance_total) -> str:
     """unpaid / partial / paid, from an order's net payable and advance total."""
-    net = float(net_payable or 0)
-    advance = float(advance_total or 0)
+    net = Decimal(str(net_payable or 0)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    advance = Decimal(str(advance_total or 0)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     if advance <= 0:
         return "unpaid"
     if advance >= net:

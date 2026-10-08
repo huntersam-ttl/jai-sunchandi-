@@ -87,6 +87,7 @@ class TestPaymentStatusDerivation:
         assert derive_payment_status(1000, 500) == "partial"
         assert derive_payment_status(1000, 1000) == "paid"
         assert derive_payment_status(1000, 1200) == "paid"
+        assert derive_payment_status("0.30", "0.10") == "partial"
 
 
 class TestSupabaseAppAndAuth:
