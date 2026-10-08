@@ -82,6 +82,7 @@ jobs:
             backend/tests/test_data_layer.py \
             backend/tests/test_security_concurrency_guards.py \
             backend/tests/test_fulfilment.py \
+            backend/tests/test_staging_preflight.py \
             backend/tests/test_postgres_concurrency.py \
             --junitxml=backend-tests.xml
 

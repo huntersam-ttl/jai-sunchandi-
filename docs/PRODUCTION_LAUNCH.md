@@ -20,6 +20,8 @@ Supply-chain triage reduced the audit from 3 critical / 184 high / 70 moderate /
 
 Vercel configuration is reviewed statically: `vercel.json` deploys `frontend/build`, routes `/api` to `api/index.py`, and targets `bom1`; `.vercelignore` excludes environment files, tests, caches, and `node_modules`. Production environment separation cannot be confirmed from the repository because Vercel project settings are external. Keep preview credentials separate from production, set `ENVIRONMENT=production`, use explicit `ALLOWED_ORIGINS`, and never place service-role or database credentials in `REACT_APP_*` variables. When `REACT_APP_BACKEND_URL` is omitted, the frontend now uses same-origin `/api`, matching the checked-in rewrite; an explicit HTTPS backend origin remains supported.
 
+Cycle 6 staging preparation is documented in [`docs/STAGING_VALIDATION.md`](STAGING_VALIDATION.md). The guarded read-only preflight tool is [`tools/staging_preflight.py`](../tools/staging_preflight.py); it rejects the known production domain and Supabase hosts and requires explicit confirmation for the optional rate-limit probe. No hosted staging target was available to execute it.
+
 ## Before launch
 
 Record/export, without committing secrets:
