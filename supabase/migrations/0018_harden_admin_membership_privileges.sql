@@ -62,6 +62,11 @@ grant select (id, product_code, name, name_np, description, category, collection
 -- table privileges such as TRUNCATE, REFERENCES, or TRIGGER.
 grant select, insert, update, delete on all tables in schema public to authenticated;
 
+-- Product inserts use this sequence for the database-generated design code.
+-- Sequence privileges are required for enrolled admin CRUD; table RLS still
+-- rejects unenrolled users before a product row can be created.
+grant usage, select, update on sequence public.product_code_seq to authenticated;
+
 -- Anonymous customers may submit leads; RLS remains the row-level gate.
 grant insert on public.leads to anon;
 

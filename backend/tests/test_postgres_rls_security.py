@@ -143,9 +143,10 @@ def test_ordinary_authenticated_user_is_not_an_admin():
                 "insert into public.shop_admins (user_id) values ($1)",
                 ORDINARY_ID,
             )
-            assert await conn.fetchval(
-                "insert into public.products (name, weight_grams) values ('CI product', 1) returning id"
-            ) is None
+            await _expect_insufficient_privilege(
+                conn,
+                "insert into public.products (name, weight_grams) values ('CI product', 1)",
+            )
         finally:
             await tx.rollback()
             await conn.close()
@@ -158,6 +159,9 @@ def test_enrolled_admin_can_read_membership_and_storage():
         conn, tx = await _as_role("authenticated", ADMIN_ID)
         try:
             assert await conn.fetchval("select count(*) from public.shop_admins") == 1
+            await conn.execute(
+                "insert into public.products (name, weight_grams) values ('CI admin product', 1)"
+            )
             await conn.execute(
                 "insert into storage.objects (bucket_id, name) values ('shop', $1)",
                 f"ci-rls/{uuid.uuid4()}.png",
