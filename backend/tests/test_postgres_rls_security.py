@@ -44,6 +44,17 @@ async def _as_role(role: str, user_id: uuid.UUID | None = None):
     return conn, tx
 
 
+async def _expect_insufficient_privilege(conn: asyncpg.Connection, query: str, *args):
+    """Assert a denied statement without poisoning the surrounding transaction."""
+    await conn.execute("savepoint expected_denial")
+    try:
+        with pytest.raises(asyncpg.exceptions.InsufficientPrivilegeError):
+            await conn.execute(query, *args)
+    finally:
+        await conn.execute("rollback to savepoint expected_denial")
+        await conn.execute("release savepoint expected_denial")
+
+
 async def _setup_synthetic_admin():
     conn = await _connection()
     await conn.execute("insert into auth.users (id) values ($1)", ADMIN_ID)
@@ -95,12 +106,12 @@ def test_ordinary_authenticated_user_is_not_an_admin():
         try:
             assert await conn.fetchval("select count(*) from public.customers") == 0
             assert await conn.fetchval("select count(*) from public.shop_admins") == 0
-            with pytest.raises(asyncpg.exceptions.InsufficientPrivilegeError):
-                await conn.execute("truncate public.customers")
-            with pytest.raises(asyncpg.exceptions.InsufficientPrivilegeError):
-                await conn.execute(
-                    "insert into public.shop_admins (user_id) values ($1)", ORDINARY_ID
-                )
+            await _expect_insufficient_privilege(conn, "truncate public.customers")
+            await _expect_insufficient_privilege(
+                conn,
+                "insert into public.shop_admins (user_id) values ($1)",
+                ORDINARY_ID,
+            )
         finally:
             await tx.rollback()
             await conn.close()
