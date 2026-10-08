@@ -5,6 +5,7 @@ import { useSettings } from "@/context/SettingsContext";
 import { useDocumentMeta } from "@/lib/useDocumentMeta";
 import { PUBLIC_BRAND_NAME } from "@/lib/brand";
 import { uploadImage } from "@/lib/storage";
+import { COLLECTOR_METHODS, COUNTRY_OPTIONS, FULFILMENT_OPTIONS } from "@/lib/fulfilment";
 
 export const Field = ({ label, children }) => (
   <label className="block">
@@ -21,7 +22,7 @@ export default function CustomOrder() {
     `Custom Gold Order – ${PUBLIC_BRAND_NAME}`,
     "Request a custom gold or silver ornament made to your design — share your requirement and we'll get in touch."
   );
-  const [form, setForm] = useState({ name: "", phone: "", item_type: "", metal: "gold", purity: "", size: "", approx_weight: "", budget: "", deadline: "", country: "Nepal", fulfilment_method: "shop_pickup", notes: "" });
+  const [form, setForm] = useState({ name: "", phone: "", item_type: "", metal: "gold", purity: "", size: "", approx_weight: "", budget: "", deadline: "", country: "NP", fulfilment_method: "self_collect", collector_name: "", collector_phone: "", collector_relationship: "", notes: "" });
   const [files, setFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -32,6 +33,7 @@ export default function CustomOrder() {
     if (!form.name || !form.phone) return toast.error("Name and phone are required");
     try {
       setUploading(true);
+      if (files.some((file) => file.size > 5 * 1024 * 1024)) return toast.error("Each reference photo must be 5 MB or smaller");
       const uploaded = await Promise.all(files.slice(0, 5).map((file) => uploadImage(file, "lead")));
       const photo_urls = uploaded.map((item) => item.path);
       await api.post("/leads", { lead_type: "custom_order", ...form, photo_urls, photo_url: photo_urls[0] || "" });
@@ -66,8 +68,9 @@ export default function CustomOrder() {
         <Field label="Approximate Weight (tola)"><input className={inputCls} value={form.approx_weight} onChange={set("approx_weight")} data-testid="co-weight" /></Field>
         <Field label="Budget (Rs.)"><input className={inputCls} value={form.budget} onChange={set("budget")} data-testid="co-budget" /></Field>
         <Field label="Deadline"><input type="date" className={inputCls} value={form.deadline} onChange={set("deadline")} data-testid="co-deadline" /></Field>
-        <Field label="Where should we fulfil this?"><select className={inputCls} value={form.fulfilment_method} onChange={set("fulfilment_method")} data-testid="co-fulfilment"><option value="shop_pickup">Collect at the shop</option><option value="courier">Courier within Nepal</option><option value="international_shipping">Discuss overseas delivery</option></select></Field>
-        {form.fulfilment_method === "international_shipping" && <Field label="Country"><input className={inputCls} value={form.country} onChange={set("country")} placeholder="e.g. United Kingdom" data-testid="co-country" /></Field>}
+        <Field label="Where should we fulfil this?"><select className={inputCls} value={form.fulfilment_method} onChange={set("fulfilment_method")} data-testid="co-fulfilment">{FULFILMENT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></Field>
+        <Field label="Country"><input className={inputCls} list="country-options" maxLength={2} value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value.toUpperCase() })} placeholder="NP" data-testid="co-country" /><datalist id="country-options">{COUNTRY_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</datalist><p className="text-xs text-slate-500 mt-1">Use a two-letter country code: NP, GB, AU, or another ISO code.</p></Field>
+        {COLLECTOR_METHODS.has(form.fulfilment_method) && <><Field label="Collector full name *"><input className={inputCls} value={form.collector_name} onChange={set("collector_name")} data-testid="co-collector-name" /></Field><Field label="Collector phone *"><input className={inputCls} value={form.collector_phone} onChange={set("collector_phone")} data-testid="co-collector-phone" /></Field><Field label="Relationship / note"><input className={inputCls} value={form.collector_relationship} onChange={set("collector_relationship")} data-testid="co-collector-relationship" /></Field></>}
         <Field label="Reference photos (up to 5)"><input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={(e) => setFiles(Array.from(e.target.files || []).slice(0, 5))} className="w-full text-sm" data-testid="co-photos" /><p className="text-xs text-slate-500 mt-1">Photos are compressed before upload and used only to understand your request.</p>{files.length > 0 && <p className="text-xs text-[#5B0D18] mt-1">{files.length} photo{files.length === 1 ? "" : "s"} selected</p>}</Field>
         <Field label="Notes / Design details"><textarea rows={3} className={inputCls} value={form.notes} onChange={set("notes")} data-testid="co-notes" /></Field>
         <button type="submit" data-testid="co-submit"

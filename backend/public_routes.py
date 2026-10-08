@@ -17,6 +17,7 @@ from repositories import (
     ProductsRepository, RatesRepository, SettingsRepository,
 )
 from utils import compute_price, grams_to_tola, to_nepali_digits
+from fulfilment import validate_fulfilment, validate_photo_paths
 
 router = APIRouter(prefix="/api")
 
@@ -138,7 +139,10 @@ class LeadCreate(BaseModel):
     purity: str = ""
     size: str = ""
     country: str = ""
-    fulfilment_method: str = "shop_pickup"
+    fulfilment_method: str = "self_collect"
+    collector_name: str = ""
+    collector_phone: str = ""
+    collector_relationship: str = ""
 
 
 @router.post("/leads")
@@ -148,11 +152,23 @@ async def create_lead(body: LeadCreate, session: AsyncSession = Depends(db.get_s
         raise HTTPException(status_code=422, detail="Invalid lead_type")
     if not body.name.strip() or not body.phone.strip():
         raise HTTPException(status_code=422, detail="Name and phone are required")
-    if body.fulfilment_method not in ("shop_pickup", "courier", "international_shipping"):
-        raise HTTPException(status_code=422, detail="Invalid fulfilment method")
-    if len(body.photo_urls) > 5:
-        raise HTTPException(status_code=422, detail="Up to five design photos are allowed")
-    lead = await LeadsRepository(session).create_lead(**body.model_dump())
+    try:
+        fulfilment = validate_fulfilment(
+            body.fulfilment_method, body.collector_name, body.collector_phone, body.country, body.collector_relationship
+        )
+        photo_urls = validate_photo_paths(body.photo_urls)
+        if body.photo_url:
+            validate_photo_paths([body.photo_url])
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    data = body.model_dump()
+    data.update(
+        fulfilment,
+        photo_urls=photo_urls,
+        photo_url=photo_urls[0] if photo_urls else body.photo_url,
+        country=fulfilment["country"],
+    )
+    lead = await LeadsRepository(session).create_lead(**data)
     await session.commit()
     return {"ok": True, "id": str(lead.id)}
 

@@ -8,7 +8,7 @@ later S5C slices.
 import logging
 import time
 from contextlib import contextmanager
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Optional
 
 import httpx
@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import db
 import config
 from models import Order, Product
+from fulfilment import PICKUP_METHODS, issue_pickup_pin, validate_fulfilment
 from repositories import (
     AdminTasksRepository, BillArchivesRepository, CategoriesRepository, CollectionsRepository,
     CustomersRepository, ExpensesRepository, LeadsRepository, MaterialTasksRepository, OrdersRepository,
@@ -28,7 +29,7 @@ from repositories import (
     TemplatesRepository,
 )
 from supabase_auth import get_current_admin
-from utils import grams_to_tola, tola_lal_aana_to_grams
+from utils import ad_to_bs, grams_to_tola, tola_lal_aana_to_grams
 
 router = APIRouter(prefix="/api/admin", dependencies=[Depends(get_current_admin)])
 
@@ -547,7 +548,7 @@ async def restore_customer(cid: str, session: AsyncSession = Depends(db.get_sess
 
 
 # ---------- Orders ----------
-ORDER_STATUSES = {"new", "in_progress", "making", "polishing", "ready", "delivered", "cancelled"}
+ORDER_STATUSES = {"new", "in_progress", "making", "polishing", "ready", "delivered", "collected", "cancelled"}
 
 
 class OrderItemBody(BaseModel):
@@ -586,6 +587,11 @@ class OrderBody(BaseModel):
     delivery_date_ad: Optional[str] = None
     delivery_time: str = ""
     notes: str = ""
+    fulfilment_method: str = "self_collect"
+    fulfilment_country: str = "NP"
+    collector_name: str = ""
+    collector_phone: str = ""
+    collector_relationship: str = ""
     old_gold: Optional[dict] = None
     items: list[OrderItemBody] = []
 
@@ -598,6 +604,7 @@ class OrderUpdateBody(BaseModel):
     notes: Optional[str] = None
     status: Optional[str] = None
     fulfilment_method: Optional[str] = None
+    fulfilment_country: Optional[str] = None
     collector_name: Optional[str] = None
     collector_phone: Optional[str] = None
     collector_relationship: Optional[str] = None
@@ -605,6 +612,11 @@ class OrderUpdateBody(BaseModel):
 
 class StatusBody(BaseModel):
     status: str
+
+
+class CollectionBody(BaseModel):
+    pickup_pin: str
+    collector_name: str
 
 
 class PaymentBody(BaseModel):
@@ -682,6 +694,8 @@ def _order(o) -> dict:
         "payment_status": o.payment_status, "items": [_order_item(i) for i in o.items],
         "fulfilment_method": o.fulfilment_method, "collector_name": o.collector_name,
         "collector_phone": o.collector_phone, "collector_relationship": o.collector_relationship,
+        "fulfilment_country": o.fulfilment_country,
+        "collected_by_name": o.collected_by_name,
         "collected_at": o.collected_at.isoformat() if o.collected_at else None,
         "payments": [_payment(p) for p in o.payments],
         "is_deleted": o.is_deleted,
@@ -743,13 +757,29 @@ def _apply_order_update(order, body: OrderUpdateBody):
         status = data.pop("status")
         if status not in ORDER_STATUSES:
             raise HTTPException(status_code=400, detail="Invalid order status")
+        if status == "collected":
+            raise HTTPException(status_code=400, detail="Use the collection confirmation action")
+        if status == "delivered" and order.fulfilment_method in PICKUP_METHODS:
+            raise HTTPException(status_code=400, detail="Use the collection confirmation action for pickup orders")
+        if order.status == "collected":
+            raise HTTPException(status_code=400, detail="Collected orders cannot be moved back")
         order.status = status
-    if "fulfilment_method" in data:
-        if data["fulfilment_method"] not in ("shop_pickup", "courier", "international_shipping"):
-            raise HTTPException(status_code=400, detail="Invalid fulfilment method")
-    for key in ("order_type", "custom_description", "delivery_time", "notes", "fulfilment_method", "collector_name", "collector_phone", "collector_relationship"):
+    fulfilment = validate_fulfilment(
+        data.get("fulfilment_method", order.fulfilment_method),
+        data.get("collector_name", order.collector_name),
+        data.get("collector_phone", order.collector_phone),
+        data.get("fulfilment_country", order.fulfilment_country),
+        data.get("collector_relationship", order.collector_relationship),
+    )
+    update_keys = ("order_type", "custom_description", "delivery_time", "notes", "fulfilment_method", "fulfilment_country", "collector_name", "collector_phone", "collector_relationship")
+    for key in update_keys:
         if key in data:
             setattr(order, key, data[key] or "")
+    order.fulfilment_method = fulfilment["fulfilment_method"]
+    order.fulfilment_country = fulfilment["country"]
+    order.collector_name = fulfilment["collector_name"]
+    order.collector_phone = fulfilment["collector_phone"]
+    order.collector_relationship = fulfilment["collector_relationship"]
     if "delivery_date_ad" in data:
         delivery_date = OrdersRepository._date_or_none(data["delivery_date_ad"])
         delivery_bs = ad_to_bs(delivery_date) if delivery_date else {}
@@ -793,6 +823,9 @@ async def _snapshot_item_cost_prices(items: list[dict], session: AsyncSession) -
 async def create_order(body: OrderBody, session: AsyncSession = Depends(db.get_session)):
     customer = await _customer_for_order(body, session)
     try:
+        fulfilment = validate_fulfilment(
+            body.fulfilment_method, body.collector_name, body.collector_phone, body.fulfilment_country, body.collector_relationship
+        )
         items = await _snapshot_item_cost_prices(_validate_order_items(body.items), session)
         order = await OrdersRepository(session).create_order(
             customer=customer,
@@ -803,6 +836,8 @@ async def create_order(body: OrderBody, session: AsyncSession = Depends(db.get_s
             delivery_date_ad=body.delivery_date_ad,
             delivery_time=body.delivery_time,
             notes=body.notes,
+            fulfilment=fulfilment,
+            collector_relationship=body.collector_relationship,
         )
         await session.commit()
         await session.refresh(order)
@@ -844,12 +879,48 @@ async def patch_order(oid: str, body: OrderUpdateBody, session: AsyncSession = D
 async def update_order_status(oid: str, body: StatusBody, session: AsyncSession = Depends(db.get_session)):
     if body.status not in ORDER_STATUSES:
         raise HTTPException(status_code=400, detail="Invalid order status")
+    if body.status == "collected":
+        raise HTTPException(status_code=400, detail="Use the collection confirmation action")
+    current = await OrdersRepository(session).get(oid)
+    if current and body.status == "delivered" and current.fulfilment_method in PICKUP_METHODS:
+        raise HTTPException(status_code=400, detail="Use the collection confirmation action for pickup orders")
     order = await OrdersRepository(session).update_status(oid, body.status)
     if not order or order.is_deleted:
         raise HTTPException(status_code=404, detail="Order not found")
     await session.commit()
     await session.refresh(order)
     return _order(order)
+
+
+@router.post("/orders/{oid}/pickup-pin")
+async def issue_order_pickup_pin(oid: str, session: AsyncSession = Depends(db.get_session)):
+    result = await session.execute(select(Order).where(Order.id == oid).with_for_update())
+    order = result.scalar_one_or_none()
+    if not order or order.is_deleted:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if order.status != "ready":
+        raise HTTPException(status_code=400, detail="Pickup PIN can only be issued for an order ready for collection")
+    if order.fulfilment_method not in PICKUP_METHODS:
+        raise HTTPException(status_code=400, detail="Pickup PIN is not valid for this fulfilment method")
+    pin, encoded = issue_pickup_pin()
+    order.pickup_pin_hash = encoded
+    order.pickup_pin_issued_at = datetime.now(timezone.utc)
+    await session.commit()
+    return {"order_number": order.order_number, "pickup_pin": pin}
+
+
+@router.post("/orders/{oid}/collect")
+async def collect_order(oid: str, body: CollectionBody, session: AsyncSession = Depends(db.get_session)):
+    try:
+        order = await OrdersRepository(session).confirm_collection(oid, body.pickup_pin, body.collector_name)
+        await session.commit()
+        await session.refresh(order)
+        return _order(order)
+    except ValueError as exc:
+        await session.rollback()
+        message = str(exc)
+        code = 404 if message == "Order not found" else 403 if message == "Invalid pickup PIN" else 409 if "already" in message else 400
+        raise HTTPException(status_code=code, detail=message)
 
 
 @router.post("/orders/{oid}/archive")
@@ -1030,6 +1101,8 @@ async def _lead(l) -> dict:
         "notes": l.notes, "photo_url": l.photo_url, "photo": photo,
         "photo_urls": l.photo_urls or [], "purity": l.purity, "size": l.size,
         "country": l.country, "fulfilment_method": l.fulfilment_method,
+        "collector_name": l.collector_name, "collector_phone": l.collector_phone,
+        "collector_relationship": l.collector_relationship,
         "status": l.status, "is_deleted": l.is_deleted,
         "created_at": l.created_at.isoformat() if l.created_at else None,
         "updated_at": l.updated_at.isoformat() if l.updated_at else None,
@@ -1046,6 +1119,24 @@ def _apply_lead_update(lead, body: LeadUpdateBody):
         raise HTTPException(status_code=400, detail="Invalid lead status")
     if "lead_type" in data and data["lead_type"] not in ("custom_order", "repair"):
         raise HTTPException(status_code=400, detail="Invalid lead type")
+    if any(key in data for key in ("fulfilment_method", "collector_name", "collector_phone", "collector_relationship", "country")):
+        try:
+            fulfilment = validate_fulfilment(
+                data.get("fulfilment_method", lead.fulfilment_method),
+                data.get("collector_name", lead.collector_name),
+                data.get("collector_phone", lead.collector_phone),
+                data.get("country", lead.country),
+                data.get("collector_relationship", lead.collector_relationship),
+            )
+            data.update(fulfilment)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+    if "photo_urls" in data:
+        from fulfilment import validate_photo_paths
+        try:
+            data["photo_urls"] = validate_photo_paths(data["photo_urls"] or [])
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
     for key, value in data.items():
         setattr(lead, key, value or "")
 

@@ -33,6 +33,7 @@ if parsed.hostname in {"db.supabase.co", "supabase.co"} or parsed.hostname and p
 
 from models import Customer, Order, OrderItem, Payment, Product  # noqa: E402
 from repositories import OrdersRepository, PaymentsRepository  # noqa: E402
+from fulfilment import issue_pickup_pin  # noqa: E402
 
 engine = create_async_engine(TEST_URL, poolclass=NullPool, connect_args={"statement_cache_size": 0})
 Session = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
@@ -267,3 +268,37 @@ def test_cancellation_releases_reserved_product(seeded):
             )
 
     assert _run(run()) == "available"
+
+
+def test_concurrent_collection_only_one_confirmation_succeeds(seeded):
+    async def prepare():
+        ok, order_id = await _create_order(seeded, [])
+        assert ok
+        pin, encoded = issue_pickup_pin()
+        async with Session.begin() as session:
+            await session.execute(text("update orders set status = 'ready', pickup_pin_hash = :hash where id = :id"), {"hash": encoded, "id": order_id})
+        return order_id, pin
+
+    async def collect(order_id, pin):
+        async with Session() as session:
+            try:
+                await OrdersRepository(session).confirm_collection(order_id, pin, "Mina Rai")
+                await session.commit()
+                return True, None
+            except ValueError as exc:
+                await session.rollback()
+                return False, str(exc)
+
+    async def run():
+        order_id, pin = await prepare()
+        results = await asyncio.gather(collect(order_id, pin), collect(order_id, pin))
+        async with Session() as session:
+            row = (await session.execute(text("select status, collected_at, collected_by_name, pickup_pin_hash from orders where id = :id"), {"id": order_id})).one()
+        return results, tuple(row)
+
+    results, row = _run(run())
+    assert sum(ok for ok, _ in results) == 1
+    assert row[0] == "collected"
+    assert row[1] is not None
+    assert row[2] == "Mina Rai"
+    assert row[3] is None

@@ -8,8 +8,9 @@ import { useSettings } from "@/context/SettingsContext";
 import { orderWhatsappLink, orderStatusLink, buildOrderWhatsappMessage } from "@/lib/receipt";
 import { inp, btnGold, btnGhost, Card, Badge, F } from "@/components/admin/ui";
 import { RefreshCw, Printer, MessageCircle, Link2 } from "lucide-react";
+import { FULFILMENT_OPTIONS } from "@/lib/fulfilment";
 
-const ORDER_STATUSES = ["new", "in_progress", "making", "polishing", "ready", "delivered", "cancelled"];
+const ORDER_STATUSES = ["new", "in_progress", "making", "polishing", "ready", "delivered", "collected", "cancelled"];
 
 export default function OrderDetail() {
   const { id } = useParams();
@@ -17,11 +18,13 @@ export default function OrderDetail() {
   const [order, setOrder] = useState(null);
   const [error, setError] = useState(null);
   const [pay, setPay] = useState({ amount: "", method: "cash", note: "", payment_date_ad: new Date().toISOString().slice(0, 10) });
-  const [fulfilment, setFulfilment] = useState({ fulfilment_method: "shop_pickup", collector_name: "", collector_phone: "", collector_relationship: "" });
+  const [fulfilment, setFulfilment] = useState({ fulfilment_method: "self_collect", collector_name: "", collector_phone: "", collector_relationship: "" });
+  const [pickupPin, setPickupPin] = useState("");
+  const [collection, setCollection] = useState({ pickup_pin: "", collector_name: "" });
 
   const load = () => {
     setError(null);
-    api.get(`/admin/orders/${id}`).then((r) => { setOrder(r.data); setFulfilment({ fulfilment_method: r.data.fulfilment_method || "shop_pickup", collector_name: r.data.collector_name || "", collector_phone: r.data.collector_phone || "", collector_relationship: r.data.collector_relationship || "" }); })
+    api.get(`/admin/orders/${id}`).then((r) => { setOrder(r.data); setFulfilment({ fulfilment_method: r.data.fulfilment_method || "self_collect", collector_name: r.data.collector_name || "", collector_phone: r.data.collector_phone || "", collector_relationship: r.data.collector_relationship || "" }); })
       .catch((err) => { console.error("Order detail load failed:", err); setError(apiError(err)); });
   };
   useEffect(() => { load(); }, [id]); // eslint-disable-line
@@ -63,6 +66,9 @@ export default function OrderDetail() {
     } catch (e) { toast.error(apiError(e)); }
   };
 
+  const issuePin = async () => { try { const { data } = await api.post(`/admin/orders/${id}/pickup-pin`); setPickupPin(data.pickup_pin); toast.success("Pickup PIN issued — share it securely with the customer"); } catch (e) { toast.error(apiError(e)); } };
+  const collect = async () => { if (!collection.pickup_pin || !collection.collector_name.trim()) return toast.error("Enter the PIN and collector name"); try { await api.post(`/admin/orders/${id}/collect`, collection); toast.success("Order marked collected"); setPickupPin(""); load(); } catch (e) { toast.error(apiError(e)); } };
+
   const whatsappLink = orderWhatsappLink(order, buildOrderWhatsappMessage(order, shop.shop_name));
   const statusLink = orderStatusLink(order);
   const copyStatusLink = async () => {
@@ -94,13 +100,14 @@ export default function OrderDetail() {
 
       <Card title="Fulfilment and collection">
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3" data-testid="order-fulfilment">
-          <F label="Method"><select className={inp} value={fulfilment.fulfilment_method} onChange={(e) => setFulfilment({ ...fulfilment, fulfilment_method: e.target.value })}><option value="shop_pickup">Shop pickup</option><option value="courier">Courier within Nepal</option><option value="international_shipping">International shipping</option></select></F>
+          <F label="Method"><select className={inp} value={fulfilment.fulfilment_method} onChange={(e) => setFulfilment({ ...fulfilment, fulfilment_method: e.target.value })}>{FULFILMENT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></F>
           <F label="Collector name"><input className={inp} value={fulfilment.collector_name} onChange={(e) => setFulfilment({ ...fulfilment, collector_name: e.target.value })} placeholder="If someone else collects" /></F>
           <F label="Collector phone"><input className={inp} value={fulfilment.collector_phone} onChange={(e) => setFulfilment({ ...fulfilment, collector_phone: e.target.value })} /></F>
           <F label="Relationship"><input className={inp} value={fulfilment.collector_relationship} onChange={(e) => setFulfilment({ ...fulfilment, collector_relationship: e.target.value })} placeholder="e.g. brother, courier" /></F>
         </div>
-        <p className="text-xs text-slate-500 mt-3">Record who will receive the finished piece. Confirm identity and payment at handover before marking the order delivered.</p>
+        <p className="text-xs text-slate-500 mt-3">Record who will receive the finished piece. Confirm identity and payment at handover before marking the order collected.</p>
         <button className={`${btnGold} mt-3`} onClick={saveFulfilment}>Save fulfilment</button>
+        {order.status === "ready" && <div className="mt-5 border-t pt-4 space-y-3"><div className="flex flex-wrap gap-2"><button className={btnGhost} onClick={issuePin}>Issue new pickup PIN</button>{pickupPin && <span className="rounded bg-amber-50 border border-amber-200 px-3 py-2 font-mono font-bold tracking-widest">{pickupPin}</span>}</div><div className="grid sm:grid-cols-2 gap-3"><F label="Customer PIN"><input className={inp} value={collection.pickup_pin} onChange={(e) => setCollection({ ...collection, pickup_pin: e.target.value })} inputMode="numeric" maxLength={6} /></F><F label="Collected by"><input className={inp} value={collection.collector_name} onChange={(e) => setCollection({ ...collection, collector_name: e.target.value })} /></F></div><button className={btnGold} onClick={collect}>Confirm collection</button></div>}
       </Card>
 
       <div className="grid lg:grid-cols-3 gap-4">

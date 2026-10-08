@@ -7,7 +7,7 @@ import { computeQuote, resolveRatePerTola } from "@/lib/calculator";
 import { inp, btnGold, btnGhost, Badge, F, ConfirmModal } from "@/components/admin/ui";
 import { Plus, X, Trash2, Archive, RotateCcw } from "lucide-react";
 
-const ORDER_STATUSES = ["new", "in_progress", "making", "polishing", "ready", "delivered", "cancelled"];
+const ORDER_STATUSES = ["new", "in_progress", "making", "polishing", "ready", "delivered", "collected", "cancelled"];
 const PAGE_SIZE = 50;
 
 export default function Orders() {

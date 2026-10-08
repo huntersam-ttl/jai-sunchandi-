@@ -4,12 +4,13 @@ never diverges between stacks.
 """
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import noload
 
 from models import Order, OrderItem, Product
+from fulfilment import verify_pickup_pin
 from utils import ad_to_bs, compute_price, GRAMS_PER_TOLA
 from .base import BaseRepository, archived_clause, derive_payment_status
 
@@ -89,7 +90,8 @@ class OrdersRepository(BaseRepository):
 
     async def create_order(self, *, customer, items, order_type="purchase",
                            old_gold=None, custom_description="", delivery_date_ad=None,
-                           delivery_time="", notes="") -> Order:
+                           delivery_time="", notes="", fulfilment=None,
+                           collector_relationship="") -> Order:
         """Create an order with frozen item snapshots. `items` is a list of dicts
         of pricing inputs; `customer` is a Customer model."""
         total = 0.0
@@ -138,6 +140,11 @@ class OrdersRepository(BaseRepository):
             delivery_date_ad=delivery_date, delivery_date_bs=delivery_bs.get("bs_date"),
             delivery_date_bs_np=delivery_bs.get("bs_date_np"), delivery_time=delivery_time,
             status="new", notes=notes, old_gold=og,
+            fulfilment_method=(fulfilment or {}).get("fulfilment_method", "self_collect"),
+            fulfilment_country=(fulfilment or {}).get("country", "NP"),
+            collector_name=(fulfilment or {}).get("collector_name", ""),
+            collector_phone=(fulfilment or {}).get("collector_phone", ""),
+            collector_relationship=collector_relationship,
             total_price=round(total, 2), old_gold_value=old_value, net_payable=net,
             advance_total=0, remaining_balance=net,
             payment_status=derive_payment_status(net, 0),
@@ -165,12 +172,12 @@ class OrdersRepository(BaseRepository):
         return order
 
     async def public_status(self, order_number: str, phone: str) -> Order | None:
-        """Active (non-delivered/cancelled) order matching order_number + phone."""
+        """Order status matching order_number + phone, excluding cancellation."""
         stmt = select(Order).where(
             Order.order_number == order_number,
             Order.customer_phone == phone,
             Order.is_deleted.is_(False),
-            Order.status.notin_(["delivered", "cancelled"]),
+            Order.status != "cancelled",
         )
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
@@ -231,7 +238,7 @@ class OrdersRepository(BaseRepository):
         order = await self.get(order_id)
         if order is not None:
             order.status = status
-            product_status = {"delivered": "sold", "cancelled": "available"}.get(status)
+            product_status = {"delivered": "sold", "collected": "sold", "cancelled": "available"}.get(status)
             if product_status:
                 for item in order.items:
                     if item.product_id:
@@ -239,4 +246,33 @@ class OrdersRepository(BaseRepository):
                         if product is not None:
                             product.status = product_status
             await self.session.flush()
+        return order
+
+    async def confirm_collection(self, order_id, pickup_pin: str, collector_name: str) -> Order:
+        """Atomically verify a one-use PIN and mark a ready order collected."""
+        result = await self.session.execute(
+            select(Order).where(Order.id == order_id).with_for_update()
+        )
+        order = result.scalar_one_or_none()
+        if not order or order.is_deleted:
+            raise ValueError("Order not found")
+        if order.status == "collected" or order.collected_at is not None:
+            raise ValueError("Order has already been collected")
+        if order.status != "ready":
+            raise ValueError("Only orders ready for collection can be collected")
+        if not order.pickup_pin_hash or not verify_pickup_pin(pickup_pin, order.pickup_pin_hash):
+            raise ValueError("Invalid pickup PIN")
+        collector_name = (collector_name or "").strip()
+        if not collector_name:
+            raise ValueError("Collector name is required")
+        order.status = "collected"
+        order.collected_by_name = collector_name
+        order.collected_at = datetime.now(timezone.utc)
+        order.pickup_pin_hash = None
+        for item in order.items:
+            if item.product_id:
+                product = await self.session.get(Product, item.product_id)
+                if product is not None:
+                    product.status = "sold"
+        await self.session.flush()
         return order
