@@ -153,7 +153,7 @@ export default function Dashboard() {
         <form onSubmit={saveRate} className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end" data-testid="dashboard-rate-form">
           <F label="24K Gold"><input className={inp} type="number" step="any" value={rateForm.gold_24k} onChange={(e) => setRateForm({ ...rateForm, gold_24k: e.target.value })} data-testid="rate-gold24-input" /></F>
           <F label="Silver"><input className={inp} type="number" step="any" value={rateForm.silver} onChange={(e) => setRateForm({ ...rateForm, silver: e.target.value })} data-testid="rate-silver-input" /></F>
-          <button type="submit" className={btnGold} data-testid="rate-save-btn">Update Rate</button>
+          <button type="submit" className={btnGold} disabled={savingRate} data-testid="rate-save-btn">{savingRate ? "Saving…" : "Update Rate"}</button>
         </form>
         {data.rate
           ? <p className="text-xs text-slate-500 mt-2">Last updated: {data.rate.date_ad} (BS {data.rate.bs_date_np})</p>
