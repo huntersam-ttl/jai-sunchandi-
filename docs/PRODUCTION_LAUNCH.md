@@ -28,6 +28,7 @@ Apply the tracked files in lexical order, using the Supabase SQL editor or the a
 3. Enroll admins using the SQL pattern below.
 4. `0015_customer_fulfilment_fields.sql`
 5. `0016_secure_fulfilment_workflow.sql`
+6. `0017_public_request_limits.sql`
 
 The GitHub PostgreSQL job bootstraps a disposable database, applies the same ordered chain, and checks required columns, buckets, constraints, and the admin self-read policy. It does not touch hosted Supabase.
 
@@ -80,9 +81,33 @@ Smoke test after each stage:
 | `REACT_APP_BACKEND_URL` | Frontend | Yes unless same-origin rewrite is used | No | Backend origin. Use the Vercel same-origin `/api` arrangement or an explicit HTTPS API origin; never ship localhost. |
 | `REACT_APP_SUPABASE_URL` | Frontend | Yes for admin login/uploads | No | Public Supabase URL. Missing leaves admin Auth/storage unavailable. |
 | `REACT_APP_SUPABASE_ANON_KEY` | Frontend | Yes for admin login/uploads | No | Public anon key only. Never substitute the service-role key. |
+| `REACT_APP_SITE_URL` | Frontend build | Yes for production build | No | Canonical production origin used to generate `robots.txt` and `sitemap.xml`; production builds fail closed if absent. |
 | Shop settings in `shop_settings` | Database | Yes before launch | No | Name, Nepali name, phone, WhatsApp, address, Maps link, hours, logo, messaging. Empty values intentionally hide optional contact UI. |
 
 There is no tracked cron/scheduler configuration or rate-source automation. Daily rates are currently an admin-entered operational task; do not advertise automated publication until one is configured and monitored.
+
+Public lead submissions are limited to five per HMAC'd client-address bucket per hour, and order-status lookups to twenty per ten minutes. Counters are stored in PostgreSQL so they work across Vercel instances. Direct anonymous Storage uploads still rely on Supabase's bucket size/MIME/path policies; add a managed edge/WAF limit before exposing the form broadly if abuse appears.
+
+## Pricing policy gate
+
+The current pricing paths were traced before release:
+
+- `backend/utils.py::compute_price` applies a purity factor to a supplied per-tola rate.
+- Public product estimates, admin live prices, and the legacy-compatible server calculator supply `gold_24k` for every gold product, then apply the product purity factor. Silver uses `silver`.
+- The frontend quote calculator prefers a directly published `gold_22k` value for 22K, which can therefore disagree with the backend product estimate when the two stored rates differ. The current admin rate forms also submit the 24K value as the 22K value.
+- Orders freeze `rate_per_tola`, `purity_factor`, component amounts, and totals in `order_items`; payments, invoices, and later rate changes must not recalculate historical orders. Old-gold valuation is a separate frozen order input and is not the catalogue price path.
+
+No pricing formula was changed in this release candidate. Before real 22K products are quoted, the owner must choose and test one policy:
+
+1. Keep one 24K base rate and derive all purities by factor; make the 22K display value explicitly informational, or remove it from operational entry.
+2. Use dedicated published base rates per purity (at least 24K and 22K), and make every public estimate, admin preview, quote, and order snapshot use the same selected rate source. Add further purities only with an explicit fallback policy.
+3. Treat each product as an explicitly quoted rate/price and stop deriving a catalogue estimate from daily rates; this is the least automatic option.
+
+Option 2 is the recommended long-term architecture if the shop genuinely maintains separate 22K and 24K rates. It should be implemented only after owner approval, with an additive snapshot/rate-source migration, one shared backend calculation path, matching frontend tests, and regression cases for 24K, 22K, silver, missing rates, rate changes after reservation, cancellation, payment races, and old-gold deductions. Existing order snapshots must remain untouched. Until then, the release gate is to use only the already-tested 24K-factor policy and label estimates as estimates.
+
+## Dependency audit disposition
+
+The Yarn audit is not clean and must be reviewed before production exposure. The post-install audit tree contains three critical, 184 high, 70 moderate, and one low finding across 1,570 dependency entries; most are transitive development/build tooling rather than browser runtime packages. The safe scoped remediation in this phase pins Axios' transitive `form-data` to `4.0.6` instead of the previously forced `4.0.4`. Remaining `js-yaml`, PostCSS, webpack/dev-server, and test-tool findings are retained for a separate dependency-upgrade task because broad framework upgrades could destabilise the RC. Re-run the audit after any dependency change and record the residual list; do not treat the count alone as proof of an exploitable production path.
 
 ## Real shop data
 
@@ -123,7 +148,9 @@ Run with test records before launch, then repeat carefully with the first real o
 
 Before launch, confirm there are no demo products, fake testimonials, placeholder phone/address values, or unsupported claims. The public pages expose rates, purity, weight, estimated pricing, contact/WhatsApp, location when configured, custom orders, repairs, order tracking, and certificate/invoice verification.
 
-The SPA updates titles, canonical, Open Graph, Twitter, and store JSON-LD client-side. The HTML template currently contains the configured `https://www.jaisupadeurali.com/` base URL and logo; verify that this is the intended production domain. No `sitemap.xml` or `robots.txt` is currently tracked, so add those only after the production domain is confirmed.
+The SPA updates titles, canonical, Open Graph, Twitter, and store JSON-LD client-side. The production build requires `REACT_APP_SITE_URL` and generates `sitemap.xml` and `robots.txt` without indexing `/admin` or `/api`. Product URLs remain dynamic and are not included in the static sitemap until a product-feed decision is made.
+
+Invoice and certificate verification are explicitly marked unavailable in this Supabase release candidate because their legacy records/routes are not migrated. Do not print or distribute verification QR links until those records and endpoints are migrated and tested.
 
 ## Performance and accessibility smoke test
 

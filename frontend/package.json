@@ -64,7 +64,7 @@
   },
   "scripts": {
     "start": "craco start",
-    "build": "craco build",
+    "build": "craco build && node scripts/generate-seo.js",
     "test": "craco test"
   },
   "browserslist": {
@@ -117,7 +117,7 @@
     "webpack-dev-server": "5.2.4",
     "resolve-url-loader": "5.0.0",
     "**/resolve-url-loader/postcss": "8.5.10",
-    "**/axios/form-data": "4.0.4",
+    "**/axios/form-data": "4.0.6",
     "**/jsdom/form-data": "3.0.4",
     "**/postcss-svgo/svgo": "2.8.1",
     "**/webpack-dev-server/ws": "8.20.1",

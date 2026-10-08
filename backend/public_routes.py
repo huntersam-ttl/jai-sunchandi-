@@ -7,7 +7,7 @@ public-safe fields (no cost/profit columns, no private data).
 """
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,6 +18,7 @@ from repositories import (
 )
 from utils import compute_price, grams_to_tola, to_nepali_digits
 from fulfilment import validate_fulfilment, validate_photo_paths
+from public_rate_limit import enforce_public_rate_limit
 
 router = APIRouter(prefix="/api")
 
@@ -146,8 +147,9 @@ class LeadCreate(BaseModel):
 
 
 @router.post("/leads")
-async def create_lead(body: LeadCreate, session: AsyncSession = Depends(db.get_session)):
+async def create_lead(request: Request, body: LeadCreate, session: AsyncSession = Depends(db.get_session)):
     """Public custom-order / repair enquiry (matches the legacy /leads contract)."""
+    await enforce_public_rate_limit(request, session, bucket="lead", limit=5, window_seconds=3600)
     if body.lead_type not in ("custom_order", "repair"):
         raise HTTPException(status_code=422, detail="Invalid lead_type")
     if not body.name.strip() or not body.phone.strip():
@@ -174,10 +176,11 @@ async def create_lead(body: LeadCreate, session: AsyncSession = Depends(db.get_s
 
 
 @router.get("/public/order-status")
-async def public_order_status(order_number: str, phone: str,
+async def public_order_status(request: Request, order_number: str, phone: str,
                               session: AsyncSession = Depends(db.get_session)):
     """Order status by order number + phone (both required). Minimal fields only —
     no balance/payment/customer data."""
+    await enforce_public_rate_limit(request, session, bucket="order-status", limit=20, window_seconds=600)
     order = await OrdersRepository(session).public_status(order_number.strip(), phone.strip())
     if not order:
         raise HTTPException(status_code=404, detail="No active order found for that order number and phone")
