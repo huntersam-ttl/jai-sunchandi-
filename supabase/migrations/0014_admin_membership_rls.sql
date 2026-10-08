@@ -1,11 +1,11 @@
 -- Restrict direct authenticated Data API / Storage access to explicitly enrolled admins.
 -- FastAPI service-role DB connection is unaffected (bypasses RLS).
--- IMPORTANT: Enroll the intended Supabase Auth user with the service-role
--- connection before applying this migration, otherwise direct admin Storage
--- operations will be denied until enrollment.
---
--- Example (run securely in SQL editor, replacing UUID with auth.users.id):
+-- IMPORTANT: This migration fails closed: existing admin users will lose
+-- direct Data API / Storage access until enrolled. Immediately after applying,
+-- use the SQL editor or service-role connection to run:
 -- INSERT INTO public.shop_admins(user_id) VALUES ('YOUR-ADMIN-AUTH-UUID');
+-- Replace the placeholder with the intended auth.users.id.
+-- Schedule this during a maintenance window and verify admin photo access.
 --
 -- Do not insert arbitrary users; only trusted shop administrators.
 create table if not exists public.shop_admins (
