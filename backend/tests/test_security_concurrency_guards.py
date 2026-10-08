@@ -4,6 +4,7 @@ These static checks supplement (not replace) PostgreSQL integration tests.
 """
 from pathlib import Path
 import inspect
+import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -30,6 +31,13 @@ def test_payment_rejects_overpayment():
     source = inspect.getsource(PaymentsRepository.add_payment)
     assert "Payment exceeds the remaining balance" in source
     assert "total_paid" in source
+
+
+def test_payment_amount_rejects_non_finite_and_non_positive_values():
+    from admin_routes import PaymentBody
+    for value in (0, -1, float("nan"), float("inf"), float("-inf")):
+        with pytest.raises(ValueError):
+            PaymentBody(amount=value)
 
 
 def test_rls_requires_enrolled_admin():

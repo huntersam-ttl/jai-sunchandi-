@@ -145,6 +145,36 @@ def test_overlapping_reservations_finish_without_deadlock(seeded):
     assert sum(ok for ok, _ in results) == 1
 
 
+def test_failed_partial_reservation_rolls_back_prior_claims(seeded):
+    async def run():
+        extra = await _seed(product_count=2)
+        try:
+            async with Session.begin() as session:
+                await session.execute(
+                    text("update products set status = 'reserved' where id = :id"),
+                    {"id": extra["product_ids"][1]},
+                )
+            ok, _ = await _create_order(extra, extra["product_ids"])
+            async with Session() as session:
+                statuses = (await session.execute(
+                    text("select status from products where id = any(cast(:ids as uuid[])) order by id"),
+                    {"ids": extra["product_ids"]},
+                )).scalars().all()
+                orders = await session.scalar(
+                    text("select count(*) from orders where customer_id = :id"),
+                    {"id": extra["customer_id"]},
+                )
+            return ok, statuses, orders
+        finally:
+            await _cleanup(extra)
+
+    ok, statuses, orders = _run(run())
+    assert not ok
+    assert statuses.count("available") == 1
+    assert statuses.count("reserved") == 1
+    assert orders == 0
+
+
 async def _pay(data, order_id: str, amount) -> tuple[bool, str | None]:
     async with Session() as session:
         try:
