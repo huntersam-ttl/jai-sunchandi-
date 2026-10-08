@@ -56,7 +56,8 @@ jobs:
           set -euo pipefail
           python -m pytest -q -n 0 backend/tests/test_postgres_concurrency.py \
             --junitxml=postgres-concurrency.xml | tee postgres-concurrency.log
-          grep -Eq '7 passed, 0 skipped' postgres-concurrency.log
+          grep -Eq '7 passed' postgres-concurrency.log
+          ! grep -Eq '[0-9]+ skipped' postgres-concurrency.log
 
       - name: Run backend regression suite
         env:
