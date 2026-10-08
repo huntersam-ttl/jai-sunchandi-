@@ -40,6 +40,19 @@ def test_payment_amount_rejects_non_finite_and_non_positive_values():
             PaymentBody(amount=value)
 
 
+def test_product_and_rate_inputs_reject_negative_money_and_weight():
+    from admin_routes import ProductBody, RateBody, WeightInput
+
+    with pytest.raises(ValueError):
+        RateBody(gold_24k=0, gold_22k=1, silver=1)
+    with pytest.raises(ValueError):
+        ProductBody(name="Ring", weight=WeightInput(grams=1), jyala_amount=-1)
+    with pytest.raises(ValueError):
+        ProductBody(name="Ring", weight=WeightInput(grams=1), cost_price=-1)
+    with pytest.raises(ValueError):
+        ProductBody(name="Ring", weight=WeightInput(grams=1), stone_cost=float("inf"))
+
+
 def test_rls_requires_enrolled_admin():
     migration = (ROOT / "supabase/migrations/0014_admin_membership_rls.sql").read_text()
     assert "shop_admin_self_read" in migration

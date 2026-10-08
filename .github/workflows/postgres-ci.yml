@@ -47,6 +47,17 @@ jobs:
               --username=ci --dbname=jai_sunchandi_ci --file="${migration}"
           done
 
+      - name: Verify migration chain invariants
+        env:
+          PGPASSWORD: ci_password
+        run: |
+          set -euo pipefail
+          test "$(psql -At --host=127.0.0.1 --port=5432 --username=ci --dbname=jai_sunchandi_ci -c "select count(*) from information_schema.columns where table_schema = 'public' and table_name = 'orders' and column_name in ('pickup_pin_hash','collected_by_name','fulfilment_country');")" = "3"
+          test "$(psql -At --host=127.0.0.1 --port=5432 --username=ci --dbname=jai_sunchandi_ci -c "select count(*) from information_schema.columns where table_schema = 'public' and table_name = 'leads' and column_name in ('photo_urls','purity','size','country','fulfilment_method','collector_name','collector_phone','collector_relationship','is_deleted');")" = "9"
+          test "$(psql -At --host=127.0.0.1 --port=5432 --username=ci --dbname=jai_sunchandi_ci -c "select count(*) from storage.buckets where id in ('product-photos','shop','repair-photos','lead-photos','bill-photos');")" = "5"
+          test "$(psql -At --host=127.0.0.1 --port=5432 --username=ci --dbname=jai_sunchandi_ci -c "select count(*) from pg_constraint where conname in ('leads_fulfilment_method_check','orders_fulfilment_method_check','orders_status_check');")" = "3"
+          test "$(psql -At --host=127.0.0.1 --port=5432 --username=ci --dbname=jai_sunchandi_ci -c "select count(*) from pg_policies where schemaname = 'public' and tablename = 'shop_admins' and policyname = 'shop_admin_self_read';")" = "1"
+
       - name: Run mandatory PostgreSQL concurrency tests
         env:
           PYTHONPATH: backend

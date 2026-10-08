@@ -55,9 +55,9 @@ def _timed(route: str):
 # ---------- Models ----------
 class RateBody(BaseModel):
     date_ad: Optional[str] = None  # defaults to today
-    gold_24k: float
-    gold_22k: float
-    silver: float
+    gold_24k: float = Field(gt=0, allow_inf_nan=False)
+    gold_22k: float = Field(gt=0, allow_inf_nan=False)
+    silver: float = Field(gt=0, allow_inf_nan=False)
 
 
 class ReferenceBody(BaseModel):
@@ -239,14 +239,14 @@ async def delete_collection(cid: str, session: AsyncSession = Depends(db.get_ses
 
 # ---------- Products ----------
 class WeightInput(BaseModel):
-    grams: Optional[float] = None
-    tola: Optional[float] = None
-    lal: Optional[float] = None
-    aana: Optional[float] = None
+    grams: Optional[float] = Field(default=None, gt=0, allow_inf_nan=False)
+    tola: Optional[float] = Field(default=None, gt=0, allow_inf_nan=False)
+    lal: Optional[float] = Field(default=None, ge=0, allow_inf_nan=False)
+    aana: Optional[float] = Field(default=None, ge=0, allow_inf_nan=False)
 
 
 class ProductBody(BaseModel):
-    name: str
+    name: str = Field(min_length=1)
     name_np: str = ""
     description: str = ""
     category: str = ""
@@ -254,15 +254,15 @@ class ProductBody(BaseModel):
     metal: str = "gold"
     purity: str = "24K"
     weight: WeightInput
-    jarti_percent: float = 0
-    jyala_amount: float = 0
+    jarti_percent: float = Field(default=0, ge=0, allow_inf_nan=False)
+    jyala_amount: float = Field(default=0, ge=0, allow_inf_nan=False)
     jyala_type: str = "flat"
-    stone_cost: float = 0
-    polishing_cost: float = 0
-    cutting_cost: float = 0
-    worker_charge: float = 0
-    other_cost: float = 0
-    cost_price: Optional[float] = None  # what the shop paid for this item; leave unset if unknown
+    stone_cost: float = Field(default=0, ge=0, allow_inf_nan=False)
+    polishing_cost: float = Field(default=0, ge=0, allow_inf_nan=False)
+    cutting_cost: float = Field(default=0, ge=0, allow_inf_nan=False)
+    worker_charge: float = Field(default=0, ge=0, allow_inf_nan=False)
+    other_cost: float = Field(default=0, ge=0, allow_inf_nan=False)
+    cost_price: Optional[float] = Field(default=None, ge=0, allow_inf_nan=False)  # what the shop paid for this item; leave unset if unknown
     status: str = "available"
     show_on_website: bool = True
     show_price_on_website: bool = True
