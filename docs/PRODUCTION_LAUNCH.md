@@ -10,6 +10,16 @@ This is the runbook for the first real deployment. It is intentionally manual: n
 - [ ] A real admin Auth UUID is recorded securely; never paste a password or service key into this repository.
 - [ ] The current PR head has green PostgreSQL, backend, frontend-test, and frontend-build checks.
 
+## Cycle 5 verification record
+
+The pre-Cycle-5 release-candidate head was verified by GitHub Actions run [#8](https://github.com/huntersam-ttl/jai-sunchandi-/actions/runs/37791549662), which completed successfully for commit `62d052e3e7d4b4e3a11d7d3aca7133516914a976`. The backend PostgreSQL job applied every migration in lexical order, including `0017_public_request_limits.sql`, passed the migration invariant queries, ran the mandatory PostgreSQL concurrency suite with 8 passing tests and no skips, and completed the backend regression job. The frontend job installed from the lockfile, passed 53 tests, and built successfully. Cycle-5 changes require a fresh CI run before this checklist can be considered current.
+
+The repository-linked Supabase project was identified read-only as `jai-sunchandi-` (`hzpukedwffyuysvhvlbg`) in `ap-south-1`, matching the documented BOM deployment region. The project is currently `INACTIVE`; migration-history access timed out, so hosted schema, Auth enrollment, Storage policies, backup settings, and live RLS behavior remain **UNVERIFIED**. No wake-up, migration, SQL write, Auth change, Storage change, or customer-data access was attempted. The connected security and performance advisor calls returned no lints, but that does not replace a live schema audit while the project is inactive.
+
+Supply-chain triage reduced the audit from 3 critical / 184 high / 70 moderate / 1 low to 0 critical / 160 high / 57 moderate / 1 low. The compatible changes update `form-data`, `proxy-addr`, `shell-quote`, `js-yaml`, and PostCSS pins. Remaining findings are predominantly CRA/Jest/SVGO/Tailwind/webpack development tooling; `axios` is the only directly imported audited frontend package, and its `form-data` path is patched. A CRA/toolchain replacement remains a separate proposal, not a hidden RC change.
+
+Vercel configuration is reviewed statically: `vercel.json` deploys `frontend/build`, routes `/api` to `api/index.py`, and targets `bom1`; `.vercelignore` excludes environment files, tests, caches, and `node_modules`. Production environment separation cannot be confirmed from the repository because Vercel project settings are external. Keep preview credentials separate from production, set `ENVIRONMENT=production`, use explicit `ALLOWED_ORIGINS`, and never place service-role or database credentials in `REACT_APP_*` variables. When `REACT_APP_BACKEND_URL` is omitted, the frontend now uses same-origin `/api`, matching the checked-in rewrite; an explicit HTTPS backend origin remains supported.
+
 ## Before launch
 
 Record/export, without committing secrets:
