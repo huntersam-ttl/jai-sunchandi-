@@ -25,6 +25,14 @@ as $$
   select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
 $$;
 
+create or replace function auth.role()
+returns text
+language sql
+stable
+as $$
+  select coalesce(nullif(current_setting('request.jwt.claim.role', true), ''), current_user::text)
+$$;
+
 create table if not exists storage.buckets (
   id text primary key,
   name text not null,

@@ -51,6 +51,8 @@ Apply the tracked files in lexical order, using the Supabase SQL editor or the a
 
 The GitHub PostgreSQL job bootstraps a disposable database, applies the same ordered chain, checks required columns, buckets, constraints, admin policy, old-policy removal, and dangerous-grant removal, then runs role-based PostgreSQL authorization tests. It does not touch hosted Supabase.
 
+The rehearsal first applies the repository’s available historical baseline through 0013, then loads `supabase/rehearsal_hosted_legacy_state.sql`, a disposable-only fixture based on the read-only hosted observations: broad API-role table grants and four historical `auth.role()` policies. It then applies 0014–0018 and proves those bypasses and dangerous grants are removed. Any historical differences not represented by available repository SQL remain **UNVERIFIED** and must be checked from a fresh hosted schema/grant export before launch.
+
 ### 0014 caution
 
 This migration replaces broad authenticated `admin_all` policies with membership checks. Existing Auth users lose direct Data API/Storage access until enrolled. The FastAPI service-role connection is unaffected.
@@ -181,6 +183,10 @@ Invoice and certificate verification are explicitly marked unavailable in this S
 ## Rollback
 
 There are no down migrations. If a migration fails, stop, preserve the error and backup, and do not continue partially. Restore the disposable/hosted database snapshot or use a reviewed forward-fix SQL script.
+
+### Free-plan backup reality
+
+The hosted project is on the Free plan. Current Supabase documentation says downloadable managed database backups are not available on Free, and Storage objects are not included in database backups. Before a live upgrade, use an owner-approved `supabase db dump`/`pg_dump` export of roles, schema, and data into encrypted off-repository storage, and separately inventory/download required Storage objects. Treat that export as **UNVERIFIED** until it has been restored into disposable PostgreSQL and the application smoke suite passes. Do not export real customer data in CI or this repository.
 
 If 0014 causes admin lockout, use the Supabase SQL editor or service-role maintenance connection to insert the verified Auth UUID into `public.shop_admins`, then re-test login and Storage. If a Storage policy breaks uploads, keep private buckets private, pause public forms, restore the known policy from backup/reviewed SQL, and do not make the bucket public as a workaround.
 

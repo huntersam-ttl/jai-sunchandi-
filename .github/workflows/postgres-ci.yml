@@ -42,7 +42,19 @@ jobs:
           psql --host=127.0.0.1 --port=5432 --username=ci --dbname=jai_sunchandi_ci \
             --file=supabase/ci_bootstrap.sql
           for migration in supabase/migrations/*.sql; do
-            echo "Applying ${migration}"
+            if [[ "$(basename "${migration}")" == 0014* ]]; then break; fi
+            echo "Applying historical baseline ${migration}"
+            psql --set=ON_ERROR_STOP=1 --host=127.0.0.1 --port=5432 \
+              --username=ci --dbname=jai_sunchandi_ci --file="${migration}"
+          done
+          psql --set=ON_ERROR_STOP=1 --host=127.0.0.1 --port=5432 \
+            --username=ci --dbname=jai_sunchandi_ci \
+            --file=supabase/rehearsal_hosted_legacy_state.sql
+          test "$(psql -At --host=127.0.0.1 --port=5432 --username=ci --dbname=jai_sunchandi_ci -c "select count(*) from pg_policies where schemaname = 'public' and policyname like 'service role only%';")" = "4"
+          test "$(psql -At --host=127.0.0.1 --port=5432 --username=ci --dbname=jai_sunchandi_ci -c "select has_table_privilege('authenticated', 'public.customers', 'TRUNCATE');")" = "t"
+          for migration in supabase/migrations/*.sql; do
+            if [[ "$(basename "${migration}")" == 000* || "$(basename "${migration}")" == 001[0-3]* ]]; then continue; fi
+            echo "Applying security and current migrations ${migration}"
             psql --set=ON_ERROR_STOP=1 --host=127.0.0.1 --port=5432 \
               --username=ci --dbname=jai_sunchandi_ci --file="${migration}"
           done
@@ -85,8 +97,12 @@ jobs:
             backend/tests/test_security_concurrency_guards.py \
             backend/tests/test_fulfilment.py \
             backend/tests/test_staging_preflight.py \
+            backend/tests/test_deployment_readiness.py \
             backend/tests/test_postgres_concurrency.py \
             --junitxml=backend-tests.xml
+
+      - name: Compile Python entrypoints
+        run: python -m compileall -q api backend
 
       - name: Run PostgreSQL role and RLS authorization tests
         env:

@@ -39,7 +39,7 @@ That probe makes 21 synthetic order-status requests and expects the 21st to rece
 1. Record the project ref, region, PostgreSQL version, Auth settings, Storage buckets, backup capability, and current migration history.
 2. Confirm the database contains no real records. Export a disposable backup/snapshot if the platform supports it.
 3. Bootstrap only the disposable PostgreSQL instance with `supabase/ci_bootstrap.sql` or a newly created empty Supabase project.
-4. Apply migrations `0001` through `0018` in lexical order with `ON_ERROR_STOP` enabled.
+4. Apply migrations `0001` through `0013` in lexical order, apply the disposable hosted-state fixture `supabase/rehearsal_hosted_legacy_state.sql`, then apply `0014` through `0018` with `ON_ERROR_STOP` enabled.
 5. Run the CI invariant queries and the eight PostgreSQL concurrency tests.
 6. Enrol only the synthetic staging Auth UUID in `shop_admins` using the documented idempotent SQL pattern.
 7. Run `backend/tests/test_postgres_rls_security.py`, then verify RLS and Storage with the four authorization identities below.

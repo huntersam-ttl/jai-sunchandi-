@@ -62,6 +62,9 @@ async def _setup_synthetic_admin():
     await conn.execute(
         "insert into public.shop_admins (user_id) values ($1)", ADMIN_ID
     )
+    await conn.execute(
+        "insert into storage.objects (bucket_id, name) values ('lead-photos', 'leads/ci-private.png')"
+    )
     await conn.close()
 
 
@@ -100,6 +103,34 @@ def test_anonymous_catalogue_read_and_private_table_denial():
     asyncio.run(run())
 
 
+def test_anonymous_enquiry_submission_and_private_storage_read_denial():
+    async def run():
+        conn, tx = await _as_role("anon")
+        try:
+            await conn.execute(
+                "savepoint enquiry_submission"
+            )
+            await conn.execute(
+                "insert into public.leads (name, phone) values ('CI visitor', '0000000000')"
+            )
+            await conn.execute("rollback to savepoint enquiry_submission")
+            await conn.execute("release savepoint enquiry_submission")
+            await conn.execute("savepoint valid_photo_upload")
+            await conn.execute(
+                "insert into storage.objects (bucket_id, name) values ('lead-photos', 'leads/ci-valid.jpg')"
+            )
+            await conn.execute("rollback to savepoint valid_photo_upload")
+            await conn.execute("release savepoint valid_photo_upload")
+            assert await conn.fetchval(
+                "select count(*) from storage.objects where bucket_id = 'lead-photos'"
+            ) == 0
+        finally:
+            await tx.rollback()
+            await conn.close()
+
+    asyncio.run(run())
+
+
 def test_ordinary_authenticated_user_is_not_an_admin():
     async def run():
         conn, tx = await _as_role("authenticated", ORDINARY_ID)
@@ -112,6 +143,9 @@ def test_ordinary_authenticated_user_is_not_an_admin():
                 "insert into public.shop_admins (user_id) values ($1)",
                 ORDINARY_ID,
             )
+            assert await conn.fetchval(
+                "insert into public.products (name, weight_grams) values ('CI product', 1) returning id"
+            ) is None
         finally:
             await tx.rollback()
             await conn.close()
@@ -159,6 +193,17 @@ def test_old_bypass_policies_and_dangerous_grants_are_gone():
                 """
             )
             assert rows == []
+
+            inherited = await conn.fetch(
+                """
+                select role_name
+                from (values ('anon'::name), ('authenticated'::name)) as roles(role_name)
+                where has_table_privilege(role_name, 'public.customers', 'TRUNCATE')
+                   or has_table_privilege(role_name, 'public.customers', 'REFERENCES')
+                   or has_table_privilege(role_name, 'public.customers', 'TRIGGER')
+                """
+            )
+            assert inherited == []
         finally:
             await conn.close()
 

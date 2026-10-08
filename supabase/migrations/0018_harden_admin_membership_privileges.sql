@@ -41,6 +41,8 @@ end $$;
 -- remains for anon/authenticated.
 revoke all on all tables in schema public from anon, authenticated;
 revoke all on all sequences in schema public from anon, authenticated;
+revoke all on all tables in schema public from public;
+revoke all on all sequences in schema public from public;
 
 grant select on public_shop_settings, public_categories, public_collections,
   public_products, public_daily_rates to anon;
@@ -74,7 +76,7 @@ revoke all on public.public_request_limits from anon, authenticated;
 -- Supabase Storage API operations need object read/write privileges; the
 -- bucket/object policies above are the authorization boundary.  Metadata
 -- mutation remains service-role/backend-only.
-revoke all on table storage.buckets, storage.objects from anon, authenticated;
+revoke all on table storage.buckets, storage.objects from anon, authenticated, public;
 grant select on table storage.buckets to anon, authenticated;
 grant select, insert on table storage.objects to anon;
 grant select, insert, update, delete on table storage.objects to authenticated;
@@ -109,6 +111,6 @@ drop policy if exists "anon_upload_enquiry_photos" on storage.objects;
 create policy "anon_upload_enquiry_photos" on storage.objects
   for insert to anon
   with check (
-    (bucket_id = 'lead-photos' and name ~ '^leads/[A-Za-z0-9][A-Za-z0-9._/-]*\\.(jpg|jpeg|png|webp)$')
-    or (bucket_id = 'repair-photos' and name ~ '^repairs/[A-Za-z0-9][A-Za-z0-9._/-]*\\.(jpg|jpeg|png|webp)$')
+    (bucket_id = 'lead-photos' and name ~ '^leads/[A-Za-z0-9][A-Za-z0-9._/-]*\.(jpg|jpeg|png|webp)$')
+    or (bucket_id = 'repair-photos' and name ~ '^repairs/[A-Za-z0-9][A-Za-z0-9._/-]*\.(jpg|jpeg|png|webp)$')
   );
