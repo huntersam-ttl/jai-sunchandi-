@@ -8,10 +8,11 @@ BASE_URL = os.environ["REACT_APP_BACKEND_URL"].rstrip("/") if os.environ.get("RE
 if not BASE_URL:
     from pathlib import Path
     envp = Path(__file__).resolve().parents[2] / "frontend" / ".env"
-    for line in envp.read_text().splitlines():
-        if line.startswith("REACT_APP_BACKEND_URL="):
-            BASE_URL = line.split("=", 1)[1].strip().rstrip("/")
-            break
+    if envp.exists():
+        for line in envp.read_text().splitlines():
+            if line.startswith("REACT_APP_BACKEND_URL="):
+                BASE_URL = line.split("=", 1)[1].strip().rstrip("/")
+                break
 
 ADMIN_EMAIL = "admin@jsdpasal.com"
 ADMIN_PASSWORD = "admin123"
