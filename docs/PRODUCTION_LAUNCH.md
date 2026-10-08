@@ -10,7 +10,13 @@ This is the runbook for the first real deployment. It is intentionally manual: n
 - [ ] A real admin Auth UUID is recorded securely; never paste a password or service key into this repository.
 - [ ] The current PR head has green PostgreSQL, backend, frontend-test, and frontend-build checks.
 
-## Cycle 5 verification record
+## Cycle 7 verification record
+
+The current hosted project is active and was inspected read-only as `jai-sunchandi-` (`hzpukedwffyuysvhvlbg`) in `ap-south-1`. Hosted migration history contains 14 timestamped records and stops before repository migrations 0014–0018. Hosted inspection confirmed historical authenticated allow-all policies, four `auth.role()` bypass policies, and excessive `anon`/`authenticated` table grants. The repository now contains corrective migration `0018_harden_admin_membership_privileges.sql` plus disposable PostgreSQL role tests. No hosted SQL, migration, Auth enrollment, Storage change, deployment, or shop-data change was performed. See [`docs/SUPABASE_MIGRATION_RECONCILIATION.md`](SUPABASE_MIGRATION_RECONCILIATION.md).
+
+The hosted security advisor returned no lints during this read-only inspection, but that does not override the confirmed policy/grant findings or prove hosted behavior after remediation. The project remains **NO-GO** until the missing migrations are applied through an approved maintenance window, the real admin UUID is enrolled, and Auth/RLS/Storage smoke tests pass.
+
+## Earlier verification records
 
 The pre-Cycle-5 release-candidate head was verified by GitHub Actions run [#8](https://github.com/huntersam-ttl/jai-sunchandi-/actions/runs/37791549662), which completed successfully for commit `62d052e3e7d4b4e3a11d7d3aca7133516914a976`. The Cycle-5 head `f1227f2fcd278bf0e141cbc0ff2726cf1f1628a8` was then verified by run [#9](https://github.com/huntersam-ttl/jai-sunchandi-/actions/runs/37792452604). Both jobs passed: the backend PostgreSQL job applied every migration in lexical order, including `0017_public_request_limits.sql`, passed migration invariants, ran the mandatory PostgreSQL concurrency suite with 8 passing tests and no skips, and completed backend regression; the frontend job installed from the lockfile, passed 53 tests, and built successfully.
 
@@ -41,8 +47,9 @@ Apply the tracked files in lexical order, using the Supabase SQL editor or the a
 4. `0015_customer_fulfilment_fields.sql`
 5. `0016_secure_fulfilment_workflow.sql`
 6. `0017_public_request_limits.sql`
+7. `0018_harden_admin_membership_privileges.sql`
 
-The GitHub PostgreSQL job bootstraps a disposable database, applies the same ordered chain, and checks required columns, buckets, constraints, and the admin self-read policy. It does not touch hosted Supabase.
+The GitHub PostgreSQL job bootstraps a disposable database, applies the same ordered chain, checks required columns, buckets, constraints, admin policy, old-policy removal, and dangerous-grant removal, then runs role-based PostgreSQL authorization tests. It does not touch hosted Supabase.
 
 ### 0014 caution
 
@@ -70,7 +77,7 @@ Confirm these buckets exist and remain configured as follows:
 | `lead-photos` | No | Custom-order reference photos | Anonymous insert with restricted path; admin read/proxy |
 | `bill-photos` | No | Admin bill photos | Enrolled admin only |
 
-For all image buckets, confirm the 5 MB limit and JPEG/PNG/WebP MIME allowlist. Confirm anon has no read policy for private buckets and the frontend contains only the anon key.
+For all image buckets, confirm the 5 MB limit and JPEG/PNG/WebP MIME allowlist. Confirm anon has no read policy for private buckets, authenticated Storage policies require `shop_admins`, and the frontend contains only the anon key.
 
 Smoke test after each stage:
 

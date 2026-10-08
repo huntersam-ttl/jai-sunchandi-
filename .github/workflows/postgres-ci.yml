@@ -58,6 +58,8 @@ jobs:
           test "$(psql -At --host=127.0.0.1 --port=5432 --username=ci --dbname=jai_sunchandi_ci -c "select count(*) from pg_constraint where conname in ('leads_fulfilment_method_check','orders_fulfilment_method_check','orders_status_check');")" = "3"
           test "$(psql -At --host=127.0.0.1 --port=5432 --username=ci --dbname=jai_sunchandi_ci -c "select count(*) from pg_policies where schemaname = 'public' and tablename = 'shop_admins' and policyname = 'shop_admin_self_read';")" = "1"
           test "$(psql -At --host=127.0.0.1 --port=5432 --username=ci --dbname=jai_sunchandi_ci -c "select count(*) from information_schema.tables where table_schema = 'public' and table_name = 'public_request_limits';")" = "1"
+          test "$(psql -At --host=127.0.0.1 --port=5432 --username=ci --dbname=jai_sunchandi_ci -c "select count(*) from pg_policies where schemaname = 'public' and policyname like 'service role only%';")" = "0"
+          test "$(psql -At --host=127.0.0.1 --port=5432 --username=ci --dbname=jai_sunchandi_ci -c "select count(*) from information_schema.role_table_grants where grantee in ('anon','authenticated') and privilege_type in ('TRUNCATE','REFERENCES','TRIGGER');")" = "0"
 
       - name: Run mandatory PostgreSQL concurrency tests
         env:
@@ -86,6 +88,17 @@ jobs:
             backend/tests/test_postgres_concurrency.py \
             --junitxml=backend-tests.xml
 
+      - name: Run PostgreSQL role and RLS authorization tests
+        env:
+          PYTHONPATH: backend
+          TEST_POSTGRES_URL: postgresql+asyncpg://ci:ci_password@127.0.0.1:5432/jai_sunchandi_ci
+        run: |
+          set -euo pipefail
+          python -m pytest -q -n 0 backend/tests/test_postgres_rls_security.py \
+            --junitxml=postgres-rls.xml | tee postgres-rls.log
+          grep -Eq '[1-9][0-9]* passed' postgres-rls.log
+          ! grep -Eq '[1-9][0-9]* skipped' postgres-rls.log
+
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -95,6 +108,8 @@ jobs:
             postgres-concurrency.xml
             postgres-concurrency.log
             backend-tests.xml
+            postgres-rls.xml
+            postgres-rls.log
 
   frontend:
     runs-on: ubuntu-latest
