@@ -13,7 +13,7 @@ from typing import Optional
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -604,7 +604,7 @@ class StatusBody(BaseModel):
 
 
 class PaymentBody(BaseModel):
-    amount: float
+    amount: float = Field(gt=0, allow_inf_nan=False)
     method: str = "cash"
     payment_date_ad: Optional[str] = None
     note: str = ""

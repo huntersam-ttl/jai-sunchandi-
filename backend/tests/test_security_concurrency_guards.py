@@ -15,6 +15,7 @@ def test_order_reservation_is_conditional():
     assert "Product.is_deleted.is_(False)" in source
     assert ".returning(Product.id)" in source
     assert "already reserved" in source
+    assert "sorted(product_ids, key=str)" in source
 
 
 def test_payment_endpoint_locks_parent_order():
@@ -22,6 +23,13 @@ def test_payment_endpoint_locks_parent_order():
     source = inspect.getsource(admin_routes.add_order_payment)
     assert ".with_for_update()" in source
     assert source.index(".with_for_update()") < source.index(".add_payment(")
+
+
+def test_payment_rejects_overpayment():
+    from repositories.payments_repo import PaymentsRepository
+    source = inspect.getsource(PaymentsRepository.add_payment)
+    assert "Payment exceeds the remaining balance" in source
+    assert "total_paid" in source
 
 
 def test_rls_requires_enrolled_admin():

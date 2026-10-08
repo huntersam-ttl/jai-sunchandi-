@@ -145,21 +145,22 @@ class OrdersRepository(BaseRepository):
         )
         self.session.add(order)
         # Conditional UPDATE serializes claims and rejects unavailable products.
-        seen_product_ids = set()
-        for item in order_items:
-            if item.product_id:
-                if item.product_id in seen_product_ids:
-                    raise ValueError("The same product cannot be reserved twice")
-                seen_product_ids.add(item.product_id)
-                result = await self.session.execute(
-                    update(Product)
-                    .where(Product.id == item.product_id, Product.status == "available",
-                           Product.is_deleted.is_(False))
-                    .values(status="reserved")
-                    .returning(Product.id)
-                )
-                if result.scalar_one_or_none() is None:
-                    raise ValueError("Product is unavailable or already reserved")
+        # Always claim in UUID order: two orders containing the same products in
+        # different line-item orders must acquire locks in the same order or
+        # PostgreSQL can deadlock them.
+        product_ids = [item.product_id for item in order_items if item.product_id]
+        if len(product_ids) != len(set(product_ids)):
+            raise ValueError("The same product cannot be reserved twice")
+        for product_id in sorted(product_ids, key=str):
+            result = await self.session.execute(
+                update(Product)
+                .where(Product.id == product_id, Product.status == "available",
+                       Product.is_deleted.is_(False))
+                .values(status="reserved")
+                .returning(Product.id)
+            )
+            if result.scalar_one_or_none() is None:
+                raise ValueError("Product is unavailable or already reserved")
         await self.session.flush()
         return order
 
