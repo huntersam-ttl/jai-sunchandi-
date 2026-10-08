@@ -20,6 +20,7 @@ export default function Catalogue() {
   const [collections, setCollections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   const filters = {
     metal: params.get("metal") || "",
@@ -51,6 +52,7 @@ export default function Catalogue() {
 
   const clearFilters = () => setParams(new URLSearchParams());
   const visibleProducts = products.filter((product) => matchesProductQuery(product, filters.q));
+  const activeFilterCount = ["metal", "category", "collection", "availability"].filter((key) => Boolean(filters[key])).length;
 
   const Select = ({ label, k, options }) => (
     <select value={filters[k]} onChange={(e) => setFilter(k, e.target.value)} data-testid={`filter-${k}`}
@@ -67,13 +69,18 @@ export default function Catalogue() {
       <p className="mt-5 max-w-2xl text-sm leading-relaxed text-[#5F5147]">
         Explore available gold and silver designs from the shop. Prices are estimates from the published rate and are confirmed at the counter.
       </p>
-      <div className="brand-card mt-8 flex flex-wrap gap-3 rounded-md p-3">
+      <div className="brand-card mt-8 rounded-md p-3 sm:p-4" role="search" aria-label="Search jewellery catalogue">
+        <div className="flex flex-wrap items-center gap-3">
         <label className="flex min-h-[44px] flex-1 basis-full items-center rounded-md border border-slate-200 bg-white px-3 sm:basis-56"><span className="sr-only">Search catalogue</span><input value={filters.q} onChange={(e) => setFilter("q", e.target.value)} placeholder="Search designs, code or metal" className="w-full bg-transparent text-sm outline-none" data-testid="catalogue-search" /></label>
+        <button type="button" className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-[#D4AF37]/40 bg-[#FFFDF7] px-4 text-sm font-semibold text-[#5B0D18] sm:hidden" aria-expanded={mobileFiltersOpen} aria-controls="catalogue-advanced-filters" onClick={() => setMobileFiltersOpen((open) => !open)} data-testid="catalogue-mobile-filter-toggle">Filters{activeFilterCount ? ` (${activeFilterCount})` : ""} <span aria-hidden="true" className="ml-2">{mobileFiltersOpen ? "−" : "+"}</span></button>
+        </div>
+        <div id="catalogue-advanced-filters" className={`${mobileFiltersOpen ? "flex" : "hidden"} mt-3 flex-col gap-3 sm:flex sm:flex-row sm:flex-wrap`}>
         <Select label="Metal" k="metal" options={[{ value: "gold", label: "Gold" }, { value: "silver", label: "Silver" }]} />
         <Select label="Category" k="category" options={categories.map((c) => ({ value: c.name, label: c.name }))} />
         <Select label="Collection" k="collection" options={collections.map((c) => ({ value: c.name, label: c.name }))} />
         <Select label="Availability" k="availability" options={[{ value: "available", label: "Available" }, { value: "reserved", label: "Reserved" }]} />
         {(filters.q || filters.metal || filters.category || filters.collection || filters.availability) && <button type="button" onClick={clearFilters} className="min-h-[44px] rounded-md px-3 text-sm font-semibold text-[#5B0D18] hover:bg-[#F7F1E6]">Clear filters</button>}
+        </div>
       </div>
 
       {loading ? <ProductSkeletonGrid count={4} /> : failed ? (
@@ -99,7 +106,7 @@ export default function Catalogue() {
         </div>
         </>
       )}
-      <p className="mt-6 text-xs text-slate-400">* Estimated from today's rate. Final price confirmed at shop.</p>
+      <p className="mt-6 text-xs text-slate-400">* Where shown, prices are estimates. The shop confirms final prices and availability before any purchase. No online checkout or payment is offered.</p>
     </div>
   );
 }
