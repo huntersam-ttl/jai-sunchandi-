@@ -876,7 +876,10 @@ async def list_order_payments(oid: str, session: AsyncSession = Depends(db.get_s
 async def add_order_payment(oid: str, body: PaymentBody, session: AsyncSession = Depends(db.get_session)):
     if body.amount <= 0:
         raise HTTPException(status_code=400, detail="Payment amount must be greater than 0")
-    order = await OrdersRepository(session).get(oid)
+    # Serialize payments per order before recalculating the running balance.
+    order = (await session.execute(
+        select(Order).where(Order.id == oid).with_for_update()
+    )).scalar_one_or_none()
     if not order or order.is_deleted:
         raise HTTPException(status_code=404, detail="Order not found")
     try:
