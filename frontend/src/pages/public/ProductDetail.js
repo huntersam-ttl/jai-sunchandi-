@@ -22,7 +22,15 @@ export default function ProductDetail() {
   const touchStart = useRef(null);
 
   useEffect(() => {
-    api.get(`/products/${id}`).then((r) => setP(r.data)).catch(() => setErr(true));
+    const controller = new AbortController();
+    setP(null);
+    setErr(false);
+    setPhoto(0);
+    setShareStatus("");
+    api.get(`/products/${id}`, { signal: controller.signal })
+      .then((r) => { if (!controller.signal.aborted) setP(r.data); })
+      .catch(() => { if (!controller.signal.aborted) setErr(true); });
+    return () => controller.abort();
   }, [id]);
 
   useDocumentMeta(
@@ -75,11 +83,11 @@ export default function ProductDetail() {
           fetchPriority="high"
           testId="product-main-photo"
         />
-        {photos.length > 1 && <div className="flex justify-between -mt-14 px-3 relative"><button type="button" aria-label="Previous product photo" onClick={() => selectPhoto(photo - 1)} className="h-10 w-10 rounded-full bg-black/55 text-white flex items-center justify-center"><ChevronLeft size={20} /></button><button type="button" aria-label="Next product photo" onClick={() => selectPhoto(photo + 1)} className="h-10 w-10 rounded-full bg-black/55 text-white flex items-center justify-center"><ChevronRight size={20} /></button></div>}
+        {photos.length > 1 && <div className="flex justify-between -mt-14 px-3 relative"><button type="button" aria-label="Previous product photo" onClick={() => selectPhoto(photo - 1)} className="h-11 w-11 rounded-full bg-black/55 text-white flex items-center justify-center"><ChevronLeft size={20} /></button><button type="button" aria-label="Next product photo" onClick={() => selectPhoto(photo + 1)} className="h-10 w-10 rounded-full bg-black/55 text-white flex items-center justify-center"><ChevronRight size={20} /></button></div>}
         {photos.length > 1 && (
           <div className="flex gap-2 mt-3 overflow-x-auto pb-1" aria-label="Product photo thumbnails">
             {photos.map((ph, i) => (
-              <button key={i} type="button" aria-label={`Show product photo ${i + 1}`} aria-current={i === photo} onClick={() => setPhoto(i)} className={`h-16 w-16 rounded border ${i === photo ? "border-[#D4AF37] ring-2 ring-[#D4AF37]/30" : "border-slate-200"}`}>
+              <button key={i} type="button" aria-label={`Show product photo ${i + 1}`} aria-current={i === photo} onClick={() => setPhoto(i)} className={`h-16 w-16 shrink-0 rounded border ${i === photo ? "border-[#D4AF37] ring-2 ring-[#D4AF37]/30" : "border-slate-200"}`}>
                 <OptimizedImage
                   src={ph}
                   alt=""
@@ -102,7 +110,7 @@ export default function ProductDetail() {
           {p.estimated_price ? `${rs(p.estimated_price)}*` : "Inquire for today's price"}
         </p>
         {p.estimated_price && <p className="text-xs text-[#6B5E55]">* Estimate from the published rate. Final price is confirmed at the shop.</p>}
-        <div className="mt-6 grid grid-cols-2 gap-3 text-sm">
+        <div className="mt-6 grid grid-cols-1 gap-3 text-sm min-[360px]:grid-cols-2">
           <Info label="Metal" value={p.metal} cap />
           <Info label="Purity" value={p.purity} />
           <Info label="Weight (tola)" value={`${p.weight_tola} tola`} />

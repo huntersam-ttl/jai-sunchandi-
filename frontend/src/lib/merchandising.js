@@ -15,7 +15,7 @@ export function productContext(product) {
 export function matchesProductQuery(product, query) {
   const needle = String(query || "").trim().toLowerCase();
   if (!needle) return true;
-  return [product.name, product.product_code, product.category, product.collection, product.metal, product.purity]
+  return [product.name, product.name_np, product.product_code, product.category, product.collection, product.metal, product.purity]
     .filter(Boolean)
     .some((value) => String(value).toLowerCase().includes(needle));
 }

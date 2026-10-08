@@ -4,12 +4,10 @@ import { api } from "@/lib/api";
 import { matchesProductQuery } from "@/lib/merchandising";
 import { PublicProductCard } from "@/components/PublicProductCard";
 import { EmptyState, ProductSkeletonGrid } from "@/components/PublicPolish";
-import { useSettings } from "@/context/SettingsContext";
 import { useDocumentMeta } from "@/lib/useDocumentMeta";
 import { PUBLIC_BRAND_NAME } from "@/lib/brand";
 
 export default function Catalogue() {
-  const shop = useSettings();
   useDocumentMeta(
     `Catalogue – ${PUBLIC_BRAND_NAME}`,
     "Browse our gold and silver jewellery catalogue — bridal sets, daily wear, festival jewellery, and more."
@@ -31,18 +29,26 @@ export default function Catalogue() {
   };
 
   useEffect(() => {
-    api.get("/categories").then((r) => setCategories(r.data));
-    api.get("/collections").then((r) => setCollections(r.data));
+    let active = true;
+    api.get("/categories").then((r) => { if (active) setCategories(r.data); }).catch(() => {});
+    api.get("/collections").then((r) => { if (active) setCollections(r.data); }).catch(() => {});
+    return () => { active = false; };
   }, []);
 
+  // Search is local: changing one letter should not issue another server request.
+  // Cancel stale filter requests so older responses cannot replace newer results.
+  const serverFilters = params.toString().split("&").filter((part) => !part.startsWith("q=")).join("&");
   useEffect(() => {
+    const controller = new AbortController();
+    const serverParams = new URLSearchParams(serverFilters);
     setLoading(true);
-    const p = Object.fromEntries(Object.entries(filters).filter(([, v]) => v));
-    api.get("/products", { params: p })
-      .then((r) => { setProducts(r.data); setFailed(false); })
-      .catch(() => setFailed(true))
-      .finally(() => setLoading(false));
-  }, [params]); // eslint-disable-line
+    setFailed(false);
+    api.get("/products", { params: Object.fromEntries(serverParams), signal: controller.signal })
+      .then((r) => { if (!controller.signal.aborted) setProducts(r.data); })
+      .catch(() => { if (!controller.signal.aborted) setFailed(true); })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
+  }, [serverFilters]);
 
   const setFilter = (key, value) => {
     const next = new URLSearchParams(params);
@@ -56,7 +62,7 @@ export default function Catalogue() {
 
   const Select = ({ label, k, options }) => (
     <select value={filters[k]} onChange={(e) => setFilter(k, e.target.value)} data-testid={`filter-${k}`}
-      className="border border-slate-200 rounded-md px-3 py-2.5 text-sm bg-white min-h-[44px]">
+      className="w-full min-h-[44px] rounded-md border border-slate-200 bg-white px-3 py-2.5 text-sm sm:w-auto">
       <option value="">{label}: All</option>
       {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
     </select>
@@ -71,7 +77,7 @@ export default function Catalogue() {
       </p>
       <div className="brand-card mt-8 rounded-md p-3 sm:p-4" role="search" aria-label="Search jewellery catalogue">
         <div className="flex flex-wrap items-center gap-3">
-        <label className="flex min-h-[44px] flex-1 basis-full items-center rounded-md border border-slate-200 bg-white px-3 sm:basis-56"><span className="sr-only">Search catalogue</span><input value={filters.q} onChange={(e) => setFilter("q", e.target.value)} placeholder="Search designs, code or metal" className="w-full bg-transparent text-sm outline-none" data-testid="catalogue-search" /></label>
+        <label className="flex min-h-[44px] flex-1 basis-full items-center rounded-md border border-slate-200 bg-white px-3 sm:basis-56"><span className="sr-only">Search catalogue</span><input value={filters.q} onChange={(e) => setFilter("q", e.target.value)} placeholder="Search designs, code or metal" className="w-full min-w-0 bg-transparent py-3 text-base outline-none sm:text-sm" data-testid="catalogue-search" /></label>
         <button type="button" className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-[#D4AF37]/40 bg-[#FFFDF7] px-4 text-sm font-semibold text-[#5B0D18] sm:hidden" aria-expanded={mobileFiltersOpen} aria-controls="catalogue-advanced-filters" onClick={() => setMobileFiltersOpen((open) => !open)} data-testid="catalogue-mobile-filter-toggle">Filters{activeFilterCount ? ` (${activeFilterCount})` : ""} <span aria-hidden="true" className="ml-2">{mobileFiltersOpen ? "−" : "+"}</span></button>
         </div>
         <div id="catalogue-advanced-filters" className={`${mobileFiltersOpen ? "flex" : "hidden"} mt-3 flex-col gap-3 sm:flex sm:flex-row sm:flex-wrap`}>
@@ -92,16 +98,16 @@ export default function Catalogue() {
       ) : visibleProducts.length === 0 ? (
         <div className="mt-8" data-testid="catalogue-empty">
           <EmptyState
-            title="Products coming soon"
+            title={filters.q || activeFilterCount ? "No matching jewellery" : "Products coming soon"}
             action={<a href="/contact" className="text-sm font-semibold text-[#5B0D18] hover:text-[#D4AF37]">Visit the shop or WhatsApp us for available designs</a>}
           >
-            The online catalogue will show jewellery here once the shop adds product photos and details.
+            {filters.q || activeFilterCount ? "Try a different search or clear the filters to see more designs." : "The online catalogue will show jewellery here once the shop adds product photos and details."}
           </EmptyState>
         </div>
       ) : (
         <>
-        <div className="mb-3 text-xs text-slate-500" data-testid="catalogue-count">Showing {visibleProducts.length} design{visibleProducts.length === 1 ? "" : "s"}</div>
-        <div className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-4" data-testid="catalogue-grid">
+        <div className="mt-6 mb-3 text-xs text-slate-500" aria-live="polite" data-testid="catalogue-count">Showing {visibleProducts.length} design{visibleProducts.length === 1 ? "" : "s"}</div>
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4" data-testid="catalogue-grid">
           {visibleProducts.map((product, index) => <PublicProductCard key={product.id} product={product} index={index} />)}
         </div>
         </>

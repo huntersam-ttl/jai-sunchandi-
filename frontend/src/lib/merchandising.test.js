@@ -11,6 +11,7 @@ describe("merchandising helpers", () => {
     const product = { name: "Tilhari Set", product_code: "JS-104", metal: "gold", purity: "22K" };
     expect(matchesProductQuery(product, "JS-104")).toBe(true);
     expect(matchesProductQuery(product, "silver")).toBe(false);
+    expect(matchesProductQuery({ name: "Gold Ring", name_np: "सुनको औँठी" }, "सुनको")).toBe(true);
   });
 
   test("creates a product-aware custom order link", () => {
