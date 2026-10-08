@@ -1,5 +1,5 @@
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
-import { MessageCircle, Menu, X, Gem, TrendingUp, PackageSearch, MapPin, Phone, Clock, ShieldCheck } from "lucide-react";
+import { MessageCircle, Menu, X, Gem, TrendingUp, PackageSearch, MapPin, Phone, Clock, ShieldCheck, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { useSettings, waLinkFromSettings } from "@/context/SettingsContext";
 import { useJsonLd } from "@/lib/useDocumentMeta";
@@ -37,6 +37,7 @@ const mobileQuickActions = [
   { to: "/catalogue", label: "Catalogue", icon: Gem },
   { to: "/rates", label: "Rates", icon: TrendingUp },
   { to: "/order-status", label: "Order Status", icon: PackageSearch },
+  { to: "/custom-order", label: "Custom Order", icon: Sparkles },
 ];
 
 const FLOATING_WHATSAPP_MESSAGE = "Namaste! I visited your website and have a question about your jewellery.";
@@ -105,12 +106,12 @@ export default function PublicLayout() {
               </a>
             )}
           </nav>
-          <button className="focus-brand lg:hidden rounded-full border border-[#D4AF37]/30 bg-white/70 p-2" data-testid="mobile-menu-btn" onClick={() => setOpen(!open)} aria-expanded={open} aria-label="Open navigation">
+          <button className="focus-brand lg:hidden rounded-full border border-[#D4AF37]/30 bg-white/70 p-2" data-testid="mobile-menu-btn" onClick={() => setOpen(!open)} aria-expanded={open} aria-controls="mobile-navigation" aria-label={open ? "Close navigation" : "Open navigation"}>
             {open ? <X /> : <Menu />}
           </button>
         </div>
         {open && (
-          <nav className="lg:hidden border-t border-[#D4AF37]/20 bg-[#FFFDF7] px-6 py-5 shadow-xl">
+          <nav id="mobile-navigation" className="lg:hidden border-t border-[#D4AF37]/20 bg-[#FFFDF7] px-6 py-5 shadow-xl">
             <div className="grid gap-2">
             {links.map((l) => (
               <NavLink key={l.to} to={l.to} onClick={() => setOpen(false)}

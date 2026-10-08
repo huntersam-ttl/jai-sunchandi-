@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { api, apiError } from "@/lib/api";
 import { useSettings } from "@/context/SettingsContext";
@@ -6,6 +7,13 @@ import { useDocumentMeta } from "@/lib/useDocumentMeta";
 import { PUBLIC_BRAND_NAME } from "@/lib/brand";
 import { uploadImage } from "@/lib/storage";
 import { COLLECTOR_METHODS, COUNTRY_OPTIONS, FULFILMENT_OPTIONS } from "@/lib/fulfilment";
+
+function initialOrderForm(params) {
+  const productName = params.get("product_name") || "";
+  const productCode = params.get("product_code") || "";
+  const reference = productCode ? `Reference design: ${productName} (${productCode})` : "";
+  return { name: "", phone: "", item_type: params.get("category") || "", metal: params.get("metal") || "gold", purity: params.get("purity") || "", size: "", approx_weight: "", budget: "", deadline: "", country: "NP", fulfilment_method: "self_collect", collector_name: "", collector_phone: "", collector_relationship: "", notes: reference };
+}
 
 export const Field = ({ label, children }) => (
   <label className="block">
@@ -18,11 +26,12 @@ export const inputCls = "w-full border border-[#5B0D18]/25 rounded-md px-3 py-3 
 
 export default function CustomOrder() {
   const shop = useSettings();
+  const [params] = useSearchParams();
   useDocumentMeta(
     `Custom Gold Order – ${PUBLIC_BRAND_NAME}`,
     "Request a custom gold or silver ornament made to your design — share your requirement and we'll get in touch."
   );
-  const [form, setForm] = useState({ name: "", phone: "", item_type: "", metal: "gold", purity: "", size: "", approx_weight: "", budget: "", deadline: "", country: "NP", fulfilment_method: "self_collect", collector_name: "", collector_phone: "", collector_relationship: "", notes: "" });
+  const [form, setForm] = useState(() => initialOrderForm(params));
   const [files, setFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -54,6 +63,7 @@ export default function CustomOrder() {
       <p className="brand-eyebrow">Custom jewellery</p>
       <h1 className="font-serif-display text-4xl sm:text-5xl font-bold tracking-tight ornament-line mt-3">Custom Order Request</h1>
       <p className="text-[#5F5147] mt-5 text-sm leading-relaxed">Share your idea, a reference photo, and the basics. The shop will confirm the design, weight, purity, jarti, jyala, price and delivery or collection plan with you.</p>
+      {params.get("product_code") && <div className="mt-6 rounded-md border border-[#D4AF37]/30 bg-[#FFFDF7] p-4 text-sm"><p className="font-semibold text-[#5B0D18]">Design reference attached</p><p className="mt-1 text-[#6B5E55]">{params.get("product_name")} · {params.get("product_code")}</p><p className="mt-2 text-xs text-slate-500">Tell us what you would like to change—size, purity, metal, or finish—and we’ll guide you.</p></div>}
       <form onSubmit={submit} className="brand-card mt-8 space-y-4 rounded-md p-5 sm:p-6" data-testid="custom-order-form">
         <Field label="Your Name *"><input className={inputCls} value={form.name} onChange={set("name")} data-testid="co-name" /></Field>
         <Field label="Phone Number *"><input className={inputCls} value={form.phone} onChange={set("phone")} data-testid="co-phone" /></Field>

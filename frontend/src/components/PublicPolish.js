@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 
@@ -9,14 +9,15 @@ const reveal = {
 
 export function Reveal({ children, delay = 0, className = "", as = "div" }) {
   const Component = motion[as] || motion.div;
+  const reduced = useReducedMotion();
   return (
     <Component
       className={className}
-      variants={reveal}
+      variants={reduced ? { hidden: { opacity: 1, y: 0 }, visible: { opacity: 1, y: 0 } } : reveal}
       initial="hidden"
       whileInView="visible"
       viewport={{ once: true, margin: "-70px" }}
-      transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1], delay }}
+      transition={reduced ? { duration: 0 } : { duration: 0.55, ease: [0.22, 1, 0.36, 1], delay }}
     >
       {children}
     </Component>

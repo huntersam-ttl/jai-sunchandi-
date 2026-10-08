@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 import { api } from "@/lib/api";
@@ -9,6 +9,7 @@ import { useSettings, waLinkFromSettings } from "@/context/SettingsContext";
 import { MessageCircle, MapPin, ShieldCheck, ChevronLeft, ChevronRight } from "lucide-react";
 import { useDocumentMeta } from "@/lib/useDocumentMeta";
 import { PUBLIC_BRAND_NAME } from "@/lib/brand";
+import { productContext } from "@/lib/merchandising";
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -17,6 +18,7 @@ export default function ProductDetail() {
   const [p, setP] = useState(null);
   const [err, setErr] = useState(false);
   const [photo, setPhoto] = useState(0);
+  const touchStart = useRef(null);
 
   useEffect(() => {
     api.get(`/products/${id}`).then((r) => setP(r.data)).catch(() => setErr(true));
@@ -32,12 +34,20 @@ export default function ProductDetail() {
 
   const photos = p.photos?.length ? p.photos : [PRODUCT_PLACEHOLDER_IMG];
   const selectPhoto = (next) => setPhoto((current) => (next + photos.length) % photos.length);
+  const onTouchStart = (event) => { touchStart.current = event.changedTouches[0].clientX; };
+  const onTouchEnd = (event) => {
+    if (touchStart.current == null) return;
+    const delta = event.changedTouches[0].clientX - touchStart.current;
+    if (Math.abs(delta) > 40) selectPhoto(photo + (delta < 0 ? 1 : -1));
+    touchStart.current = null;
+  };
   const url = `${window.location.origin}/product/${p.id}`;
   const enquiryWaLink = waLink(`Namaste ${shop.shop_name}! I am interested in "${p.name}" (${p.product_code}). Please share today's price and details.`);
 
   return (
     <div className="brand-shell py-12 sm:py-16 grid lg:grid-cols-2 gap-10">
       <div>
+        <div onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} role="group" aria-label="Product photo gallery">
         <OptimizedImage
           src={photos[photo]}
           alt={p.name}
@@ -65,6 +75,7 @@ export default function ProductDetail() {
             ))}
           </div>
         )}
+        </div>
       </div>
       <div>
         <p className="brand-eyebrow" data-testid="product-code">Code: {p.product_code}</p>
@@ -90,6 +101,7 @@ export default function ProductDetail() {
               <MessageCircle size={20} /> Enquire on WhatsApp
             </PrimaryLink>
           )}
+          <SecondaryLink to={productContext(p)} data-testid="customise-product-button"><SparklesIcon /> Customise this design</SecondaryLink>
           <SecondaryLink to="/contact"><MapPin size={18} /> Visit the shop</SecondaryLink>
         </div>
         <div className="mt-6 flex items-start gap-3 rounded-md border border-[#D4AF37]/25 bg-white/60 p-4 text-sm text-[#5F5147]">
@@ -108,6 +120,8 @@ export default function ProductDetail() {
     </div>
   );
 }
+
+const SparklesIcon = () => <span aria-hidden="true" className="text-[#D4AF37]">✦</span>;
 
 const Info = ({ label, value, cap }) => (
   <div className="brand-card rounded-md p-3">
