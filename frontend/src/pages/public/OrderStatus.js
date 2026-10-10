@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
-import { Search, MessageCircle } from "lucide-react";
+import { Link, useSearchParams } from "react-router-dom";
+import { Search, MessageCircle, Mic } from "lucide-react";
 import { api, apiError } from "@/lib/api";
 import { STATUS_COLORS } from "@/lib/format";
 import { inputCls } from "./CustomOrder";
@@ -106,6 +106,12 @@ export default function OrderStatus() {
             </div>
           </div>
         )}
+
+        <div className="mt-6 rounded-md border border-[#D4AF37]/40 bg-[#FFFDF7] p-5" data-testid="order-voice-help">
+          <p className="font-semibold text-[#5B0D18]">Problem with your order?</p>
+          <p className="mt-1 text-sm text-[#5F5147]">Record a short voice message about delays, changes or jewellery concerns. Our shop team can listen and follow up.</p>
+          <Link to={`/voice-feedback?order_number=${encodeURIComponent(form.order_number.trim())}`} className="mt-3 inline-flex min-h-[44px] items-center gap-2 rounded-md bg-[#5B0D18] px-4 py-3 text-sm font-semibold text-white"><Mic size={18} /> Send voice message</Link>
+        </div>
 
         {!searched && (
           <div className="mt-6 border border-dashed border-[#D4AF37]/35 bg-[#FFFDF7]/70 rounded-md p-5 text-sm text-[#5F5147] space-y-2" data-testid="status-help">

@@ -98,7 +98,8 @@ export async function uploadVoiceNote(file) {
   const type = String(file?.type || "").split(";")[0];
   if (!formats[type]) throw new Error("Unsupported audio. Use WebM, M4A, MP3, or OGG.");
   if (!file.size || file.size > 2 * 1024 * 1024) throw new Error("Voice note must be under 2 MB.");
-  const path = `voices/${uniqueName(formats[type])}`;
+  if (typeof crypto === "undefined" || typeof crypto.randomUUID !== "function") throw new Error("Secure upload unavailable. Please use a current browser.");
+  const path = `voices/${crypto.randomUUID()}.${formats[type]}`;
   const { data, error } = await supabase.storage.from("voice-notes")
     .upload(path, file, { contentType: type, upsert: false });
   if (error) throw error;

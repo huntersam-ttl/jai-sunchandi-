@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { api, apiError } from "@/lib/api";
 import { uploadVoiceNote } from "@/lib/storage";
@@ -8,7 +9,8 @@ import { PUBLIC_BRAND_NAME } from "@/lib/brand";
 import { Field, inputCls } from "./CustomOrder";
 export default function VoiceFeedback() {
   useDocumentMeta(`Voice Feedback – ${PUBLIC_BRAND_NAME}`, "Send a private voice message about jewellery orders, repairs or service.");
-  const [form, setForm] = useState({ name: "", phone: "", notes: "", item_type: "" });
+  const [params] = useSearchParams();
+  const [form, setForm] = useState(() => ({ name: "", phone: "", notes: "", item_type: params.get("order_number") || "" }));
   const [voiceFile, setVoiceFile] = useState(null);
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);

@@ -29,6 +29,7 @@ export default function VoiceRecorder({ value, onChange }) {
     return () => URL.revokeObjectURL(url);
   }, [value]);
   const start = async () => {
+    if (recording) return;
     setError("");
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
       setError("Recording is unavailable here; attach an audio file instead."); return;
@@ -42,6 +43,7 @@ export default function VoiceRecorder({ value, onChange }) {
       const rec = new MediaRecorder(s, { mimeType: type });
       recorder.current = rec;
       rec.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
+      rec.onerror = () => { setError("Recording failed. Please try attaching an audio file."); stop(); };
       rec.onstop = () => {
         s.getTracks().forEach((t) => t.stop());
         const blob = new Blob(chunks, { type });

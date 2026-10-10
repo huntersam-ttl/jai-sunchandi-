@@ -10,7 +10,7 @@ import { useDocumentMeta } from "@/lib/useDocumentMeta";
 import { priorityCollection } from "@/lib/merchandising";
 import { BRAND_POSITIONING, DEFAULT_LOGO_PATH, OFFICIAL_SHOP_NAME, PUBLIC_BRAND_NAME } from "@/lib/brand";
 import {
-  MessageCircle, ShieldCheck, Scale, HandCoins, Sparkles,
+  MessageCircle, ShieldCheck, Scale, HandCoins, Sparkles, Mic,
   Wrench, Gem, Phone, MapPin, Clock, Navigation, CalendarDays, UsersRound,
 } from "lucide-react";
 
@@ -131,6 +131,7 @@ export default function Home() {
                 </SecondaryLink>
               )}
             </div>
+            <Link to="/voice-feedback" data-testid="hero-voice-feedback" className="mt-5 inline-flex min-h-[44px] items-center gap-2 rounded-md border border-[#D4AF37]/50 bg-[#FFFDF7] px-4 py-3 text-sm font-semibold text-[#5B0D18] hover:bg-[#F7F1E6]"><Mic size={18} /> Have an order problem? Send us a voice note →</Link>
             <div className="mt-8 grid max-w-2xl grid-cols-3 gap-3 text-xs text-[#6B5E55] sm:text-sm">
               {["Transparent weight", "24K gold & silver rates", "Shop-counter pricing"].map((item) => (
                 <div key={item} className="rounded-md border border-[#D4AF37]/25 bg-white/55 px-3 py-2 text-center shadow-sm">{item}</div>
