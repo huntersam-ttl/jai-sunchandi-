@@ -1,14 +1,16 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "@/lib/api";
-import { rs, primaryProductPhoto } from "@/lib/format";
+import { rs } from "@/lib/format";
 import { OptimizedImage } from "@/components/OptimizedImage";
+import { PublicProductCard } from "@/components/PublicProductCard";
 import { PrimaryLink, Reveal, SecondaryLink } from "@/components/PublicPolish";
 import { useSettings, waLinkFromSettings } from "@/context/SettingsContext";
 import { useDocumentMeta } from "@/lib/useDocumentMeta";
+import { priorityCollection } from "@/lib/merchandising";
 import { BRAND_POSITIONING, DEFAULT_LOGO_PATH, OFFICIAL_SHOP_NAME, PUBLIC_BRAND_NAME } from "@/lib/brand";
 import {
-  MessageCircle, ShieldCheck, Scale, HandCoins, Sparkles,
+  MessageCircle, ShieldCheck, Scale, HandCoins, Sparkles, Mic,
   Wrench, Gem, Phone, MapPin, Clock, Navigation, CalendarDays, UsersRound,
 } from "lucide-react";
 
@@ -89,10 +91,22 @@ export default function Home() {
     "Jai Supa Deurali Jewellers offers gold jewellery Nepal, silver ornaments, buy gold guidance, custom orders, fair jarti/jyala and WhatsApp help."
   );
   useEffect(() => {
-    api.get("/rates/today").then((r) => setRate(r.data)).catch(() => {});
-    api.get("/collections").then((r) => setCollections(r.data)).catch(() => {});
-    api.get("/products").then((r) => setProducts(r.data.slice(0, 4))).catch(() => {});
+    Promise.all([
+      api.get("/rates/today").catch(() => ({ data: null })),
+      api.get("/collections").catch(() => ({ data: [] })),
+      api.get("/products").catch(() => ({ data: [] })),
+    ])
+      .then(([rateResponse, collectionResponse, productResponse]) => {
+        setRate(rateResponse.data);
+        setCollections(collectionResponse.data || []);
+        setProducts(productResponse.data || []);
+      });
   }, []);
+  const festivalCollection = priorityCollection(collections);
+  const festivalProducts = festivalCollection
+    ? products.filter((product) => product.collection?.trim().toLowerCase() === festivalCollection.name.trim().toLowerCase()).slice(0, 4)
+    : [];
+  const featuredProducts = (festivalProducts.length ? festivalProducts : products.slice(0, 4));
   return (
     <div>
       <section className="relative overflow-hidden">
@@ -117,6 +131,7 @@ export default function Home() {
                 </SecondaryLink>
               )}
             </div>
+            <Link to="/voice-feedback" data-testid="hero-voice-feedback" className="mt-5 inline-flex min-h-[44px] items-center gap-2 rounded-md border border-[#D4AF37]/50 bg-[#FFFDF7] px-4 py-3 text-sm font-semibold text-[#5B0D18] hover:bg-[#F7F1E6]"><Mic size={18} /> Have an order problem? Send us a voice note →</Link>
             <div className="mt-8 grid max-w-2xl grid-cols-3 gap-3 text-xs text-[#6B5E55] sm:text-sm">
               {["Transparent weight", "24K gold & silver rates", "Shop-counter pricing"].map((item) => (
                 <div key={item} className="rounded-md border border-[#D4AF37]/25 bg-white/55 px-3 py-2 text-center shadow-sm">{item}</div>
@@ -151,7 +166,7 @@ export default function Home() {
       </section>
 
       <section className="max-w-7xl mx-auto px-4 sm:px-6">
-        <div data-testid="home-rate-widget" className="brand-dark rounded-md p-6 sm:p-8 grid grid-cols-1 sm:grid-cols-3 gap-6 items-center shadow-[0_24px_70px_rgba(23,19,16,.18)]">
+        <div data-testid="home-rate-widget" className="brand-dark rounded-md p-6 sm:p-8 grid grid-cols-1 sm:grid-cols-4 gap-6 items-center shadow-[0_24px_70px_rgba(23,19,16,.18)]">
           <div>
             <p className="font-serif-display text-2xl text-[#E8C774]">Gold & Silver Rates</p>
             <p className="font-devanagari text-sm text-[#E8DFD2]">आजको सुनचाँदी दर</p>
@@ -160,6 +175,7 @@ export default function Home() {
           {rate ? (
             <>
               <RateBox label="24K Gold / tola" value={rs(rate.gold_24k)} np={rate.gold_24k_np} testId="today-gold-rate" />
+              <RateBox label="22K Gold / tola" value={rs(rate.gold_22k)} np={rate.gold_22k_np} testId="today-gold-22k-rate" />
               <RateBox label="Silver / tola" value={rs(rate.silver)} np={rate.silver_np} testId="today-silver-rate" />
             </>
           ) : (
@@ -242,9 +258,27 @@ export default function Home() {
         </div>
       </Reveal>
 
+      {featuredProducts.length > 0 && (
+        <Reveal as="section" id="festival-collection" className="max-w-7xl mx-auto px-4 sm:px-6 mt-16">
+          <div className="brand-dark rounded-md p-6 sm:p-8">
+            <div className="flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <p className="brand-eyebrow text-[#E8C774]">Festival edit</p>
+                <h2 className="font-serif-display text-3xl sm:text-4xl font-bold tracking-tight mt-2">{festivalCollection?.name || "Shop favourites"}</h2>
+                <p className="mt-2 max-w-xl text-sm leading-relaxed text-[#E8DFD2]">{festivalCollection ? collectionDescription(festivalCollection.name) : "A considered selection of designs to start your jewellery conversation."}</p>
+              </div>
+              <Link to={festivalCollection ? `/catalogue?collection=${encodeURIComponent(festivalCollection.name)}` : "/catalogue"} className="text-sm font-semibold text-[#F1D77A]">Explore the edit →</Link>
+            </div>
+            <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+              {featuredProducts.map((product, index) => <PublicProductCard key={product.id} product={product} index={index} featured />)}
+            </div>
+          </div>
+        </Reveal>
+      )}
+
       {collections.length > 0 && (
         <section className="max-w-7xl mx-auto px-4 sm:px-6 mt-16">
-          <h2 className="font-serif-display text-2xl sm:text-3xl font-bold tracking-tight">Featured Collections</h2>
+          <div className="flex items-end justify-between gap-4"><div><p className="brand-eyebrow">Find your direction</p><h2 className="font-serif-display text-2xl sm:text-3xl font-bold tracking-tight mt-2">Explore collections</h2></div><Link to="/catalogue" className="text-sm font-semibold text-[#5B0D18]">View all →</Link></div>
           <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {collections.map((c) => (
               <Link key={c.id} to={`/catalogue?collection=${encodeURIComponent(c.name)}`}
@@ -262,27 +296,12 @@ export default function Home() {
 
       {products.length > 0 && (
         <section className="max-w-7xl mx-auto px-4 sm:px-6 mt-16">
-          <div className="flex items-end justify-between">
-            <h2 className="font-serif-display text-2xl sm:text-3xl font-bold tracking-tight">New Arrivals</h2>
+          <div className="flex items-end justify-between gap-4">
+            <div><p className="brand-eyebrow">Recently added</p><h2 className="font-serif-display text-2xl sm:text-3xl font-bold tracking-tight mt-2">New arrivals</h2></div>
             <Link to="/catalogue" className="text-sm font-semibold text-[#5B0D18]">View all →</Link>
           </div>
           <div className="mt-6 grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {products.map((p) => (
-              <Link key={p.id} to={`/product/${p.id}`} className="group brand-card rounded-md overflow-hidden hover:-translate-y-1 transition-transform duration-300">
-                <OptimizedImage
-                  src={primaryProductPhoto(p)}
-                  alt={p.name}
-                  className="aspect-[4/5] h-auto w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  widths={[240, 360, 520]}
-                  sizes="(min-width: 1024px) 25vw, 50vw"
-                  loading="lazy"
-                />
-                <div className="p-3">
-                  <p className="text-sm font-semibold truncate">{p.name}</p>
-                  <p className="text-xs text-slate-500">{p.purity} · {p.weight_tola} tola</p>
-                </div>
-              </Link>
-            ))}
+            {products.slice(0, 4).map((product, index) => <PublicProductCard key={product.id} product={product} index={index} />)}
           </div>
         </section>
       )}

@@ -1,5 +1,5 @@
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
-import { MessageCircle, Menu, X, Gem, TrendingUp, PackageSearch, MapPin, Phone, Clock, ShieldCheck } from "lucide-react";
+import { MessageCircle, Menu, X, Gem, TrendingUp, PackageSearch, MapPin, Phone, Clock, ShieldCheck, Sparkles, Mic } from "lucide-react";
 import { useState } from "react";
 import { useSettings, waLinkFromSettings } from "@/context/SettingsContext";
 import { useJsonLd } from "@/lib/useDocumentMeta";
@@ -11,6 +11,7 @@ const links = [
   { to: "/custom-order", label: "Custom Order" },
   { to: "/repair", label: "Repair" },
   { to: "/order-status", label: "Order Status" },
+  { to: "/voice-feedback", label: "Voice Message" },
   { to: "/about", label: "About" },
   { to: "/contact", label: "Contact" },
 ];
@@ -37,6 +38,8 @@ const mobileQuickActions = [
   { to: "/catalogue", label: "Catalogue", icon: Gem },
   { to: "/rates", label: "Rates", icon: TrendingUp },
   { to: "/order-status", label: "Order Status", icon: PackageSearch },
+  { to: "/custom-order", label: "Custom Order", icon: Sparkles },
+  { to: "/voice-feedback", label: "Voice Note", icon: Mic },
 ];
 
 const FLOATING_WHATSAPP_MESSAGE = "Namaste! I visited your website and have a question about your jewellery.";
@@ -105,12 +108,12 @@ export default function PublicLayout() {
               </a>
             )}
           </nav>
-          <button className="focus-brand lg:hidden rounded-full border border-[#D4AF37]/30 bg-white/70 p-2" data-testid="mobile-menu-btn" onClick={() => setOpen(!open)} aria-expanded={open} aria-label="Open navigation">
+          <button className="focus-brand lg:hidden rounded-full border border-[#D4AF37]/30 bg-white/70 p-2" data-testid="mobile-menu-btn" onClick={() => setOpen(!open)} aria-expanded={open} aria-controls="mobile-navigation" aria-label={open ? "Close navigation" : "Open navigation"}>
             {open ? <X /> : <Menu />}
           </button>
         </div>
         {open && (
-          <nav className="lg:hidden border-t border-[#D4AF37]/20 bg-[#FFFDF7] px-6 py-5 shadow-xl">
+          <nav id="mobile-navigation" className="lg:hidden border-t border-[#D4AF37]/20 bg-[#FFFDF7] px-6 py-5 shadow-xl">
             <div className="grid gap-2">
             {links.map((l) => (
               <NavLink key={l.to} to={l.to} onClick={() => setOpen(false)}
@@ -184,6 +187,7 @@ export default function PublicLayout() {
             <Link to="/catalogue" className="focus-brand block hover:text-[#E8C774]">Catalogue</Link>
             <Link to="/order-status" className="focus-brand block hover:text-[#E8C774]">Check Order Status</Link>
             <Link to="/contact" className="focus-brand block hover:text-[#E8C774]">Contact Us</Link>
+            <Link to="/voice-feedback" className="focus-brand block hover:text-[#E8C774]">Leave a Voice Note</Link>
             <Link to="/privacy-policy" className="focus-brand block hover:text-[#E8C774]">Privacy Policy</Link>
             <Link to="/terms" className="focus-brand block hover:text-[#E8C774]">Terms of Service</Link>
             {hasWhatsapp && (

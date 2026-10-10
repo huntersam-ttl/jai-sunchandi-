@@ -82,16 +82,17 @@ export default function Repairs() {
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h1 className="text-2xl font-bold">Repair Jobs</h1>
-        <div className="flex gap-2">
+        <div className="flex w-full flex-wrap gap-2 sm:w-auto">
           <select className={inp} style={{ width: 130 }} value={archivedFilter} onChange={(e) => setArchivedFilter(e.target.value)} data-testid="repairs-archived-filter">
             <option value="active">Active</option>
             <option value="archived">Archived</option>
             <option value="all">All</option>
           </select>
-          <button className={btnGold} onClick={() => setForm({ ...EMPTY })} data-testid="add-repair-btn"><Plus size={16} /> New Repair Job</button>
+          <button className={`${btnGold} min-h-[44px]`} onClick={() => setForm({ ...EMPTY })} data-testid="add-repair-btn"><Plus size={16} /> New Repair Job</button>
         </div>
       </div>
-      <div className="bg-white border border-slate-200 rounded-md overflow-x-auto">
+      <p className="text-xs text-slate-500 sm:hidden">Swipe horizontally to see the complete repair job details.</p>
+      <div className="bg-white border border-slate-200 rounded-md overflow-x-auto" role="region" aria-label="Shop repair jobs table" tabIndex={0}>
         <table className="w-full text-sm">
           <thead><tr className="text-left text-xs text-slate-500 border-b">
             <th className="p-3">Job</th><th>Customer</th><th>Service</th><th>Promised (BS)</th><th>Charge</th><th>Status</th><th></th></tr></thead>

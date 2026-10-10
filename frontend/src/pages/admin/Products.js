@@ -98,18 +98,19 @@ export default function Products() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">Products</h1>
-        <div className="flex gap-2">
-          <input className={inp} style={{ width: 220 }} placeholder="Search code or name…" value={qInput} onChange={(e) => setQInput(e.target.value)} data-testid="products-search-input" />
+        <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+          <input className={`${inp} min-w-0 flex-1 sm:flex-none`} style={{ maxWidth: 220 }} placeholder="Search code or name…" value={qInput} onChange={(e) => setQInput(e.target.value)} data-testid="products-search-input" />
           <select className={inp} style={{ width: 130 }} value={archivedFilter} onChange={(e) => setArchivedFilter(e.target.value)} data-testid="products-archived-filter">
             <option value="active">Active</option>
             <option value="archived">Archived</option>
             <option value="all">All</option>
           </select>
-          <button className={btnGold} onClick={() => setEditing({ ...EMPTY })} data-testid="add-product-btn"><Plus size={16} /> Add Product</button>
+          <button className={`${btnGold} min-h-[44px]`} onClick={() => setEditing({ ...EMPTY })} data-testid="add-product-btn"><Plus size={16} /> Add Product</button>
         </div>
       </div>
 
-      <div className="bg-white border border-slate-200 rounded-md overflow-x-auto">
+      <p className="text-xs text-slate-500 sm:hidden">Swipe sideways to see stock details and edit a product.</p>
+      <div className="bg-white border border-slate-200 rounded-md overflow-x-auto" role="region" aria-label="Jewellery stock table" tabIndex={0}>
         <table className="w-full text-sm">
           <thead><tr className="text-left text-xs text-slate-500 border-b">
             <th className="p-3">Product</th><th>Code</th><th>Metal/Purity</th><th>Category</th><th>Weight</th><th>Estimated Price</th><th>Status</th><th>Website</th><th></th></tr></thead>

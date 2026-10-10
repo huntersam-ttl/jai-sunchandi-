@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
-import { Search, MessageCircle } from "lucide-react";
+import { Link, useSearchParams } from "react-router-dom";
+import { Search, MessageCircle, Mic } from "lucide-react";
 import { api, apiError } from "@/lib/api";
 import { STATUS_COLORS } from "@/lib/format";
 import { inputCls } from "./CustomOrder";
@@ -92,8 +92,13 @@ export default function OrderStatus() {
               </div>
               <div className="mt-2 text-sm text-slate-600 space-y-1">
                 <p>Type: <span className="capitalize">{order.order_type.replace("_", " ")}</span></p>
+                {order.fulfilment_method && <p>Fulfilment: <span className="capitalize">{order.fulfilment_method.replaceAll("_", " ")}</span></p>}
                 {order.delivery_date_bs_np && <p>Delivery date (BS): {order.delivery_date_bs_np}</p>}
                 {order.delivery_date_ad && <p>Delivery date (AD): {order.delivery_date_ad}</p>}
+              </div>
+              <div className="mt-4 border-t border-slate-100 pt-3 text-xs text-[#5F5147]">
+                <p className="font-semibold text-slate-700">What happens next?</p>
+                <p className="mt-1">We update the status as your piece moves from confirmation to making, ready, and collection or delivery. For a price or timing question, message the shop using the help link below.</p>
               </div>
               <p className="mt-3 text-xs text-slate-400">
                 For payment or balance details, please contact the shop.
@@ -101,6 +106,12 @@ export default function OrderStatus() {
             </div>
           </div>
         )}
+
+        <div className="mt-6 rounded-md border border-[#D4AF37]/40 bg-[#FFFDF7] p-5" data-testid="order-voice-help">
+          <p className="font-semibold text-[#5B0D18]">Problem with your order?</p>
+          <p className="mt-1 text-sm text-[#5F5147]">Record a short voice message about delays, changes or jewellery concerns. Our shop team can listen and follow up.</p>
+          <Link to={`/voice-feedback?order_number=${encodeURIComponent(form.order_number.trim())}`} className="mt-3 inline-flex min-h-[44px] items-center gap-2 rounded-md bg-[#5B0D18] px-4 py-3 text-sm font-semibold text-white"><Mic size={18} /> Send voice message</Link>
+        </div>
 
         {!searched && (
           <div className="mt-6 border border-dashed border-[#D4AF37]/35 bg-[#FFFDF7]/70 rounded-md p-5 text-sm text-[#5F5147] space-y-2" data-testid="status-help">

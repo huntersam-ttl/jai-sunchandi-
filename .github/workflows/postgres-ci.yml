@@ -1,0 +1,154 @@
+name: PostgreSQL security and concurrency
+
+on:
+  pull_request:
+    branches: [feat/supabase-v1]
+
+jobs:
+  backend-postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: jai_sunchandi_ci
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U ci -d jai_sunchandi_ci"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install backend dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -r backend/requirements.txt
+
+      - name: Initialize disposable database schema
+        env:
+          PGPASSWORD: ci_password
+        run: |
+          set -euo pipefail
+          psql --host=127.0.0.1 --port=5432 --username=ci --dbname=jai_sunchandi_ci \
+            --file=supabase/ci_bootstrap.sql
+          for migration in supabase/migrations/*.sql; do
+            if [[ "$(basename "${migration}")" == 0014* ]]; then break; fi
+            echo "Applying historical baseline ${migration}"
+            psql --set=ON_ERROR_STOP=1 --host=127.0.0.1 --port=5432 \
+              --username=ci --dbname=jai_sunchandi_ci --file="${migration}"
+          done
+          psql --set=ON_ERROR_STOP=1 --host=127.0.0.1 --port=5432 \
+            --username=ci --dbname=jai_sunchandi_ci \
+            --file=supabase/rehearsal_hosted_legacy_state.sql
+          test "$(psql -At --host=127.0.0.1 --port=5432 --username=ci --dbname=jai_sunchandi_ci -c "select count(*) from pg_policies where schemaname = 'public' and policyname like 'service role only%';")" = "4"
+          test "$(psql -At --host=127.0.0.1 --port=5432 --username=ci --dbname=jai_sunchandi_ci -c "select has_table_privilege('authenticated', 'public.customers', 'TRUNCATE');")" = "t"
+          for migration in supabase/migrations/*.sql; do
+            if [[ "$(basename "${migration}")" == 000* || "$(basename "${migration}")" == 001[0-3]* ]]; then continue; fi
+            echo "Applying security and current migrations ${migration}"
+            psql --set=ON_ERROR_STOP=1 --host=127.0.0.1 --port=5432 \
+              --username=ci --dbname=jai_sunchandi_ci --file="${migration}"
+          done
+
+      - name: Verify migration chain invariants
+        env:
+          PGPASSWORD: ci_password
+        run: |
+          set -euo pipefail
+          test "$(psql -At --host=127.0.0.1 --port=5432 --username=ci --dbname=jai_sunchandi_ci -c "select count(*) from information_schema.columns where table_schema = 'public' and table_name = 'orders' and column_name in ('pickup_pin_hash','collected_by_name','fulfilment_country');")" = "3"
+          test "$(psql -At --host=127.0.0.1 --port=5432 --username=ci --dbname=jai_sunchandi_ci -c "select count(*) from information_schema.columns where table_schema = 'public' and table_name = 'leads' and column_name in ('photo_urls','purity','size','country','fulfilment_method','collector_name','collector_phone','collector_relationship','is_deleted');")" = "9"
+          test "$(psql -At --host=127.0.0.1 --port=5432 --username=ci --dbname=jai_sunchandi_ci -c "select count(*) from storage.buckets where id in ('product-photos','shop','repair-photos','lead-photos','bill-photos');")" = "5"
+          test "$(psql -At --host=127.0.0.1 --port=5432 --username=ci --dbname=jai_sunchandi_ci -c "select count(*) from pg_constraint where conname in ('leads_fulfilment_method_check','orders_fulfilment_method_check','orders_status_check');")" = "3"
+          test "$(psql -At --host=127.0.0.1 --port=5432 --username=ci --dbname=jai_sunchandi_ci -c "select count(*) from pg_policies where schemaname = 'public' and tablename = 'shop_admins' and policyname = 'shop_admin_self_read';")" = "1"
+          test "$(psql -At --host=127.0.0.1 --port=5432 --username=ci --dbname=jai_sunchandi_ci -c "select count(*) from information_schema.tables where table_schema = 'public' and table_name = 'public_request_limits';")" = "1"
+          test "$(psql -At --host=127.0.0.1 --port=5432 --username=ci --dbname=jai_sunchandi_ci -c "select count(*) from pg_policies where schemaname = 'public' and policyname like 'service role only%';")" = "0"
+          test "$(psql -At --host=127.0.0.1 --port=5432 --username=ci --dbname=jai_sunchandi_ci -c "select count(*) from information_schema.role_table_grants where grantee in ('anon','authenticated') and privilege_type in ('TRUNCATE','REFERENCES','TRIGGER');")" = "0"
+
+      - name: Run mandatory PostgreSQL concurrency tests
+        env:
+          PYTHONPATH: backend
+          REACT_APP_BACKEND_URL: http://127.0.0.1:9
+          TEST_POSTGRES_URL: postgresql+asyncpg://ci:ci_password@127.0.0.1:5432/jai_sunchandi_ci
+        run: |
+          set -euo pipefail
+          python -m pytest -q -n 0 backend/tests/test_postgres_concurrency.py \
+            --junitxml=postgres-concurrency.xml | tee postgres-concurrency.log
+          grep -Eq '8 passed' postgres-concurrency.log
+          ! grep -Eq '[0-9]+ skipped' postgres-concurrency.log
+
+      - name: Run backend regression suite
+        env:
+          PYTHONPATH: backend
+          REACT_APP_BACKEND_URL: http://127.0.0.1:9
+          TEST_POSTGRES_URL: postgresql+asyncpg://ci:ci_password@127.0.0.1:5432/jai_sunchandi_ci
+        run: |
+          set -euo pipefail
+          python -m pytest -q -n 0 \
+            backend/tests/test_data_layer.py \
+            backend/tests/test_security_concurrency_guards.py \
+            backend/tests/test_fulfilment.py \
+            backend/tests/test_staging_preflight.py \
+            backend/tests/test_deployment_readiness.py \
+            backend/tests/test_postgres_concurrency.py \
+            --junitxml=backend-tests.xml
+
+      - name: Compile Python entrypoints
+        run: python -m compileall -q api backend
+
+      - name: Run PostgreSQL role and RLS authorization tests
+        env:
+          PYTHONPATH: backend
+          TEST_POSTGRES_URL: postgresql+asyncpg://ci:ci_password@127.0.0.1:5432/jai_sunchandi_ci
+        run: |
+          set -euo pipefail
+          python -m pytest -q -n 0 backend/tests/test_postgres_rls_security.py \
+            --junitxml=postgres-rls.xml | tee postgres-rls.log
+          grep -Eq '[1-9][0-9]* passed' postgres-rls.log
+          ! grep -Eq '[1-9][0-9]* skipped' postgres-rls.log
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: postgres-ci-reports
+          path: |
+            postgres-concurrency.xml
+            postgres-concurrency.log
+            backend-tests.xml
+            postgres-rls.xml
+            postgres-rls.log
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+          cache-dependency-path: frontend/yarn.lock
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: corepack yarn install --frozen-lockfile --non-interactive
+      - name: Run frontend tests
+        working-directory: frontend
+        env:
+          CI: true
+          REACT_APP_SITE_URL: https://ci.invalid
+        run: corepack yarn test --watchAll=false --runInBand
+      - name: Build frontend
+        working-directory: frontend
+        env:
+          REACT_APP_SITE_URL: https://ci.invalid
+        run: corepack yarn build

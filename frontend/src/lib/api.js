@@ -1,7 +1,9 @@
 import axios from "axios";
 import { supabase } from "@/lib/supabaseClient";
 
-export const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+// Empty means same-origin on Vercel, where vercel.json rewrites /api to the
+// Python function. An explicit HTTPS origin remains supported for split hosts.
+export const BACKEND_URL = (process.env.REACT_APP_BACKEND_URL || "").replace(/\/+$/, "");
 export const API = `${BACKEND_URL}/api`;
 export const ADMIN_SESSION_EXPIRED_EVENT = "admin-session-expired";
 

@@ -8,18 +8,20 @@ later S5C slices.
 import logging
 import time
 from contextlib import contextmanager
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Optional
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import db
 import config
-from models import Product
+from models import Order, Product
+from fulfilment import PICKUP_METHODS, issue_pickup_pin, validate_fulfilment
 from repositories import (
     AdminTasksRepository, BillArchivesRepository, CategoriesRepository, CollectionsRepository,
     CustomersRepository, ExpensesRepository, LeadsRepository, MaterialTasksRepository, OrdersRepository,
@@ -27,7 +29,7 @@ from repositories import (
     TemplatesRepository,
 )
 from supabase_auth import get_current_admin
-from utils import grams_to_tola, tola_lal_aana_to_grams
+from utils import ad_to_bs, grams_to_tola, tola_lal_aana_to_grams
 
 router = APIRouter(prefix="/api/admin", dependencies=[Depends(get_current_admin)])
 
@@ -53,9 +55,9 @@ def _timed(route: str):
 # ---------- Models ----------
 class RateBody(BaseModel):
     date_ad: Optional[str] = None  # defaults to today
-    gold_24k: float
-    gold_22k: float
-    silver: float
+    gold_24k: float = Field(gt=0, allow_inf_nan=False)
+    gold_22k: float = Field(gt=0, allow_inf_nan=False)
+    silver: float = Field(gt=0, allow_inf_nan=False)
 
 
 class ReferenceBody(BaseModel):
@@ -93,7 +95,9 @@ def _ref(r) -> dict:
 # literals, this set only guards against a future caller passing something
 # else by mistake.
 ALLOWED_PRIVATE_PHOTO_BUCKETS = {"bill-photos", "repair-photos", "lead-photos"}
+ALLOWED_PRIVATE_AUDIO_BUCKETS = {"voice-notes"}
 ALLOWED_PHOTO_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp"}
+ALLOWED_AUDIO_CONTENT_TYPES = {"audio/webm", "audio/mp4", "audio/mpeg", "audio/ogg"}
 
 
 async def _download_storage_object(bucket: str, path: str) -> Optional[tuple[bytes, str]]:
@@ -109,7 +113,7 @@ async def _download_storage_object(bucket: str, path: str) -> Optional[tuple[byt
     sidesteps the broken endpoint entirely without touching bucket privacy,
     admin auth, or the Vercel region.
     """
-    if bucket not in ALLOWED_PRIVATE_PHOTO_BUCKETS:
+    if bucket not in ALLOWED_PRIVATE_PHOTO_BUCKETS and bucket not in ALLOWED_PRIVATE_AUDIO_BUCKETS:
         return None
     if not path:
         return None
@@ -125,7 +129,10 @@ async def _download_storage_object(bucket: str, path: str) -> Optional[tuple[byt
             response = await client.get(url, headers=headers)
             response.raise_for_status()
             content_type = response.headers.get("content-type", "").split(";")[0].strip()
-            if content_type not in ALLOWED_PHOTO_CONTENT_TYPES:
+            if bucket == "voice-notes":
+                if content_type not in ALLOWED_AUDIO_CONTENT_TYPES:
+                    return None
+            elif content_type not in ALLOWED_PHOTO_CONTENT_TYPES:
                 content_type = "image/jpeg"
             return response.content, content_type
     except Exception:
@@ -237,14 +244,14 @@ async def delete_collection(cid: str, session: AsyncSession = Depends(db.get_ses
 
 # ---------- Products ----------
 class WeightInput(BaseModel):
-    grams: Optional[float] = None
-    tola: Optional[float] = None
-    lal: Optional[float] = None
-    aana: Optional[float] = None
+    grams: Optional[float] = Field(default=None, gt=0, allow_inf_nan=False)
+    tola: Optional[float] = Field(default=None, gt=0, allow_inf_nan=False)
+    lal: Optional[float] = Field(default=None, ge=0, allow_inf_nan=False)
+    aana: Optional[float] = Field(default=None, ge=0, allow_inf_nan=False)
 
 
 class ProductBody(BaseModel):
-    name: str
+    name: str = Field(min_length=1)
     name_np: str = ""
     description: str = ""
     category: str = ""
@@ -252,15 +259,15 @@ class ProductBody(BaseModel):
     metal: str = "gold"
     purity: str = "24K"
     weight: WeightInput
-    jarti_percent: float = 0
-    jyala_amount: float = 0
+    jarti_percent: float = Field(default=0, ge=0, allow_inf_nan=False)
+    jyala_amount: float = Field(default=0, ge=0, allow_inf_nan=False)
     jyala_type: str = "flat"
-    stone_cost: float = 0
-    polishing_cost: float = 0
-    cutting_cost: float = 0
-    worker_charge: float = 0
-    other_cost: float = 0
-    cost_price: Optional[float] = None  # what the shop paid for this item; leave unset if unknown
+    stone_cost: float = Field(default=0, ge=0, allow_inf_nan=False)
+    polishing_cost: float = Field(default=0, ge=0, allow_inf_nan=False)
+    cutting_cost: float = Field(default=0, ge=0, allow_inf_nan=False)
+    worker_charge: float = Field(default=0, ge=0, allow_inf_nan=False)
+    other_cost: float = Field(default=0, ge=0, allow_inf_nan=False)
+    cost_price: Optional[float] = Field(default=None, ge=0, allow_inf_nan=False)  # what the shop paid for this item; leave unset if unknown
     status: str = "available"
     show_on_website: bool = True
     show_price_on_website: bool = True
@@ -546,7 +553,7 @@ async def restore_customer(cid: str, session: AsyncSession = Depends(db.get_sess
 
 
 # ---------- Orders ----------
-ORDER_STATUSES = {"new", "in_progress", "making", "polishing", "ready", "delivered", "cancelled"}
+ORDER_STATUSES = {"new", "in_progress", "making", "polishing", "ready", "delivered", "collected", "cancelled"}
 
 
 class OrderItemBody(BaseModel):
@@ -585,6 +592,11 @@ class OrderBody(BaseModel):
     delivery_date_ad: Optional[str] = None
     delivery_time: str = ""
     notes: str = ""
+    fulfilment_method: str = "self_collect"
+    fulfilment_country: str = "NP"
+    collector_name: str = ""
+    collector_phone: str = ""
+    collector_relationship: str = ""
     old_gold: Optional[dict] = None
     items: list[OrderItemBody] = []
 
@@ -596,14 +608,24 @@ class OrderUpdateBody(BaseModel):
     delivery_time: Optional[str] = None
     notes: Optional[str] = None
     status: Optional[str] = None
+    fulfilment_method: Optional[str] = None
+    fulfilment_country: Optional[str] = None
+    collector_name: Optional[str] = None
+    collector_phone: Optional[str] = None
+    collector_relationship: Optional[str] = None
 
 
 class StatusBody(BaseModel):
     status: str
 
 
+class CollectionBody(BaseModel):
+    pickup_pin: str
+    collector_name: str
+
+
 class PaymentBody(BaseModel):
-    amount: float
+    amount: float = Field(gt=0, allow_inf_nan=False)
     method: str = "cash"
     payment_date_ad: Optional[str] = None
     note: str = ""
@@ -675,6 +697,11 @@ def _order(o) -> dict:
         "old_gold_value": float(o.old_gold_value), "net_payable": float(o.net_payable),
         "advance_total": float(o.advance_total), "remaining_balance": float(o.remaining_balance),
         "payment_status": o.payment_status, "items": [_order_item(i) for i in o.items],
+        "fulfilment_method": o.fulfilment_method, "collector_name": o.collector_name,
+        "collector_phone": o.collector_phone, "collector_relationship": o.collector_relationship,
+        "fulfilment_country": o.fulfilment_country,
+        "collected_by_name": o.collected_by_name,
+        "collected_at": o.collected_at.isoformat() if o.collected_at else None,
         "payments": [_payment(p) for p in o.payments],
         "is_deleted": o.is_deleted,
         "created_at": o.created_at.isoformat() if o.created_at else None,
@@ -735,10 +762,29 @@ def _apply_order_update(order, body: OrderUpdateBody):
         status = data.pop("status")
         if status not in ORDER_STATUSES:
             raise HTTPException(status_code=400, detail="Invalid order status")
+        if status == "collected":
+            raise HTTPException(status_code=400, detail="Use the collection confirmation action")
+        if status == "delivered" and order.fulfilment_method in PICKUP_METHODS:
+            raise HTTPException(status_code=400, detail="Use the collection confirmation action for pickup orders")
+        if order.status == "collected":
+            raise HTTPException(status_code=400, detail="Collected orders cannot be moved back")
         order.status = status
-    for key in ("order_type", "custom_description", "delivery_time", "notes"):
+    fulfilment = validate_fulfilment(
+        data.get("fulfilment_method", order.fulfilment_method),
+        data.get("collector_name", order.collector_name),
+        data.get("collector_phone", order.collector_phone),
+        data.get("fulfilment_country", order.fulfilment_country),
+        data.get("collector_relationship", order.collector_relationship),
+    )
+    update_keys = ("order_type", "custom_description", "delivery_time", "notes", "fulfilment_method", "fulfilment_country", "collector_name", "collector_phone", "collector_relationship")
+    for key in update_keys:
         if key in data:
             setattr(order, key, data[key] or "")
+    order.fulfilment_method = fulfilment["fulfilment_method"]
+    order.fulfilment_country = fulfilment["country"]
+    order.collector_name = fulfilment["collector_name"]
+    order.collector_phone = fulfilment["collector_phone"]
+    order.collector_relationship = fulfilment["collector_relationship"]
     if "delivery_date_ad" in data:
         delivery_date = OrdersRepository._date_or_none(data["delivery_date_ad"])
         delivery_bs = ad_to_bs(delivery_date) if delivery_date else {}
@@ -782,6 +828,9 @@ async def _snapshot_item_cost_prices(items: list[dict], session: AsyncSession) -
 async def create_order(body: OrderBody, session: AsyncSession = Depends(db.get_session)):
     customer = await _customer_for_order(body, session)
     try:
+        fulfilment = validate_fulfilment(
+            body.fulfilment_method, body.collector_name, body.collector_phone, body.fulfilment_country, body.collector_relationship
+        )
         items = await _snapshot_item_cost_prices(_validate_order_items(body.items), session)
         order = await OrdersRepository(session).create_order(
             customer=customer,
@@ -792,6 +841,8 @@ async def create_order(body: OrderBody, session: AsyncSession = Depends(db.get_s
             delivery_date_ad=body.delivery_date_ad,
             delivery_time=body.delivery_time,
             notes=body.notes,
+            fulfilment=fulfilment,
+            collector_relationship=body.collector_relationship,
         )
         await session.commit()
         await session.refresh(order)
@@ -833,12 +884,48 @@ async def patch_order(oid: str, body: OrderUpdateBody, session: AsyncSession = D
 async def update_order_status(oid: str, body: StatusBody, session: AsyncSession = Depends(db.get_session)):
     if body.status not in ORDER_STATUSES:
         raise HTTPException(status_code=400, detail="Invalid order status")
+    if body.status == "collected":
+        raise HTTPException(status_code=400, detail="Use the collection confirmation action")
+    current = await OrdersRepository(session).get(oid)
+    if current and body.status == "delivered" and current.fulfilment_method in PICKUP_METHODS:
+        raise HTTPException(status_code=400, detail="Use the collection confirmation action for pickup orders")
     order = await OrdersRepository(session).update_status(oid, body.status)
     if not order or order.is_deleted:
         raise HTTPException(status_code=404, detail="Order not found")
     await session.commit()
     await session.refresh(order)
     return _order(order)
+
+
+@router.post("/orders/{oid}/pickup-pin")
+async def issue_order_pickup_pin(oid: str, session: AsyncSession = Depends(db.get_session)):
+    result = await session.execute(select(Order).where(Order.id == oid).with_for_update())
+    order = result.scalar_one_or_none()
+    if not order or order.is_deleted:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if order.status != "ready":
+        raise HTTPException(status_code=400, detail="Pickup PIN can only be issued for an order ready for collection")
+    if order.fulfilment_method not in PICKUP_METHODS:
+        raise HTTPException(status_code=400, detail="Pickup PIN is not valid for this fulfilment method")
+    pin, encoded = issue_pickup_pin()
+    order.pickup_pin_hash = encoded
+    order.pickup_pin_issued_at = datetime.now(timezone.utc)
+    await session.commit()
+    return {"order_number": order.order_number, "pickup_pin": pin}
+
+
+@router.post("/orders/{oid}/collect")
+async def collect_order(oid: str, body: CollectionBody, session: AsyncSession = Depends(db.get_session)):
+    try:
+        order = await OrdersRepository(session).confirm_collection(oid, body.pickup_pin, body.collector_name)
+        await session.commit()
+        await session.refresh(order)
+        return _order(order)
+    except ValueError as exc:
+        await session.rollback()
+        message = str(exc)
+        code = 404 if message == "Order not found" else 403 if message == "Invalid pickup PIN" else 409 if "already" in message else 400
+        raise HTTPException(status_code=code, detail=message)
 
 
 @router.post("/orders/{oid}/archive")
@@ -876,7 +963,10 @@ async def list_order_payments(oid: str, session: AsyncSession = Depends(db.get_s
 async def add_order_payment(oid: str, body: PaymentBody, session: AsyncSession = Depends(db.get_session)):
     if body.amount <= 0:
         raise HTTPException(status_code=400, detail="Payment amount must be greater than 0")
-    order = await OrdersRepository(session).get(oid)
+    # Serialize payments per order before recalculating the running balance.
+    order = (await session.execute(
+        select(Order).where(Order.id == oid).with_for_update()
+    )).scalar_one_or_none()
     if not order or order.is_deleted:
         raise HTTPException(status_code=404, detail="Order not found")
     try:
@@ -997,6 +1087,12 @@ class LeadUpdateBody(BaseModel):
     deadline: Optional[str] = None
     notes: Optional[str] = None
     photo_url: Optional[str] = None
+    photo_urls: Optional[list[str]] = None
+    voice_note_path: Optional[str] = None
+    purity: Optional[str] = None
+    size: Optional[str] = None
+    country: Optional[str] = None
+    fulfilment_method: Optional[str] = None
     status: Optional[str] = None
 
 
@@ -1009,6 +1105,11 @@ async def _lead(l) -> dict:
         "item_type": l.item_type, "metal": l.metal, "service_type": l.service_type,
         "approx_weight": l.approx_weight, "budget": l.budget, "deadline": l.deadline,
         "notes": l.notes, "photo_url": l.photo_url, "photo": photo,
+        "has_voice_note": bool(l.voice_note_path), "voice_note_url": f"/admin/leads/{l.id}/voice" if l.voice_note_path else "",
+        "photo_urls": l.photo_urls or [], "purity": l.purity, "size": l.size,
+        "country": l.country, "fulfilment_method": l.fulfilment_method,
+        "collector_name": l.collector_name, "collector_phone": l.collector_phone,
+        "collector_relationship": l.collector_relationship,
         "status": l.status, "is_deleted": l.is_deleted,
         "created_at": l.created_at.isoformat() if l.created_at else None,
         "updated_at": l.updated_at.isoformat() if l.updated_at else None,
@@ -1023,8 +1124,32 @@ def _apply_lead_update(lead, body: LeadUpdateBody):
     data = body.model_dump(exclude_unset=True)
     if "status" in data and data["status"] not in LEAD_STATUSES:
         raise HTTPException(status_code=400, detail="Invalid lead status")
-    if "lead_type" in data and data["lead_type"] not in ("custom_order", "repair"):
+    if "lead_type" in data and data["lead_type"] not in ("custom_order", "repair", "feedback"):
         raise HTTPException(status_code=400, detail="Invalid lead type")
+    if any(key in data for key in ("fulfilment_method", "collector_name", "collector_phone", "collector_relationship", "country")):
+        try:
+            fulfilment = validate_fulfilment(
+                data.get("fulfilment_method", lead.fulfilment_method),
+                data.get("collector_name", lead.collector_name),
+                data.get("collector_phone", lead.collector_phone),
+                data.get("country", lead.country),
+                data.get("collector_relationship", lead.collector_relationship),
+            )
+            data.update(fulfilment)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+    if "voice_note_path" in data:
+        from voice_notes import validate_voice_path
+        try:
+            validate_voice_path(data["voice_note_path"] or "")
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+    if "photo_urls" in data:
+        from fulfilment import validate_photo_paths
+        try:
+            data["photo_urls"] = validate_photo_paths(data["photo_urls"] or [])
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
     for key, value in data.items():
         setattr(lead, key, value or "")
 
@@ -1055,6 +1180,24 @@ async def lead_photo(lid: str, session: AsyncSession = Depends(db.get_session)):
         raise HTTPException(status_code=404, detail="Photo not found")
     result = await _download_storage_object("lead-photos", lead.photo_url)
     return _photo_proxy_response(result)
+
+
+@router.get("/leads/{lid}/voice")
+async def lead_voice(lid: str, session: AsyncSession = Depends(db.get_session)):
+    lead = await LeadsRepository(session).get(lid)
+    if not lead or not lead.voice_note_path:
+        raise HTTPException(status_code=404, detail="Voice note not found")
+    from voice_notes import validate_voice_path
+    try:
+        validate_voice_path(lead.voice_note_path)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Voice note not found")
+    result = await _download_storage_object("voice-notes", lead.voice_note_path)
+    if not result:
+        raise HTTPException(status_code=502, detail="Voice note temporarily unavailable")
+    content, media_type = result
+    return Response(content=content, media_type=media_type,
+                    headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"})
 
 
 @router.patch("/leads/{lid}")

@@ -5,6 +5,7 @@ payment_status happen in the same session (the caller's transaction), giving
 atomic ledger updates — the integrity the Mongo version could not guarantee.
 """
 from datetime import date, datetime
+from decimal import Decimal, ROUND_HALF_UP
 
 from sqlalchemy import func, select
 
@@ -15,6 +16,7 @@ from .base import BaseRepository, derive_payment_status
 
 class PaymentsRepository(BaseRepository):
     model = Payment
+    _CENT = Decimal("0.01")
 
     @staticmethod
     def _date_or_today(value) -> date:
@@ -32,6 +34,13 @@ class PaymentsRepository(BaseRepository):
                           payment_date_ad=None, note="") -> Payment:
         payment_date_ad = self._date_or_today(payment_date_ad)
         bs = ad_to_bs(payment_date_ad)
+        amount = Decimal(str(amount))
+        total_paid = (await self.session.execute(
+            select(func.coalesce(func.sum(Payment.amount), 0))
+            .where(Payment.order_id == order.id))).scalar_one()
+        remaining = Decimal(str(order.net_payable)) - Decimal(str(total_paid or 0))
+        if amount > remaining:
+            raise ValueError("Payment exceeds the remaining balance")
         payment = Payment(
             order_id=order.id, customer_id=order.customer_id, amount=amount, method=method,
             payment_date_ad=payment_date_ad, payment_date_bs=bs["bs_date"],
@@ -53,8 +62,10 @@ class PaymentsRepository(BaseRepository):
         total_paid = (await self.session.execute(
             select(func.coalesce(func.sum(Payment.amount), 0))
             .where(Payment.order_id == order.id))).scalar_one()
-        advance = round(float(total_paid), 2)
-        remaining = round(float(order.net_payable) - advance, 2)
+        advance = Decimal(str(total_paid or 0)).quantize(self._CENT, rounding=ROUND_HALF_UP)
+        remaining = (Decimal(str(order.net_payable)) - advance).quantize(
+            self._CENT, rounding=ROUND_HALF_UP
+        )
         order.advance_total = advance
         order.remaining_balance = remaining
         order.payment_status = derive_payment_status(order.net_payable, advance)

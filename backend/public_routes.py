@@ -6,8 +6,9 @@ backend uses the service-role DB connection (RLS-exempt) and returns only
 public-safe fields (no cost/profit columns, no private data).
 """
 from typing import Optional
+from voice_notes import validate_voice_path
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,6 +18,8 @@ from repositories import (
     ProductsRepository, RatesRepository, SettingsRepository,
 )
 from utils import compute_price, grams_to_tola, to_nepali_digits
+from fulfilment import validate_fulfilment, validate_photo_paths
+from public_rate_limit import enforce_public_rate_limit
 
 router = APIRouter(prefix="/api")
 
@@ -134,25 +137,53 @@ class LeadCreate(BaseModel):
     deadline: str = ""
     notes: str = ""
     photo_url: str = ""   # stored Storage path (private) — never base64
+    photo_urls: list[str] = []
+    voice_note_path: str = ""
+    purity: str = ""
+    size: str = ""
+    country: str = ""
+    fulfilment_method: str = "self_collect"
+    collector_name: str = ""
+    collector_phone: str = ""
+    collector_relationship: str = ""
 
 
 @router.post("/leads")
-async def create_lead(body: LeadCreate, session: AsyncSession = Depends(db.get_session)):
+async def create_lead(request: Request, body: LeadCreate, session: AsyncSession = Depends(db.get_session)):
     """Public custom-order / repair enquiry (matches the legacy /leads contract)."""
-    if body.lead_type not in ("custom_order", "repair"):
+    await enforce_public_rate_limit(request, session, bucket="lead", limit=5, window_seconds=3600)
+    if body.lead_type not in ("custom_order", "repair", "feedback"):
         raise HTTPException(status_code=422, detail="Invalid lead_type")
     if not body.name.strip() or not body.phone.strip():
         raise HTTPException(status_code=422, detail="Name and phone are required")
-    lead = await LeadsRepository(session).create_lead(**body.model_dump())
+    try:
+        fulfilment = validate_fulfilment(
+            body.fulfilment_method, body.collector_name, body.collector_phone, body.country, body.collector_relationship
+        )
+        photo_urls = validate_photo_paths(body.photo_urls)
+        validate_voice_path(body.voice_note_path)
+        if body.photo_url:
+            validate_photo_paths([body.photo_url])
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    data = body.model_dump()
+    data.update(
+        fulfilment,
+        photo_urls=photo_urls,
+        photo_url=photo_urls[0] if photo_urls else body.photo_url,
+        country=fulfilment["country"],
+    )
+    lead = await LeadsRepository(session).create_lead(**data)
     await session.commit()
     return {"ok": True, "id": str(lead.id)}
 
 
 @router.get("/public/order-status")
-async def public_order_status(order_number: str, phone: str,
+async def public_order_status(request: Request, order_number: str, phone: str,
                               session: AsyncSession = Depends(db.get_session)):
     """Order status by order number + phone (both required). Minimal fields only —
     no balance/payment/customer data."""
+    await enforce_public_rate_limit(request, session, bucket="order-status", limit=20, window_seconds=600)
     order = await OrdersRepository(session).public_status(order_number.strip(), phone.strip())
     if not order:
         raise HTTPException(status_code=404, detail="No active order found for that order number and phone")
@@ -160,6 +191,7 @@ async def public_order_status(order_number: str, phone: str,
         "order_number": order.order_number,
         "order_type": order.order_type,
         "status": order.status,
+        "fulfilment_method": order.fulfilment_method,
         "delivery_date_ad": _iso(order.delivery_date_ad) if order.delivery_date_ad else None,
         "delivery_date_bs_np": order.delivery_date_bs_np,
     }

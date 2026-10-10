@@ -15,6 +15,7 @@ import Repair from "@/pages/public/Repair";
 import OrderStatus from "@/pages/public/OrderStatus";
 import About from "@/pages/public/About";
 import Contact from "@/pages/public/Contact";
+import VoiceFeedback from "@/pages/public/VoiceFeedback";
 import PrivacyPolicy from "@/pages/public/PrivacyPolicy";
 import Terms from "@/pages/public/Terms";
 import VerifyInvoice from "@/pages/public/VerifyInvoice";
@@ -65,6 +66,7 @@ function App() {
                 <Route path="/order-status" element={<OrderStatus />} />
                 <Route path="/about" element={<About />} />
                 <Route path="/contact" element={<Contact />} />
+                <Route path="/voice-feedback" element={<VoiceFeedback />} />
                 <Route path="/privacy-policy" element={<PrivacyPolicy />} />
                 <Route path="/terms" element={<Terms />} />
                 <Route path="/verify/invoice/:id" element={<VerifyInvoice />} />

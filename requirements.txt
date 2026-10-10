@@ -1,0 +1,11 @@
+# Runtime-only dependencies for the Vercel FastAPI function.
+# The full backend/requirements.txt remains the development/CI environment.
+fastapi==0.110.1
+httpx==0.28.1
+nepali-datetime==1.0.8.5
+pydantic==2.13.4
+SQLAlchemy==2.0.36
+asyncpg==0.30.0
+PyJWT==2.13.0
+python-dotenv==1.2.2
+starlette==0.37.2

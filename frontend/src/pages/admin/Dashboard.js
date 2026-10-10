@@ -45,6 +45,7 @@ export default function Dashboard() {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [rateForm, setRateForm] = useState({ gold_24k: "", silver: "" });
+  const [savingRate, setSavingRate] = useState(false);
   const [openTasks, setOpenTasks] = useState([]);
 
   const load = () => {
@@ -69,13 +70,19 @@ export default function Dashboard() {
 
   const saveRate = async (e) => {
     e.preventDefault();
+    if (savingRate) return;
+    if (!Number.isFinite(+rateForm.gold_24k) || +rateForm.gold_24k <= 0 || !Number.isFinite(+rateForm.silver) || +rateForm.silver <= 0) {
+      toast.error("Enter positive gold and silver rates before saving.");
+      return;
+    }
+    setSavingRate(true);
     try {
       await api.post("/admin/rates", {
         gold_24k: +rateForm.gold_24k, gold_22k: +rateForm.gold_24k, silver: +rateForm.silver,
       });
       toast.success("Today's rate updated");
       load();
-    } catch (err) { toast.error(apiError(err)); }
+    } catch (err) { toast.error(apiError(err)); } finally { setSavingRate(false); }
   };
 
   if (loading && !data) return <DashboardSkeleton />;
@@ -146,7 +153,7 @@ export default function Dashboard() {
         <form onSubmit={saveRate} className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end" data-testid="dashboard-rate-form">
           <F label="24K Gold"><input className={inp} type="number" step="any" value={rateForm.gold_24k} onChange={(e) => setRateForm({ ...rateForm, gold_24k: e.target.value })} data-testid="rate-gold24-input" /></F>
           <F label="Silver"><input className={inp} type="number" step="any" value={rateForm.silver} onChange={(e) => setRateForm({ ...rateForm, silver: e.target.value })} data-testid="rate-silver-input" /></F>
-          <button type="submit" className={btnGold} data-testid="rate-save-btn">Update Rate</button>
+          <button type="submit" className={btnGold} disabled={savingRate} data-testid="rate-save-btn">{savingRate ? "Saving…" : "Update Rate"}</button>
         </form>
         {data.rate
           ? <p className="text-xs text-slate-500 mt-2">Last updated: {data.rate.date_ad} (BS {data.rate.bs_date_np})</p>
