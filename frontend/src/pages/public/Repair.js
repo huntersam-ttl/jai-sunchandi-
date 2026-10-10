@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { api, apiError } from "@/lib/api";
-import { uploadImage } from "@/lib/storage";
+import { uploadImage, uploadVoiceNote } from "@/lib/storage";
+import VoiceRecorder from "@/components/VoiceRecorder";
 import { useSettings } from "@/context/SettingsContext";
 import { useDocumentMeta } from "@/lib/useDocumentMeta";
 import { Field, inputCls } from "./CustomOrder";
@@ -15,6 +16,7 @@ export default function Repair() {
   );
   const [form, setForm] = useState({ name: "", phone: "", service_type: "repair", notes: "" });
   const [photoFile, setPhotoFile] = useState(null);
+  const [voiceFile, setVoiceFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState("");
   const [sent, setSent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -38,7 +40,8 @@ export default function Repair() {
         const { path } = await uploadImage(photoFile, "repair");
         photo_url = path;
       }
-      await api.post("/leads", { lead_type: "repair", ...form, photo_url });
+      const voice_note_path = voiceFile ? await uploadVoiceNote(voiceFile) : "";
+      await api.post("/leads", { lead_type: "repair", ...form, photo_url, voice_note_path });
       setSent(true);
     } catch (err) {
       toast.error(apiError(err));
@@ -70,6 +73,7 @@ export default function Repair() {
           </select>
         </Field>
         <Field label="Notes (what needs fixing?)"><textarea rows={3} className={inputCls} value={form.notes} onChange={set("notes")} data-testid="rp-notes" /></Field>
+        <VoiceRecorder value={voiceFile} onChange={setVoiceFile} />
         <Field label="Photo (optional)">
           <input type="file" accept="image/*" onChange={onPhoto} className="text-sm" data-testid="rp-photo" />
           {photoPreview && <img src={photoPreview} alt="upload preview" className="mt-2 h-24 rounded border" />}

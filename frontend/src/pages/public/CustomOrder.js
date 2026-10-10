@@ -5,7 +5,8 @@ import { api, apiError } from "@/lib/api";
 import { useSettings } from "@/context/SettingsContext";
 import { useDocumentMeta } from "@/lib/useDocumentMeta";
 import { PUBLIC_BRAND_NAME } from "@/lib/brand";
-import { uploadImage } from "@/lib/storage";
+import { uploadImage, uploadVoiceNote } from "@/lib/storage";
+import VoiceRecorder from "@/components/VoiceRecorder";
 import { COLLECTOR_METHODS, COUNTRY_OPTIONS, FULFILMENT_OPTIONS } from "@/lib/fulfilment";
 
 function initialOrderForm(params) {
@@ -33,6 +34,7 @@ export default function CustomOrder() {
   );
   const [form, setForm] = useState(() => initialOrderForm(params));
   const [files, setFiles] = useState([]);
+  const [voiceFile, setVoiceFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [sent, setSent] = useState(false);
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
@@ -45,7 +47,8 @@ export default function CustomOrder() {
       if (files.some((file) => file.size > 5 * 1024 * 1024)) return toast.error("Each reference photo must be 5 MB or smaller");
       const uploaded = await Promise.all(files.slice(0, 5).map((file) => uploadImage(file, "lead")));
       const photo_urls = uploaded.map((item) => item.path);
-      await api.post("/leads", { lead_type: "custom_order", ...form, photo_urls, photo_url: photo_urls[0] || "" });
+      const voice_note_path = voiceFile ? await uploadVoiceNote(voiceFile) : "";
+      await api.post("/leads", { lead_type: "custom_order", ...form, photo_urls, photo_url: photo_urls[0] || "", voice_note_path });
       setSent(true);
     } catch (err) { toast.error(apiError(err)); } finally { setUploading(false); }
   };
@@ -82,8 +85,9 @@ export default function CustomOrder() {
         <Field label="Country"><input className={inputCls} list="country-options" maxLength={2} value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value.toUpperCase() })} placeholder="NP" data-testid="co-country" /><datalist id="country-options">{COUNTRY_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</datalist><p className="text-xs text-slate-500 mt-1">Use a two-letter country code: NP, GB, AU, or another ISO code.</p></Field>
         {COLLECTOR_METHODS.has(form.fulfilment_method) && <><Field label="Collector full name *"><input className={inputCls} value={form.collector_name} onChange={set("collector_name")} data-testid="co-collector-name" /></Field><Field label="Collector phone *"><input className={inputCls} value={form.collector_phone} onChange={set("collector_phone")} data-testid="co-collector-phone" /></Field><Field label="Relationship / note"><input className={inputCls} value={form.collector_relationship} onChange={set("collector_relationship")} data-testid="co-collector-relationship" /></Field></>}
         <Field label="Reference photos (up to 5)"><input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={(e) => setFiles(Array.from(e.target.files || []).slice(0, 5))} className="w-full text-sm" data-testid="co-photos" /><p className="text-xs text-slate-500 mt-1">Photos are compressed before upload and used only to understand your request.</p>{files.length > 0 && <p className="text-xs text-[#5B0D18] mt-1">{files.length} photo{files.length === 1 ? "" : "s"} selected</p>}</Field>
+        <VoiceRecorder value={voiceFile} onChange={setVoiceFile} />
         <Field label="Notes / Design details"><textarea rows={3} className={inputCls} value={form.notes} onChange={set("notes")} data-testid="co-notes" /></Field>
-        <button type="submit" data-testid="co-submit"
+        <button type="submit" disabled={uploading} data-testid="co-submit"
           className="focus-brand w-full bg-[#5B0D18] text-white py-4 rounded-md min-h-[52px] text-base font-semibold hover:bg-[#2B1B17] transition-colors duration-300">
           {uploading ? "Sending…" : "Send Request"}
         </button>

@@ -18,6 +18,7 @@ export const STORAGE_BUCKETS = {
   repair: { id: "repair-photos", public: false, folder: "repairs" },
   lead: { id: "lead-photos", public: false, folder: "leads" },
   bill: { id: "bill-photos", public: false, folder: "bills" },
+  voice: { id: "voice-notes", public: false, folder: "voices" },
 };
 
 function uniqueName(ext = "webp") {
@@ -89,4 +90,17 @@ export async function removeImage(bucketKey, path) {
   const bucket = resolveBucket(bucketKey);
   const { error } = await supabase.storage.from(bucket.id).remove([path]);
   if (error) throw error;
+}
+
+export async function uploadVoiceNote(file) {
+  if (!supabase) throw new Error("Supabase is not configured");
+  const formats = { "audio/webm": "webm", "audio/mp4": "m4a", "audio/mpeg": "mp3", "audio/ogg": "ogg" };
+  const type = String(file?.type || "").split(";")[0];
+  if (!formats[type]) throw new Error("Unsupported audio. Use WebM, M4A, MP3, or OGG.");
+  if (!file.size || file.size > 2 * 1024 * 1024) throw new Error("Voice note must be under 2 MB.");
+  const path = `voices/${uniqueName(formats[type])}`;
+  const { data, error } = await supabase.storage.from("voice-notes")
+    .upload(path, file, { contentType: type, upsert: false });
+  if (error) throw error;
+  return data.path;
 }

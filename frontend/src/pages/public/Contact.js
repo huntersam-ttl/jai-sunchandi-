@@ -2,6 +2,7 @@ import { useSettings, waLinkFromSettings } from "@/context/SettingsContext";
 import { useDocumentMeta } from "@/lib/useDocumentMeta";
 import { Phone, MapPin, MessageCircle, Clock, Map, Navigation } from "lucide-react";
 import { EmptyState, PrimaryLink, SecondaryLink } from "@/components/PublicPolish";
+import { Link } from "react-router-dom";
 import { PUBLIC_BRAND_NAME } from "@/lib/brand";
 export default function Contact() {
   const shop = useSettings();
@@ -19,6 +20,7 @@ export default function Contact() {
       <p className="brand-eyebrow">Visit or message</p>
       <h1 className="font-serif-display text-4xl sm:text-6xl font-bold tracking-tight ornament-line mt-3">Contact / सम्पर्क</h1>
       <p className="text-[#5F5147] mt-5 max-w-2xl text-sm leading-relaxed">Reach the shop for jewellery designs, custom orders, repair questions, old gold exchange and daily rate confirmation.</p>
+      <Link to="/voice-feedback" className="mt-6 inline-flex min-h-[44px] items-center rounded-md border border-[#D4AF37] px-5 py-3 text-sm font-semibold text-[#5B0D18]">Leave voice feedback about an order or problem →</Link>
       <div className="mt-8 grid sm:grid-cols-2 gap-4 items-stretch">
         <div className="brand-card rounded-md p-6 space-y-4">
           {hasAddress && (

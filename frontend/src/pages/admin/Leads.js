@@ -4,6 +4,7 @@ import { api, apiError } from "@/lib/api";
 import { STATUS_COLORS } from "@/lib/format";
 import { inp, Badge, ConfirmModal } from "@/components/admin/ui";
 import AdminPhoto from "@/components/admin/AdminPhoto";
+import AdminVoice from "@/components/admin/AdminVoice";
 import { Archive, RotateCcw } from "lucide-react";
 
 export default function Leads() {
@@ -73,6 +74,7 @@ export default function Leads() {
               {l.approx_weight && <p>Weight: {l.approx_weight} tola · Budget: {l.budget || "—"}</p>}
               {l.deadline && <p>Deadline: {l.deadline}</p>}
               {l.notes && <p className="text-xs">Notes: {l.notes}</p>}
+              {l.has_voice_note && <AdminVoice src={l.voice_note_url} />}
               {l.photo && <AdminPhoto src={l.photo} alt="lead" className="h-20 w-20 rounded border mt-1" testId={`lead-photo-${l.phone}`} />}
             </div>
           </div>

@@ -94,8 +94,9 @@ def _ref(r) -> dict:
 # a bucket name from a request -- every caller below passes one of these
 # literals, this set only guards against a future caller passing something
 # else by mistake.
-ALLOWED_PRIVATE_PHOTO_BUCKETS = {"bill-photos", "repair-photos", "lead-photos"}
+ALLOWED_PRIVATE_PHOTO_BUCKETS = {"bill-photos", "repair-photos", "lead-photos", "voice-notes"}
 ALLOWED_PHOTO_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp"}
+ALLOWED_AUDIO_CONTENT_TYPES = {"audio/webm", "audio/mp4", "audio/mpeg", "audio/ogg"}
 
 
 async def _download_storage_object(bucket: str, path: str) -> Optional[tuple[bytes, str]]:
@@ -127,7 +128,10 @@ async def _download_storage_object(bucket: str, path: str) -> Optional[tuple[byt
             response = await client.get(url, headers=headers)
             response.raise_for_status()
             content_type = response.headers.get("content-type", "").split(";")[0].strip()
-            if content_type not in ALLOWED_PHOTO_CONTENT_TYPES:
+            if bucket == "voice-notes":
+                if content_type not in ALLOWED_AUDIO_CONTENT_TYPES:
+                    return None
+            elif content_type not in ALLOWED_PHOTO_CONTENT_TYPES:
                 content_type = "image/jpeg"
             return response.content, content_type
     except Exception:
@@ -1083,6 +1087,7 @@ class LeadUpdateBody(BaseModel):
     notes: Optional[str] = None
     photo_url: Optional[str] = None
     photo_urls: Optional[list[str]] = None
+    voice_note_path: Optional[str] = None
     purity: Optional[str] = None
     size: Optional[str] = None
     country: Optional[str] = None
@@ -1099,6 +1104,7 @@ async def _lead(l) -> dict:
         "item_type": l.item_type, "metal": l.metal, "service_type": l.service_type,
         "approx_weight": l.approx_weight, "budget": l.budget, "deadline": l.deadline,
         "notes": l.notes, "photo_url": l.photo_url, "photo": photo,
+        "has_voice_note": bool(l.voice_note_path), "voice_note_url": f"/admin/leads/{l.id}/voice" if l.voice_note_path else "",
         "photo_urls": l.photo_urls or [], "purity": l.purity, "size": l.size,
         "country": l.country, "fulfilment_method": l.fulfilment_method,
         "collector_name": l.collector_name, "collector_phone": l.collector_phone,
@@ -1117,7 +1123,7 @@ def _apply_lead_update(lead, body: LeadUpdateBody):
     data = body.model_dump(exclude_unset=True)
     if "status" in data and data["status"] not in LEAD_STATUSES:
         raise HTTPException(status_code=400, detail="Invalid lead status")
-    if "lead_type" in data and data["lead_type"] not in ("custom_order", "repair"):
+    if "lead_type" in data and data["lead_type"] not in ("custom_order", "repair", "feedback"):
         raise HTTPException(status_code=400, detail="Invalid lead type")
     if any(key in data for key in ("fulfilment_method", "collector_name", "collector_phone", "collector_relationship", "country")):
         try:
@@ -1129,6 +1135,12 @@ def _apply_lead_update(lead, body: LeadUpdateBody):
                 data.get("collector_relationship", lead.collector_relationship),
             )
             data.update(fulfilment)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+    if "voice_note_path" in data:
+        from voice_notes import validate_voice_path
+        try:
+            validate_voice_path(data["voice_note_path"] or "")
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc))
     if "photo_urls" in data:
@@ -1167,6 +1179,24 @@ async def lead_photo(lid: str, session: AsyncSession = Depends(db.get_session)):
         raise HTTPException(status_code=404, detail="Photo not found")
     result = await _download_storage_object("lead-photos", lead.photo_url)
     return _photo_proxy_response(result)
+
+
+@router.get("/leads/{lid}/voice")
+async def lead_voice(lid: str, session: AsyncSession = Depends(db.get_session)):
+    lead = await LeadsRepository(session).get(lid)
+    if not lead or not lead.voice_note_path:
+        raise HTTPException(status_code=404, detail="Voice note not found")
+    from voice_notes import validate_voice_path
+    try:
+        validate_voice_path(lead.voice_note_path)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Voice note not found")
+    result = await _download_storage_object("voice-notes", lead.voice_note_path)
+    if not result:
+        raise HTTPException(status_code=502, detail="Voice note temporarily unavailable")
+    content, media_type = result
+    return Response(content=content, media_type=media_type,
+                    headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"})
 
 
 @router.patch("/leads/{lid}")

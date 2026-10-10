@@ -6,6 +6,7 @@ backend uses the service-role DB connection (RLS-exempt) and returns only
 public-safe fields (no cost/profit columns, no private data).
 """
 from typing import Optional
+from voice_notes import validate_voice_path
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
@@ -137,6 +138,7 @@ class LeadCreate(BaseModel):
     notes: str = ""
     photo_url: str = ""   # stored Storage path (private) — never base64
     photo_urls: list[str] = []
+    voice_note_path: str = ""
     purity: str = ""
     size: str = ""
     country: str = ""
@@ -150,7 +152,7 @@ class LeadCreate(BaseModel):
 async def create_lead(request: Request, body: LeadCreate, session: AsyncSession = Depends(db.get_session)):
     """Public custom-order / repair enquiry (matches the legacy /leads contract)."""
     await enforce_public_rate_limit(request, session, bucket="lead", limit=5, window_seconds=3600)
-    if body.lead_type not in ("custom_order", "repair"):
+    if body.lead_type not in ("custom_order", "repair", "feedback"):
         raise HTTPException(status_code=422, detail="Invalid lead_type")
     if not body.name.strip() or not body.phone.strip():
         raise HTTPException(status_code=422, detail="Name and phone are required")
@@ -159,6 +161,7 @@ async def create_lead(request: Request, body: LeadCreate, session: AsyncSession 
             body.fulfilment_method, body.collector_name, body.collector_phone, body.country, body.collector_relationship
         )
         photo_urls = validate_photo_paths(body.photo_urls)
+        validate_voice_path(body.voice_note_path)
         if body.photo_url:
             validate_photo_paths([body.photo_url])
     except ValueError as exc:

@@ -313,6 +313,7 @@ class Lead(Base):
     deadline: Mapped[str] = mapped_column(Text)
     notes: Mapped[str] = mapped_column(Text)
     photo_url: Mapped[str] = mapped_column(Text)
+    voice_note_path: Mapped[str] = mapped_column(Text, server_default=text("''"))
     photo_urls: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default=text("'{}'"))
     purity: Mapped[str] = mapped_column(Text, server_default=text("''"))
     size: Mapped[str] = mapped_column(Text, server_default=text("''"))
