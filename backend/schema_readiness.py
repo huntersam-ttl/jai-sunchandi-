@@ -28,6 +28,15 @@ async def inspect_schema(session):
         "('leads','orders','shop_admins','public_request_limits')"
     ))
     missing = missing_schema_columns(results.all())
+    # Presence of private voice storage is a separate hosted-Supabase requirement.
+    # Supabase Storage schema exists in the hosted database, not disposable CI.
+    if not missing:
+        buckets = await session.execute(text(
+            "select count(*) from storage.buckets "
+            "where id = 'voice-notes' and public = false"
+        ))
+        if buckets.scalar_one() == 0:
+            missing.append("storage.voice-notes (private bucket)")
     return {"ready": not missing, "missing": missing,
             "message": "Admin database schema is ready" if not missing
             else "Database upgrade required; some shop features are unavailable"}

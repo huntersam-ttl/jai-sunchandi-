@@ -14,15 +14,36 @@ export function AuthProvider({ children }) {
       setUser(false);
       return;
     }
-    supabase.auth.getSession().then(({ data }) => {
-      setUser(data.session?.user ?? false);
-    });
+    let active = true;
+    // A restored Supabase session may belong to an unapproved account.
+    // Never unlock the admin UI until our API confirms shop permissions.
+    supabase.auth.getSession().then(async ({ data, error }) => {
+      if (!active) return;
+      if (error || !data.session?.user) { setUser(false); return; }
+      try {
+        await api.get("/admin/whoami");
+        if (active) setUser(data.session.user);
+      } catch (err) {
+        if (!active) return;
+        // Denied users must not remain signed in to the protected shop UI.
+        if ([401, 403].includes(err?.response?.status)) {
+          await supabase.auth.signOut().catch(() => {});
+          if (active) setUser(false);
+        } else {
+          // Network/API outages must not masquerade as a successful login.
+          if (active) setUser(false);
+        }
+      }
+    }).catch(() => { if (active) setUser(false); });
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? false);
+      if (!session?.user) setUser(false);
+      // Signed-in events alone are not admin authorization. Login and
+      // restored-session verification explicitly authorize access.
     });
     const expireSession = () => setUser(false);
     window.addEventListener(ADMIN_SESSION_EXPIRED_EVENT, expireSession);
     return () => {
+      active = false;
       listener?.subscription?.unsubscribe();
       window.removeEventListener(ADMIN_SESSION_EXPIRED_EVENT, expireSession);
     };
