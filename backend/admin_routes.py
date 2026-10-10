@@ -94,7 +94,8 @@ def _ref(r) -> dict:
 # a bucket name from a request -- every caller below passes one of these
 # literals, this set only guards against a future caller passing something
 # else by mistake.
-ALLOWED_PRIVATE_PHOTO_BUCKETS = {"bill-photos", "repair-photos", "lead-photos", "voice-notes"}
+ALLOWED_PRIVATE_PHOTO_BUCKETS = {"bill-photos", "repair-photos", "lead-photos"}
+ALLOWED_PRIVATE_AUDIO_BUCKETS = {"voice-notes"}
 ALLOWED_PHOTO_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp"}
 ALLOWED_AUDIO_CONTENT_TYPES = {"audio/webm", "audio/mp4", "audio/mpeg", "audio/ogg"}
 
@@ -112,7 +113,7 @@ async def _download_storage_object(bucket: str, path: str) -> Optional[tuple[byt
     sidesteps the broken endpoint entirely without touching bucket privacy,
     admin auth, or the Vercel region.
     """
-    if bucket not in ALLOWED_PRIVATE_PHOTO_BUCKETS:
+    if bucket not in ALLOWED_PRIVATE_PHOTO_BUCKETS and bucket not in ALLOWED_PRIVATE_AUDIO_BUCKETS:
         return None
     if not path:
         return None
