@@ -1,5 +1,6 @@
 import { NavLink, Outlet, Navigate } from "react-router-dom";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { useSettings } from "@/context/SettingsContext";
 import AdminQuickSearch from "@/components/admin/AdminQuickSearch";
@@ -31,6 +32,14 @@ export default function AdminLayout() {
   const { user, logout } = useAuth();
   const shopSettings = useSettings();
   const [open, setOpen] = useState(false);
+  const [readiness, setReadiness] = useState(null);
+  useEffect(() => {
+    if (!user || user === false) return;
+    let active = true;
+    api.get("/admin/system-readiness").then(({ data }) => { if (active) setReadiness(data); })
+      .catch(() => { if (active) setReadiness({ ready: false, message: "Could not check shop backend readiness" }); });
+    return () => { active = false; };
+  }, [user]);
   if (user === null) return <div className="min-h-screen flex items-center justify-center font-admin">Loading…</div>;
   if (user === false) return <Navigate to="/admin/login" replace />;
   return (
@@ -70,6 +79,13 @@ export default function AdminLayout() {
           <button className="lg:hidden" onClick={() => setOpen(true)} data-testid="admin-mobile-menu"><Menu size={20} /></button>
           <AdminQuickSearch />
         </header>
+        {readiness && !readiness.ready && (
+          <div role="alert" data-testid="admin-schema-warning" className="mx-4 mt-4 rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950 sm:mx-6">
+            <p className="font-semibold">Shop backend needs attention</p>
+            <p className="mt-1">{readiness.message || "Some backend functions may be unavailable."} Contact the site administrator before recording new orders or payments.</p>
+            {readiness.missing?.length > 0 && <p className="mt-2 text-xs">Missing database fields: {readiness.missing.join(", ")}</p>}
+          </div>
+        )}
         <main className="p-4 sm:p-6"><Outlet /></main>
       </div>
     </div>

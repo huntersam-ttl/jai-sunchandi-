@@ -50,6 +50,7 @@ export default function AdminQuickSearch() {
   const [q, setQ] = useState("");
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [searchError, setSearchError] = useState(false);
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
   const boxRef = useRef(null);
@@ -58,6 +59,7 @@ export default function AdminQuickSearch() {
     const trimmed = qInput.trim();
     if (!trimmed) { setResults(null); setLoading(false); return; }
     setLoading(true);
+    setSearchError(false);
     const t = setTimeout(() => {
       setQ(trimmed);
       // Diagnostic only -- query length and a fired/ok/failed outcome, never
@@ -68,10 +70,12 @@ export default function AdminQuickSearch() {
       api.get("/admin/search", { params: { q: trimmed } })
         .then((r) => {
           console.debug("[AdminQuickSearch] request ok, groups=", Object.keys(r.data || {}));
+          setSearchError(false);
           setResults(r.data);
         })
         .catch((err) => {
           console.debug("[AdminQuickSearch] request failed, status=", err?.response?.status);
+          setSearchError(true);
           setResults(EMPTY);
         })
         .finally(() => setLoading(false));
@@ -116,7 +120,8 @@ export default function AdminQuickSearch() {
 
       {open && q && results && (
         <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-md shadow-lg z-50 max-h-[70vh] overflow-y-auto text-sm" data-testid="admin-quick-search-results">
-          {!hasAnyResults && !loading && (
+          {searchError && <p role="alert" className="p-3 text-red-700 text-sm">Search could not connect to the shop backend. Please retry.</p>}
+          {!searchError && !hasAnyResults && !loading && (
             <p className="p-4 text-slate-400 text-center" data-testid="admin-quick-search-empty">No results found.</p>
           )}
           {GROUPS.map((g) => {

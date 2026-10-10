@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { ADMIN_SESSION_EXPIRED_EVENT } from "@/lib/api";
+import { ADMIN_SESSION_EXPIRED_EVENT, api, apiError } from "@/lib/api";
 
 const AuthContext = createContext(null);
 
@@ -32,6 +32,17 @@ export function AuthProvider({ children }) {
     if (!supabase) throw new Error("Supabase is not configured");
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
+    // Supabase signing in does not prove authorization to use the shop API.
+    // Verify our server's allowlist before letting a user enter the admin UI.
+    try {
+      await api.get("/admin/whoami");
+    } catch (accessError) {
+      await supabase.auth.signOut();
+      setUser(false);
+      throw new Error(accessError?.response?.status === 403
+        ? "This account is not authorized to manage the shop."
+        : apiError(accessError));
+    }
     setUser(data.user);
     return data.user;
   };

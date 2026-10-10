@@ -15,11 +15,13 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent / ".env")
 
 from fastapi import Depends, FastAPI, HTTPException  # noqa: E402
+from sqlalchemy.ext.asyncio import AsyncSession  # noqa: E402
 from starlette.middleware.cors import CORSMiddleware  # noqa: E402
 
 import config  # noqa: E402
 import db
 from supabase_auth import get_current_admin
+from schema_readiness import inspect_schema
 from public_routes import router as public_router
 from admin_routes import router as admin_router
 
@@ -60,6 +62,15 @@ async def health_supabase():
 async def whoami(admin=Depends(get_current_admin)):
     """Protected: proves Supabase JWT verification + admin allowlist work."""
     return admin
+
+
+@app.get("/api/admin/system-readiness")
+async def admin_system_readiness(
+    _admin=Depends(get_current_admin),
+    session: AsyncSession = Depends(db.get_session),
+):
+    """Restricted, read-only diagnosis for incompatible hosted DB schema."""
+    return await inspect_schema(session)
 
 
 # Public (unauthenticated) read/write routes for the website.
